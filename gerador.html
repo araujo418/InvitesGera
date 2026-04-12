@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎫 AdKira – Gerar Convites</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid #2d2d4e;
+      padding: 18px 24px;
+      text-align: center;
+    }
+    .header h1 { font-size: 1.5rem; color: #667eea; font-weight: 700; }
+    .header p { font-size: .85rem; color: #888; margin-top: 4px; }
+
+    /* ── Main container ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 28px 20px; }
+
+    /* ── Login card ── */
+    .login-card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 420px;
+      margin: 60px auto 0;
+      text-align: center;
+    }
+    .login-card .icon { font-size: 3rem; margin-bottom: 16px; }
+    .login-card h2 { color: #e0e0e0; margin-bottom: 8px; }
+    .login-card p { color: #888; font-size: .9rem; margin-bottom: 24px; }
+    .login-card input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #0f0f1a;
+      border: 1px solid #2d2d4e;
+      border-radius: 10px;
+      color: #e0e0e0;
+      font-size: 1rem;
+      text-align: center;
+      letter-spacing: .1em;
+      outline: none;
+      margin-bottom: 14px;
+      transition: border-color .2s;
+    }
+    .login-card input:focus { border-color: #667eea; }
+    .login-error { color: #ef4444; font-size: .88rem; margin-top: 10px; min-height: 20px; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 10px 22px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: .9rem;
+      font-weight: 600;
+      transition: all .2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg,#5c67f2,#667eea);
+      color: #fff;
+      width: 100%;
+    }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-secondary { background: #374151; color: #e0e0e0; }
+    .btn-secondary:hover { background: #4b5563; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-sm { padding: 6px 14px; font-size: .82rem; }
+
+    /* ── Event info bar ── */
+    .event-bar {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 14px;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .event-bar .event-name { font-size: 1.15rem; font-weight: 700; color: #e0e0e0; }
+    .event-bar .event-meta { font-size: .82rem; color: #888; margin-top: 3px; }
+    .event-bar .event-stats { text-align: right; }
+    .event-bar .counter { font-size: 1.4rem; font-weight: 700; color: #667eea; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .badge-green { background: rgba(34,197,94,.2); color: #22c55e; border: 1px solid #22c55e44; }
+    .badge-red { background: rgba(239,68,68,.2); color: #ef4444; border: 1px solid #ef444444; }
+    .badge-orange { background: rgba(245,158,11,.2); color: #f59e0b; border: 1px solid #f59e0b44; }
+
+    /* ── Input area ── */
+    .input-area {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 24px;
+    }
+    .input-area h3 { font-size: 1rem; color: #667eea; margin-bottom: 16px; }
+    .input-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    .input-row input {
+      flex: 1;
+      padding: 11px 16px;
+      background: #0f0f1a;
+      border: 1px solid #2d2d4e;
+      border-radius: 10px;
+      color: #e0e0e0;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .input-row input:focus { border-color: #667eea; }
+    .input-row .btn { white-space: nowrap; padding: 11px 20px; }
+
+    .divider { text-align: center; color: #555; margin: 18px 0; font-size: .85rem; position: relative; }
+    .divider::before, .divider::after {
+      content: '';
+      position: absolute;
+      top: 50%; width: 42%;
+      height: 1px; background: #2d2d4e;
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+
+    .batch-area textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: 12px 16px;
+      background: #0f0f1a;
+      border: 1px solid #2d2d4e;
+      border-radius: 10px;
+      color: #e0e0e0;
+      font-size: .9rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color .2s;
+      font-family: inherit;
+    }
+    .batch-area textarea:focus { border-color: #667eea; }
+    .batch-area label { font-size: .85rem; color: #aaa; margin-bottom: 8px; display: block; }
+    .batch-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Progress bar ── */
+    .progress-wrap { margin: 14px 0; }
+    .progress-label { font-size: .8rem; color: #888; margin-bottom: 6px; }
+    .progress-bar { background: #2d2d4e; border-radius: 10px; height: 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg,#5c67f2,#667eea); border-radius: 10px; transition: width .3s; }
+
+    /* ── Invites grid ── */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .section-header h3 { font-size: 1rem; color: #e0e0e0; }
+    .invites-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .invite-card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 14px;
+      padding: 18px 16px;
+      text-align: center;
+      animation: fadeIn .35s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+    .invite-card .qr-wrap {
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    .invite-card .invite-name { font-weight: 700; font-size: .95rem; color: #e0e0e0; margin-bottom: 4px; }
+    .invite-card .invite-code { font-family: monospace; font-size: .78rem; color: #667eea; background: rgba(102,126,234,.1); padding: 3px 8px; border-radius: 6px; display: inline-block; }
+    .invite-card .save-status { font-size: .75rem; margin-top: 8px; }
+    .save-status.saving { color: #f59e0b; }
+    .save-status.saved { color: #22c55e; }
+    .save-status.error { color: #ef4444; }
+
+    /* ── Alert ── */
+    .alert-box {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: .9rem;
+      z-index: 9999;
+      animation: fadeIn .3s ease;
+      max-width: 340px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    .alert-box.success { border-left: 4px solid #22c55e; }
+    .alert-box.error { border-left: 4px solid #ef4444; }
+    .alert-box.info { border-left: 4px solid #667eea; }
+    .alert-box.warning { border-left: 4px solid #f59e0b; }
+
+    /* ── Message screens ── */
+    .message-screen {
+      text-align: center;
+      padding: 70px 20px;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .message-screen .icon { font-size: 4rem; margin-bottom: 16px; }
+    .message-screen h2 { color: #e0e0e0; margin-bottom: 10px; }
+    .message-screen p { color: #888; font-size: .9rem; line-height: 1.5; }
+
+    /* ── Responsive ── */
+    @media(max-width: 600px) {
+      .login-card { padding: 24px 18px; }
+      .event-bar .event-stats { text-align: left; }
+      .invites-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>🎫 AdKira – Gerar Convites</h1>
+  <p>Portal do Cliente · Geração de convites com QR Code</p>
+</div>
+
+<!-- Main content area (hidden until login) -->
+<div class="container">
+
+  <!-- LOGIN SECTION -->
+  <div id="loginSection">
+    <div class="login-card">
+      <div class="icon">🔑</div>
+      <h2>Acesso ao evento</h2>
+      <p>Insere o teu token de acesso para começar a gerar convites.</p>
+      <input type="text" id="tokenInput" placeholder="TOKEN DE ACESSO" autocomplete="off" spellcheck="false"
+        onkeydown="if(event.key==='Enter') fazerLogin()">
+      <button class="btn btn-primary" id="loginBtn" onclick="fazerLogin()">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- ERROR SCREENS (shown instead of login for specific cases) -->
+  <div id="msgExpirado" style="display:none">
+    <div class="message-screen">
+      <div class="icon">⏰</div>
+      <h2>Evento Expirado</h2>
+      <p>Este evento já expirou. Entra em contacto com o organizador para mais informações.</p>
+    </div>
+  </div>
+
+  <div id="msgSemQR" style="display:none">
+    <div class="message-screen">
+      <div class="icon">🚫</div>
+      <h2>QR Code não ativo</h2>
+      <p>O QR Code não está ativo para este evento. Entra em contacto com o organizador.</p>
+    </div>
+  </div>
+
+  <!-- APP SECTION (shown after successful login) -->
+  <div id="appSection" style="display:none">
+
+    <!-- Event info bar -->
+    <div class="event-bar">
+      <div>
+        <div class="event-name" id="eventName">–</div>
+        <div class="event-meta" id="eventMeta">–</div>
+        <div style="margin-top:6px" id="eventBadge"></div>
+      </div>
+      <div class="event-stats">
+        <div class="counter" id="counterDisplay">0 / –</div>
+        <div style="font-size:.78rem;color:#888">convidados adicionados</div>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <h3>➕ Adicionar Convidados</h3>
+
+      <!-- Single invite -->
+      <div class="input-row">
+        <input type="text" id="nomeInput" placeholder="Nome do convidado…" autocomplete="off"
+          onkeydown="if(event.key==='Enter') adicionarUm()">
+        <button class="btn btn-primary" id="btnAdicionarUm" onclick="adicionarUm()" style="width:auto">
+          Adicionar
+        </button>
+      </div>
+
+      <div class="divider">ou cole uma lista</div>
+
+      <!-- Batch -->
+      <div class="batch-area">
+        <label>Lista de nomes (um por linha):</label>
+        <textarea id="batchInput" placeholder="Ana Silva&#10;Bruno Costa&#10;Carla Mendes&#10;…"></textarea>
+        <div class="batch-actions">
+          <button class="btn btn-primary" id="btnGerarTodos" onclick="gerarTodos()" style="width:auto">
+            🚀 Gerar todos
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('batchInput').value=''">
+            Limpar
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progressWrap" style="display:none">
+        <div class="progress-label" id="progressLabel">A guardar… 0 / 0</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Invites list -->
+    <div id="invitesSection" style="display:none">
+      <div class="section-header">
+        <h3>🎟️ Convites gerados nesta sessão (<span id="sessionCount">0</span>)</h3>
+        <button class="btn btn-success btn-sm" onclick="exportarTxt()">⬇️ Exportar .txt</button>
+      </div>
+      <div class="invites-grid" id="invitesGrid"></div>
+    </div>
+
+  </div><!-- /appSection -->
+
+</div><!-- /container -->
+
+<script>
+// ============================================================
+//  CONFIGURAÇÃO SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ============================================================
+//  STATE
+// ============================================================
+let clienteAtual = null;          // row from 'clientes' table
+let sessionInvites = [];          // invites added this session
+let existingCodigos = new Set();  // codes that already exist for this client
+let existingNomes = new Set();    // names (lowercased) that already exist
+
+// ============================================================
+//  LOGIN
+// ============================================================
+async function fazerLogin() {
+  const tokenRaw = document.getElementById('tokenInput').value.trim().toUpperCase();
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+
+  if (!tokenRaw) { errEl.textContent = 'Por favor insere o token de acesso.'; return; }
+
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> A verificar…';
+
+  try {
+    const { data, error } = await sb.from('clientes').select('*').eq('token', tokenRaw).is('deleted_at', null).single();
+
+    if (error || !data) {
+      errEl.textContent = '❌ Token inválido. Verifica e tenta novamente.';
+      return;
+    }
+
+    const agora = agoraUnix();
+    if (data.validade && data.validade < agora) {
+      // Event expired
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('msgExpirado').style.display = 'block';
+      return;
+    }
+
+    if (!data.qr_code) {
+      // QR Code not enabled
+      document.getElementById('loginSection').style.display = 'none';
+      document.getElementById('msgSemQR').style.display = 'block';
+      return;
+    }
+
+    // SUCCESS
+    clienteAtual = data;
+    await carregarExistentes();
+    mostrarApp();
+
+  } catch (e) {
+    errEl.textContent = '❌ Erro de ligação: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+}
+
+async function carregarExistentes() {
+  const { data } = await sb.from('convidados')
+    .select('codigo, nome')
+    .eq('token_cliente', clienteAtual.token)
+    .is('deleted_at', null);
+  existingCodigos = new Set((data || []).map(c => c.codigo));
+  existingNomes = new Set((data || []).map(c => (c.nome || '').toLowerCase().trim()));
+}
+
+function mostrarApp() {
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('appSection').style.display = 'block';
+
+  // Fill event bar
+  document.getElementById('eventName').textContent = clienteAtual.nome || '–';
+
+  const agora = agoraUnix();
+  const ativo = !clienteAtual.validade || clienteAtual.validade > agora;
+  const validadeStr = clienteAtual.validade
+    ? 'Válido até ' + new Date(clienteAtual.validade * 1000).toLocaleDateString('pt-PT')
+    : 'Sem data de expiração';
+  document.getElementById('eventMeta').textContent = validadeStr;
+  document.getElementById('eventBadge').innerHTML = ativo
+    ? '<span class="badge badge-green">✅ Evento ativo</span>'
+    : '<span class="badge badge-red">❌ Expirado</span>';
+
+  atualizarContador();
+}
+
+function atualizarContador() {
+  const total = existingCodigos.size;
+  const limite = clienteAtual.limite_scans || '∞';
+  document.getElementById('counterDisplay').textContent = `${total} / ${limite}`;
+}
+
+// ============================================================
+//  HELPERS DE TEMPO
+// ============================================================
+function agoraUnix() {
+  return Math.floor(Date.now() / 1000);
+}
+
+// ============================================================
+//  GERAÇÃO DE CÓDIGO (criptograficamente seguro)
+// ============================================================
+function gerarCodigoUnico() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let codigo;
+  let attempts = 0;
+  do {
+    const arr = new Uint8Array(6);
+    crypto.getRandomValues(arr);
+    codigo = Array.from(arr).map(b => chars[b % chars.length]).join('');
+    attempts++;
+    if (attempts > 1000) {
+      throw new Error('Não foi possível gerar um código único após 1000 tentativas. O espaço de códigos pode estar esgotado.');
+    }
+  } while (existingCodigos.has(codigo));
+  return codigo;
+}
+
+// ============================================================
+//  ADICIONAR UM CONVIDADO
+// ============================================================
+async function adicionarUm() {
+  const input = document.getElementById('nomeInput');
+  const nome = input.value.trim();
+  if (!nome) { showAlert('Insere o nome do convidado', 'error'); return; }
+
+  const btn = document.getElementById('btnAdicionarUm');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  await processarConvidado(nome);
+
+  input.value = '';
+  input.focus();
+  btn.disabled = false;
+  btn.textContent = 'Adicionar';
+}
+
+// ============================================================
+//  GERAR TODOS (batch)
+// ============================================================
+async function gerarTodos() {
+  const texto = document.getElementById('batchInput').value.trim();
+  if (!texto) { showAlert('Cola a lista de nomes primeiro', 'error'); return; }
+
+  const nomes = texto.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+  if (!nomes.length) { showAlert('Nenhum nome válido encontrado', 'error'); return; }
+
+  const btn = document.getElementById('btnGerarTodos');
+  const btnUm = document.getElementById('btnAdicionarUm');
+  btn.disabled = true; btnUm.disabled = true;
+
+  const progressWrap = document.getElementById('progressWrap');
+  const progressLabel = document.getElementById('progressLabel');
+  const progressFill = document.getElementById('progressFill');
+  progressWrap.style.display = 'block';
+
+  let done = 0;
+  for (const nome of nomes) {
+    progressLabel.textContent = `A guardar… ${done} / ${nomes.length}`;
+    progressFill.style.width = (done / nomes.length * 100) + '%';
+    await processarConvidado(nome);
+    done++;
+  }
+
+  progressLabel.textContent = `✅ ${done} convidados processados`;
+  progressFill.style.width = '100%';
+  setTimeout(() => { progressWrap.style.display = 'none'; }, 3000);
+
+  document.getElementById('batchInput').value = '';
+  btn.disabled = false; btnUm.disabled = false;
+  showAlert(`✅ ${done} convidados adicionados!`, 'success');
+}
+
+// ============================================================
+//  PROCESSAR UM CONVIDADO (gerar código, QR, guardar)
+// ============================================================
+async function processarConvidado(nome) {
+  const nomeNorm = nome.toLowerCase().trim();
+
+  // Check duplicates by name
+  if (existingNomes.has(nomeNorm)) {
+    showAlert(`⚠️ "${nome}" já existe, ignorado.`, 'warning');
+    return;
+  }
+
+  let codigo;
+  try {
+    codigo = gerarCodigoUnico();
+  } catch (e) {
+    showAlert('Erro ao gerar código: ' + e.message, 'error');
+    return;
+  }
+
+  // Reserve code & name locally immediately (optimistic)
+  existingCodigos.add(codigo);
+  existingNomes.add(nomeNorm);
+
+  // Create card in UI
+  const cardId = 'card-' + codigo;
+  const card = criarCardUI(cardId, nome, codigo);
+
+  // Render QR Code
+  renderizarQR(cardId, codigo);
+
+  // Save to Supabase
+  atualizarStatusCard(cardId, 'saving', '⏳ A guardar…');
+  const { error } = await sb.from('convidados').insert([{
+    token_cliente: clienteAtual.token,
+    codigo,
+    nome,
+    status: 'ativo'
+  }]);
+
+  if (error) {
+    // Rollback optimistic reservation if error is duplicate
+    existingCodigos.delete(codigo);
+    existingNomes.delete(nomeNorm);
+    atualizarStatusCard(cardId, 'error', '❌ Erro ao guardar');
+    showAlert('Erro ao guardar "' + nome + '": ' + error.message, 'error');
+    return;
+  }
+
+  atualizarStatusCard(cardId, 'saved', '✅ Guardado');
+  sessionInvites.push({ nome, codigo });
+  document.getElementById('sessionCount').textContent = sessionInvites.length;
+  atualizarContador();
+}
+
+// ============================================================
+//  UI CARDS
+// ============================================================
+function criarCardUI(cardId, nome, codigo) {
+  const grid = document.getElementById('invitesGrid');
+  const section = document.getElementById('invitesSection');
+  section.style.display = 'block';
+
+  const card = document.createElement('div');
+  card.className = 'invite-card';
+  card.id = cardId;
+  card.innerHTML = `
+    <div class="qr-wrap" id="qr-${cardId}"></div>
+    <div class="invite-name">${escapeHtml(nome)}</div>
+    <div class="invite-code">${escapeHtml(codigo)}</div>
+    <div class="save-status" id="status-${cardId}">⏳ A gerar…</div>
+  `;
+
+  // Prepend so newest is first
+  grid.insertBefore(card, grid.firstChild);
+
+  return card;
+}
+
+function renderizarQR(cardId, codigo) {
+  const container = document.getElementById('qr-' + cardId);
+  if (!container) return;
+  try {
+    new QRCode(container, {
+      text: codigo,
+      width: 120,
+      height: 120,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch (e) {
+    container.innerHTML = '<span style="color:#ef4444;font-size:.75rem">QR Code indisponível</span>';
+  }
+}
+
+function atualizarStatusCard(cardId, tipo, texto) {
+  const el = document.getElementById('status-' + cardId);
+  if (!el) return;
+  el.className = 'save-status ' + tipo;
+  el.textContent = texto;
+}
+
+// ============================================================
+//  EXPORTAR .TXT
+// ============================================================
+function exportarTxt() {
+  if (!sessionInvites.length) { showAlert('Nenhum convidado para exportar', 'error'); return; }
+  const linhas = sessionInvites.map(c => `${c.codigo},${c.nome}`).join('\n');
+  const blob = new Blob([linhas], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const nomeEvento = (clienteAtual?.nome || 'convidados').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  a.download = `convites_${nomeEvento}.txt`;
+  a.click();
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function showAlert(msg, type = 'info') {
+  const box = document.createElement('div');
+  box.className = `alert-box ${type}`;
+  box.textContent = msg;
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 4000);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+</body>
+</html>
