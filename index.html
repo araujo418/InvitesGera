@@ -13,10 +13,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-    html, body {
-      height: 100%;
-      overscroll-behavior: none;
-    }
+    html, body { height: 100%; overscroll-behavior: none; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -35,7 +32,6 @@
       width: 100%;
       margin: 0 auto;
       box-shadow: 0 16px 48px rgba(0,0,0,0.25);
-      /* Necessário para o clip das animações */
       overflow: hidden;
       position: relative;
     }
@@ -44,31 +40,22 @@
     .logo h1 { font-size: 26px; font-weight: 800; color: #1a1a2e; }
     .logo p  { font-size: 13px; color: #6b7280; margin-top: 4px; }
 
-    /* ── Transições de ecrã ── */
+    /* ── Steps — saída instantânea, entrada animada ── */
     .step {
       display: none;
       flex-direction: column;
       gap: 14px;
-      /* estado inicial antes de animar */
       opacity: 0;
-      transform: translateX(30px);
-      transition: opacity .25s ease, transform .25s ease;
-      /* pointer-events off enquanto está hidden */
+      transform: translateX(20px);
+      transition: opacity .22s ease, transform .22s ease;
       pointer-events: none;
     }
     .step.active {
-      display: flex;
       pointer-events: auto;
     }
-    /* classe que activa a animação (adicionada logo após display:flex) */
     .step.visible {
       opacity: 1;
       transform: translateX(0);
-    }
-    /* saída para a esquerda */
-    .step.exit {
-      opacity: 0;
-      transform: translateX(-30px);
     }
 
     label { font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px; }
@@ -76,9 +63,8 @@
     input[type="text"] {
       width: 100%; padding: 15px 16px;
       border: 2px solid #e5e7eb; border-radius: 12px;
-      font-size: 16px;
-      font-family: inherit; transition: border-color .2s;
-      -webkit-appearance: none;
+      font-size: 16px; font-family: inherit;
+      transition: border-color .2s; -webkit-appearance: none;
     }
     input:focus { outline: none; border-color: #667eea; }
 
@@ -86,14 +72,12 @@
       width: 100%; padding: 16px; border: none; border-radius: 14px;
       font-size: 16px; font-weight: 700; cursor: pointer;
       font-family: inherit; transition: transform .1s, opacity .1s;
-      min-height: 52px;
-      -webkit-appearance: none;
+      min-height: 52px; -webkit-appearance: none;
       touch-action: manipulation;
     }
     .btn-main {
       background: linear-gradient(135deg,#667eea,#764ba2);
-      color: white;
-      box-shadow: 0 4px 14px rgba(102,126,234,.4);
+      color: white; box-shadow: 0 4px 14px rgba(102,126,234,.4);
     }
     .btn-main:active { transform: scale(0.97); opacity: .9; }
     .btn-main:disabled { opacity: .5; cursor: not-allowed; transform: none; }
@@ -102,8 +86,7 @@
     .btn-warning { background: #fffbeb; color: #92400e; border: 2px solid #fcd34d; }
     .btn-warning:active { background: #fef3c7; transform: scale(0.97); }
     .btn-outline {
-      background: white; color: #667eea;
-      border: 2px solid #667eea;
+      background: white; color: #667eea; border: 2px solid #667eea;
       min-height: 40px; padding: 8px 14px; font-size: 13px;
     }
     .btn-outline:active { background: #f0f1ff; transform: scale(0.97); }
@@ -187,13 +170,10 @@
       text-transform: uppercase; letter-spacing: .6px;
     }
 
-    /* ── Modal ── */
     .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.5);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
       display: flex; align-items: flex-end; justify-content: center;
-      z-index: 1000; padding: 0;
-      animation: fadeIn .2s ease;
+      z-index: 1000; padding: 0; animation: fadeIn .2s ease;
     }
     .modal-overlay.hidden { display: none; }
     @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -260,7 +240,6 @@
 </head>
 <body>
 
-<!-- MODAL -->
 <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
     <div class="modal-handle"></div>
@@ -277,7 +256,6 @@
     <p>Gere o seu convite personalizado</p>
   </div>
 
-  <!-- RESTAURAÇÃO -->
   <div class="step" id="stepRestore">
     <div class="session-restore">
       <div class="spinner-lg"></div>
@@ -285,7 +263,6 @@
     </div>
   </div>
 
-  <!-- PASSO 1 -->
   <div class="step" id="step1">
     <div>
       <label for="tokenInput">Código do Evento</label>
@@ -297,7 +274,6 @@
     <button class="btn-main" onclick="validarToken()">Continuar →</button>
   </div>
 
-  <!-- PASSO 2 -->
   <div class="step" id="step2">
     <div class="info green" id="eventoNomeBox" style="text-align:center;"></div>
     <div class="info red"   id="expiradoBox"   style="display:none;">
@@ -306,18 +282,9 @@
     <div class="info orange" id="limiteProximoBox" style="display:none;"></div>
 
     <div class="counter-box" id="counterBox">
-      <div class="counter-item">
-        <div class="val" id="cntLimite">—</div>
-        <div class="lbl">Disponíveis</div>
-      </div>
-      <div class="counter-item">
-        <div class="val" id="cntGerados">0</div>
-        <div class="lbl">Já gerados</div>
-      </div>
-      <div class="counter-item">
-        <div class="val" id="cntRestantes">—</div>
-        <div class="lbl">Restantes</div>
-      </div>
+      <div class="counter-item"><div class="val" id="cntLimite">—</div><div class="lbl">Disponíveis</div></div>
+      <div class="counter-item"><div class="val" id="cntGerados">0</div><div class="lbl">Já gerados</div></div>
+      <div class="counter-item"><div class="val" id="cntRestantes">—</div><div class="lbl">Restantes</div></div>
     </div>
 
     <div class="divider"></div>
@@ -345,15 +312,13 @@
     <input type="text" class="convites-search" id="convitesSearch"
            placeholder="🔍 Pesquisar por nome..."
            autocorrect="off" spellcheck="false"
-           oninput="filtrarConvites()"
-           style="display:none;">
+           oninput="filtrarConvites()" style="display:none;">
     <div class="convites-lista" id="convitesLista">
       <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
     </div>
     <button class="btn-ghost" onclick="voltarStep1()">← Sair</button>
   </div>
 
-  <!-- LOADING -->
   <div class="step" id="step3">
     <div class="loading-box">
       <div class="spinner"></div>
@@ -361,7 +326,6 @@
     </div>
   </div>
 
-  <!-- ERRO -->
   <div class="step" id="stepErro">
     <div class="info red" id="erroMsg"></div>
     <button class="btn-ghost" onclick="voltarPainel()">← Tentar novamente</button>
@@ -389,67 +353,56 @@ const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 /* ═══════════════════════════════════════════
    HÁPTICO
-   — usa a Vibration API onde disponível
-   — no iOS usa AudioContext com duração 0 (silent trick)
-     para acionar feedback do sistema onde aplicável
 ═══════════════════════════════════════════ */
 function haptic(tipo) {
-  // Android / Chrome — Vibration API
   if (navigator.vibrate) {
-    if (tipo === 'success') navigator.vibrate([10, 50, 10]);
-    else if (tipo === 'error')   navigator.vibrate([80, 40, 80]);
+    if (tipo === 'success') navigator.vibrate([10,50,10]);
+    else if (tipo === 'error')   navigator.vibrate([80,40,80]);
     else if (tipo === 'warning') navigator.vibrate(40);
-    else                         navigator.vibrate(10); // light
+    else                         navigator.vibrate(10);
     return;
   }
-  // iOS — não tem Vibration API pública,
-  // mas podemos usar a Web Haptics via AudioContext (clique silencioso)
-  // Nota: no iOS 16+ com permissão de áudio, isto dá feedback leve.
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0, ctx.currentTime); // silencioso
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.01);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.01);
     setTimeout(() => ctx.close(), 100);
-  } catch(e) { /* silencioso */ }
+  } catch(e) {}
 }
 
 /* ═══════════════════════════════════════════
-   TRANSIÇÕES DE ECRÃ
-═══════════════════════════════════════════ */
+   TRANSIÇÕES DE ECRÃ — corrigido
+   Saída instantânea, entrada animada.
+   Elimina o flash de conteúdo ao restaurar sessão.
+══════════════════════════════════════��════ */
 let stepAtual = null;
 
 function showStep(id) {
   const novoStep = document.getElementById(id);
   if (!novoStep) return;
+  if (stepAtual === novoStep) return;
 
-  // Anima a saída do step actual
-  if (stepAtual && stepAtual !== novoStep) {
-    stepAtual.classList.add('exit');
-    setTimeout(() => {
-      stepAtual.classList.remove('active', 'visible', 'exit');
-      stepAtual = null;
-    }, 220);
-  } else if (stepAtual) {
-    stepAtual.classList.remove('active', 'visible', 'exit');
-  }
+  // 1. Esconde TODOS os steps imediatamente
+  document.querySelectorAll('.step').forEach(s => {
+    s.classList.remove('active', 'visible', 'exit');
+    s.style.display = 'none';
+  });
 
-  // Prepara e mostra o novo step
-  novoStep.style.display = 'flex'; // force display antes de animar
-  novoStep.classList.add('active');
+  // 2. Marca o novo step como activo (ainda opacity:0)
   stepAtual = novoStep;
+  novoStep.style.display = 'flex';
+  novoStep.classList.add('active');
 
-  // Pequeno delay para o browser calcular o layout antes de animar
+  // 3. Dois rAF garantem que o browser fez layout antes de animar
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       novoStep.classList.add('visible');
 
-      // Focus automático no campo de texto relevante
+      // Focus automático
       if (id === 'step1') {
-        // Delay maior no mobile para esperar o teclado
         setTimeout(() => {
           const el = document.getElementById('tokenInput');
           if (el) el.focus();
@@ -458,8 +411,6 @@ function showStep(id) {
       if (id === 'step2') {
         setTimeout(() => {
           const el = document.getElementById('nomeInput');
-          // Só faz focus automático se não houver teclado virtual já aberto
-          // e se o utilizador não estiver a usar a lista de pesquisa
           if (el && document.activeElement !== document.getElementById('convitesSearch')) {
             el.focus();
           }
@@ -473,9 +424,10 @@ function showStep(id) {
    INIT
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
-  // Esconde todos os steps sem animação no arranque
+  // Garante que todos começam escondidos
   document.querySelectorAll('.step').forEach(s => {
     s.classList.remove('active', 'visible', 'exit');
+    s.style.display = 'none';
   });
 
   const savedToken = localStorage.getItem('adkira_token');
@@ -517,9 +469,7 @@ async function tentarRestaurarSessao(token) {
 ═══════════════════════════════════════════ */
 function showToast(msg, cor) {
   const t = document.createElement('div');
-  t.className = 'toast';
-  t.style.background = cor || '#10b981';
-  t.textContent = msg;
+  t.className = 'toast'; t.style.background = cor || '#10b981'; t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => {
     t.style.opacity = '0'; t.style.transition = 'opacity .3s';
@@ -528,7 +478,7 @@ function showToast(msg, cor) {
 }
 
 /* ═══════════════════════════════════════════
-   UTILITÁRIOS DE UI
+   UI UTILS
 ═══════════════════════════════════════════ */
 function showInfo(elId, msg, type) {
   const el = document.getElementById(elId);
@@ -589,6 +539,25 @@ function iniciarRealtime(token) {
         }
       }
     )
+    .on('postgres_changes',
+      { event:'DELETE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` },
+      async (payload) => {
+        // Remove da cache local e recarrega contador do servidor
+        if (payload.old && payload.old.id) {
+          todosConvites = todosConvites.filter(c => c.id !== payload.old.id);
+          renderizarConvites(todosConvites);
+        }
+        // Refresca contador com valores reais da BD
+        const { data: cliData } = await DB
+          .from('clientes').select('scans_usados,limite_scans').eq('token', token).single();
+        if (cliData) {
+          clienteData.scans_usados = cliData.scans_usados;
+          clienteData.limite_scans = cliData.limite_scans;
+          actualizarContador();
+        }
+        haptic('light');
+      }
+    )
     .subscribe();
 }
 function pararRealtime() {
@@ -628,15 +597,9 @@ async function validarToken() {
   try {
     const { data: cli, error: e1 } = await DB
       .from('clientes').select('*').eq('token', token).single();
-    if (e1 || !cli) {
-      haptic('error');
-      showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return;
-    }
+    if (e1 || !cli) { haptic('error'); showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
     const agora = Math.floor(Date.now()/1000);
-    if (cli.validade && cli.validade < agora) {
-      haptic('error');
-      showInfo('step1Info','❌ Este evento já expirou.','red'); return;
-    }
+    if (cli.validade && cli.validade < agora) { haptic('error'); showInfo('step1Info','❌ Este evento já expirou.','red'); return; }
     const { data: cfg, error: e2 } = await DB
       .from('convite_config').select('*').eq('token_cliente', token).single();
     if (e2 || !cfg) {
@@ -654,10 +617,7 @@ async function validarToken() {
     hideInfo('step1Info');
     haptic('success');
     showStep('step2');
-  } catch(e) {
-    haptic('error');
-    showInfo('step1Info','❌ Erro de ligação: '+e.message,'red');
-  }
+  } catch(e) { haptic('error'); showInfo('step1Info','❌ Erro de ligação: '+e.message,'red'); }
 }
 
 /* ═══════════════════════════════════════════
@@ -698,7 +658,7 @@ function actualizarContador() {
 
 /* ═══════════════════════════════════════════
    CARREGAR CONVITES
-═══════════════════════════════════════════ */
+═════════════════════════════════��═════════ */
 async function carregarConvitesGerados() {
   if (!clienteData) return;
   const lista = document.getElementById('convitesLista');
@@ -777,9 +737,7 @@ function renderizarConvites(lista, termoPesquisa) {
 /* ═══════════════════════════════════════════
    DUPLICADO
 ═══════════════════════════════════════════ */
-function normalizarNome(nome) {
-  return nome.trim().toLowerCase().replace(/\s+/g,' ');
-}
+function normalizarNome(nome) { return nome.trim().toLowerCase().replace(/\s+/g,' '); }
 function encontrarDuplicado(nome) {
   const n = normalizarNome(nome);
   return todosConvites.find(c => normalizarNome(c.nome) === n) || null;
@@ -787,13 +745,13 @@ function encontrarDuplicado(nome) {
 
 /* ═══════════════════════════════════════════
    MODAL
-═���═════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function abrirModal({ titulo, corpo, nome, nomeCls, acoes }) {
   document.getElementById('modalTitle').textContent = titulo;
   document.getElementById('modalBody').textContent  = corpo;
   const nomeEl = document.getElementById('modalNome');
   nomeEl.textContent = nome;
-  nomeEl.className   = 'modal-nome' + (nomeCls ? ' '+nomeCls : '');
+  nomeEl.className   = 'modal-nome'+(nomeCls?' '+nomeCls:'');
   const actionsEl = document.getElementById('modalActions');
   actionsEl.innerHTML = '';
   acoes.forEach(({ label, cls, fn }) => {
@@ -804,9 +762,7 @@ function abrirModal({ titulo, corpo, nome, nomeCls, acoes }) {
   });
   document.getElementById('modalOverlay').classList.remove('hidden');
 }
-function fecharModal() {
-  document.getElementById('modalOverlay').classList.add('hidden');
-}
+function fecharModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
   if (e.target === this) { haptic('light'); fecharModal(); }
 });
@@ -816,47 +772,32 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) {
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
   const nome = document.getElementById('nomeInput').value.trim();
-  if (!nome || nome.length < 2) {
-    haptic('warning');
-    showInfo('step2Info','Insira o nome completo do convidado.','yellow'); return;
-  }
-  if (!clienteData || !configData) {
-    haptic('error');
-    showInfo('step2Info','Sessão expirada. Volte ao início.','red'); return;
-  }
+  if (!nome || nome.length < 2) { haptic('warning'); showInfo('step2Info','Insira o nome completo do convidado.','yellow'); return; }
+  if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada. Volte ao início.','red'); return; }
   const limite  = clienteData.limite_scans || 0;
   const gerados = clienteData.scans_usados || 0;
-  if (limite && gerados >= limite) {
-    haptic('error');
-    showInfo('step2Info',`Limite de ${limite} convites atingido.`,'red');
-    actualizarContador(); return;
-  }
+  if (limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} convites atingido.`,'red'); actualizarContador(); return; }
 
   haptic('light');
   const duplicado = encontrarDuplicado(nome);
-
   if (duplicado) {
     abrirModal({
-      titulo:  '⚠️ Nome já existe',
-      corpo:   'Já existe um convite com este nome. Quer gerar outro ou re-descarregar o existente?',
-      nome, nomeCls: 'duplicado',
-      acoes: [
-        { label:'✅ Sim, gerar mesmo assim', cls:'btn-warning',
-          fn: () => gerarConvite(nome) },
+      titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome. Quer gerar outro ou re-descarregar o existente?',
+      nome, nomeCls:'duplicado',
+      acoes:[
+        { label:'✅ Sim, gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nome) },
         { label:'📥 Re-download do existente', cls:'btn-outline',
-          fn: () => baixarConviteExistente(duplicado.nome, duplicado.codigo,
-                      { textContent:'📥', disabled:false }) },
-        { label:'✕ Cancelar', cls:'btn-ghost', fn: () => {} }
+          fn:()=>baixarConviteExistente(duplicado.nome,duplicado.codigo,{textContent:'📥',disabled:false}) },
+        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
   } else {
     abrirModal({
-      titulo: '✅ Confirmar Convite',
-      corpo:  'Vai gerar um convite para:',
-      nome, nomeCls: '',
-      acoes: [
-        { label:'🎉 Sim, gerar convite', cls:'btn-main', fn: () => gerarConvite(nome) },
-        { label:'✕ Cancelar',           cls:'btn-ghost', fn: () => {} }
+      titulo:'✅ Confirmar Convite', corpo:'Vai gerar um convite para:',
+      nome, nomeCls:'',
+      acoes:[
+        { label:'🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nome) },
+        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
   }
@@ -868,13 +809,11 @@ function pedirConfirmacaoGerar() {
 function pedirConfirmacaoDownload(nome, codigo, btn) {
   haptic('light');
   abrirModal({
-    titulo: '📥 Re-download de Convite',
-    corpo:  'Vai descarregar novamente o convite de:',
-    nome, nomeCls: '',
-    acoes: [
-      { label:'📥 Sim, descarregar', cls:'btn-main',
-        fn: () => baixarConviteExistente(nome, codigo, btn) },
-      { label:'✕ Cancelar', cls:'btn-ghost', fn: () => {} }
+    titulo:'📥 Re-download de Convite', corpo:'Vai descarregar novamente o convite de:',
+    nome, nomeCls:'',
+    acoes:[
+      { label:'📥 Sim, descarregar', cls:'btn-main', fn:()=>baixarConviteExistente(nome,codigo,btn) },
+      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
     ]
   });
 }
@@ -894,10 +833,7 @@ function gerarQRDataURL(codigo, tamanho) {
         try {
           const canvas = div.querySelector('canvas');
           if (canvas) { resolve(canvas.toDataURL('image/png')); }
-          else {
-            const img = div.querySelector('img');
-            img && img.src ? resolve(img.src) : reject(new Error('QRCode não gerou imagem.'));
-          }
+          else { const img=div.querySelector('img'); img&&img.src?resolve(img.src):reject(new Error('QRCode não gerou imagem.')); }
         } catch(err) { reject(err); }
         finally { if (document.body.contains(div)) document.body.removeChild(div); }
       }, 150);
@@ -914,38 +850,26 @@ async function gerarConvite(nome) {
   try {
     setLoading('A gerar o código único...');
     const codigo = await gerarCodigoUnico(clienteData.token);
-
     let qrDataUrl = null;
     if (configData.qr_ativo !== false) {
       setLoading('A criar o QR Code...');
       qrDataUrl = await gerarQRDataURL(codigo, 300);
     }
-
     setLoading('A personalizar o convite...');
     const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData);
-
     setLoading('A registar...');
     await registarConvite(nome, codigo, clienteData.token);
-
     triggerDownload(pdfBlob, `${nome}.pdf`);
-
     document.getElementById('nomeInput').value = '';
     await carregarConvitesGerados();
     actualizarContador();
-
-    haptic('success'); // pulso de sucesso ao gerar
+    haptic('success');
     showStep('step2');
-
-    if (isIOS) {
-      document.getElementById('iosHint').style.display = 'block';
-      showToast('✅ Convite gerado! Veja a janela que abriu.', '#667eea');
-    } else {
-      showToast(`✅ Convite de ${nome} gerado!`);
-    }
+    if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Veja a janela que abriu.','#667eea'); }
+    else { showToast(`✅ Convite de ${nome} gerado!`); }
   } catch(e) {
-    console.error(e);
-    haptic('error');
-    document.getElementById('erroMsg').textContent = '❌ ' + e.message;
+    console.error(e); haptic('error');
+    document.getElementById('erroMsg').textContent = '❌ '+e.message;
     showStep('stepErro');
   }
 }
@@ -962,18 +886,10 @@ async function baixarConviteExistente(nome, codigo, btn) {
     const blob = await gerarPDF(nome, codigo, qrDataUrl, configData);
     triggerDownload(blob, `${nome}.pdf`);
     haptic('success');
-    if (isIOS) {
-      document.getElementById('iosHint').style.display = 'block';
-      showToast('📥 Convite aberto! Guarde na janela que apareceu.', '#667eea');
-    } else {
-      showToast('📥 Download iniciado!');
-    }
-  } catch(e) {
-    haptic('error');
-    alert('Erro ao gerar PDF: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = original;
-  }
+    if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('📥 Convite aberto! Guarde na janela que apareceu.','#667eea'); }
+    else { showToast('📥 Download iniciado!'); }
+  } catch(e) { haptic('error'); alert('Erro ao gerar PDF: '+e.message); }
+  finally { btn.disabled = false; btn.textContent = original; }
 }
 
 /* ═══════════════════════════════════════════
@@ -984,7 +900,7 @@ async function gerarCodigoUnico(tokenCliente) {
   for (let t = 0; t < 30; t++) {
     let codigo = '';
     for (let i = 0; i < 8; i++) codigo += chars[Math.floor(Math.random()*chars.length)];
-    const { data } = await DB.from('convidados').select('id').eq('codigo', codigo).maybeSingle();
+    const { data } = await DB.from('convidados').select('id').eq('codigo',codigo).maybeSingle();
     if (!data) return codigo;
   }
   throw new Error('Não foi possível gerar um código único. Tente novamente.');
@@ -997,99 +913,81 @@ async function gerarPDF(nome, codigo, qrDataUrl, config) {
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
   const pdfBytes = Uint8Array.from(atob(config.pdf_base), c => c.charCodeAt(0));
   const pdfDoc   = await PDFDocument.load(pdfBytes);
-
   let customFont = null;
   if (config.fonte_custom_b64 && typeof fontkit !== 'undefined') {
     try {
       pdfDoc.registerFontkit(fontkit);
       const fb = Uint8Array.from(atob(config.fonte_custom_b64), c => c.charCodeAt(0));
       customFont = await pdfDoc.embedFont(fb);
-    } catch(e) { console.warn('Fonte personalizada falhou:', e); }
+    } catch(e) { console.warn('Fonte personalizada falhou:',e); }
   }
-
   const elementos = config.elementos || {};
   for (let pi = 0; pi < pdfDoc.getPageCount(); pi++) {
-    const page    = pdfDoc.getPage(pi);
-    const pageNum = pi + 1;
-    const { width: pW, height: pH } = page.getSize();
+    const page = pdfDoc.getPage(pi);
+    const { width:pW, height:pH } = page.getSize();
     const CANVAS_W = 794;
-    const scaleX = pW / CANVAS_W;
-    const scaleY = pH / (CANVAS_W * (pH / pW));
-    const els = elementos[pageNum] || elementos[String(pageNum)] || [];
-
+    const scaleX = pW/CANVAS_W;
+    const scaleY = pH/(CANVAS_W*(pH/pW));
+    const els = elementos[pi+1] || elementos[String(pi+1)] || [];
     for (const el of els) {
-      if (el.type === 'text') {
-        let text = el.content || '';
-        if (text.includes('{NOME}')) {
-          text = text.replace('{NOME}', config.maiusculas ? nome.toUpperCase() : nome);
-        }
-        const fontSize = (parseFloat(el.fontSize) || config.tamanho_nome || 16) * scaleX;
-        const corHex = normalizarCor(
-          el.elementType==='table'
-            ? (el.color||config.cor_mesa||'#1a1a2e')
-            : (el.color||config.cor_nome||'#1a1a2e')
-        );
-        const cor = hexToRgb(corHex);
+      if (el.type==='text') {
+        let text = el.content||'';
+        if (text.includes('{NOME}')) text=text.replace('{NOME}',config.maiusculas?nome.toUpperCase():nome);
+        const fontSize=(parseFloat(el.fontSize)||config.tamanho_nome||16)*scaleX;
+        const corHex=normalizarCor(el.elementType==='table'?(el.color||config.cor_mesa||'#1a1a2e'):(el.color||config.cor_nome||'#1a1a2e'));
+        const cor=hexToRgb(corHex);
         let font;
-        if (customFont) { font = customFont; }
-        else {
-          const bold   = el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito;
-          const italic = el.fontStyle==='italic'||config.italico;
-          if (bold&&italic) font = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
-          else if (bold)    font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-          else if (italic)  font = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
-          else              font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        if(customFont){font=customFont;}
+        else{
+          const bold=el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito;
+          const italic=el.fontStyle==='italic'||config.italico;
+          if(bold&&italic)font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+          else if(bold)font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+          else if(italic)font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+          else font=await pdfDoc.embedFont(StandardFonts.Helvetica);
         }
-        const lines = text.split('\n');
-        const lineH = fontSize * 1.2;
-        const topPx = parseFloat(el.top) || 0;
-        lines.forEach((line, li) => {
+        const lines=text.split('\n'); const lineH=fontSize*1.2; const topPx=parseFloat(el.top)||0;
+        lines.forEach((line,li)=>{
           let xPos;
-          if (el.transform && el.transform.includes('translateX(-50%)')) {
-            xPos = (pW/2) - (font.widthOfTextAtSize(line,fontSize)/2);
-          } else { xPos = (parseFloat(el.left)||0)*scaleX; }
-          const yPos = pH - (topPx*scaleY) - fontSize*0.85 - (li*lineH);
-          page.drawText(line, { x:xPos, y:yPos, size:fontSize, font, color:rgb(cor.r,cor.g,cor.b) });
+          if(el.transform&&el.transform.includes('translateX(-50%)')){xPos=(pW/2)-(font.widthOfTextAtSize(line,fontSize)/2);}
+          else{xPos=(parseFloat(el.left)||0)*scaleX;}
+          const yPos=pH-(topPx*scaleY)-fontSize*0.85-(li*lineH);
+          page.drawText(line,{x:xPos,y:yPos,size:fontSize,font,color:rgb(cor.r,cor.g,cor.b)});
         });
       }
-      else if (el.type==='qr' && qrDataUrl) {
-        try {
-          const qrImg = await pdfDoc.embedPng(qrDataUrl);
-          const qrW = (parseFloat(el.width) ||config.tamanho_qr||100)*scaleX;
-          const qrH = (parseFloat(el.height)||config.tamanho_qr||100)*scaleY;
+      else if(el.type==='qr'&&qrDataUrl){
+        try{
+          const qrImg=await pdfDoc.embedPng(qrDataUrl);
+          const qrW=(parseFloat(el.width)||config.tamanho_qr||100)*scaleX;
+          const qrH=(parseFloat(el.height)||config.tamanho_qr||100)*scaleY;
           let xPos;
-          if (el.transform && el.transform.includes('translateX(-50%)')) xPos=(pW/2)-(qrW/2);
+          if(el.transform&&el.transform.includes('translateX(-50%)'))xPos=(pW/2)-(qrW/2);
           else xPos=(parseFloat(el.left)||0)*scaleX;
-          const yPos = pH-(parseFloat(el.top)||0)*scaleY-qrH;
+          const yPos=pH-(parseFloat(el.top)||0)*scaleY-qrH;
           page.drawImage(qrImg,{x:xPos,y:yPos,width:qrW,height:qrH});
-        } catch(e){console.warn('QR no PDF falhou:',e);}
+        }catch(e){console.warn('QR no PDF falhou:',e);}
       }
     }
   }
-  return new Blob([await pdfDoc.save()], { type:'application/pdf' });
+  return new Blob([await pdfDoc.save()],{type:'application/pdf'});
 }
 
 /* ═══════════════════════════════════════════
    REGISTAR (atómico)
 ═══════════════════════════════════════════ */
 async function registarConvite(nome, codigo, tokenCliente) {
-  const { error: eRpc } = await DB.rpc('incrementar_scans', { p_token: tokenCliente });
+  const { error: eRpc } = await DB.rpc('incrementar_scans',{p_token:tokenCliente});
   if (eRpc) {
-    if (eRpc.message && eRpc.message.includes('LIMITE_ATINGIDO')) {
-      const { data: cliData } = await DB
-        .from('clientes').select('scans_usados,limite_scans').eq('token',tokenCliente).single();
-      if (cliData) { clienteData.scans_usados=cliData.scans_usados; clienteData.limite_scans=cliData.limite_scans; }
+    if (eRpc.message&&eRpc.message.includes('LIMITE_ATINGIDO')) {
+      const { data:cliData } = await DB.from('clientes').select('scans_usados,limite_scans').eq('token',tokenCliente).single();
+      if (cliData){clienteData.scans_usados=cliData.scans_usados;clienteData.limite_scans=cliData.limite_scans;}
       throw new Error('Limite de convites atingido. Não é possível gerar mais convites.');
     }
-    const novoTotal = (clienteData.scans_usados||0)+1;
-    await DB.from('clientes').update({ scans_usados:novoTotal }).eq('token',tokenCliente);
-    clienteData.scans_usados = novoTotal;
-  } else {
-    clienteData.scans_usados = (clienteData.scans_usados||0)+1;
-  }
-  const { error: eIns } = await DB.from('convidados').insert([{
-    token_cliente:tokenCliente, codigo, nome, status:'convite_gerado'
-  }]);
+    const novoTotal=(clienteData.scans_usados||0)+1;
+    await DB.from('clientes').update({scans_usados:novoTotal}).eq('token',tokenCliente);
+    clienteData.scans_usados=novoTotal;
+  } else { clienteData.scans_usados=(clienteData.scans_usados||0)+1; }
+  const { error:eIns } = await DB.from('convidados').insert([{token_cliente:tokenCliente,codigo,nome,status:'convite_gerado'}]);
   if (eIns) throw new Error('Erro ao registar convite: '+eIns.message);
 }
 
@@ -1097,11 +995,10 @@ async function registarConvite(nome, codigo, tokenCliente) {
    UTILS
 ═══════════════════════════════════════════ */
 function normalizarCor(cor) {
-  if (!cor) return '#1a1a2e';
-  cor = cor.trim();
+  if (!cor) return '#1a1a2e'; cor=cor.trim();
   if (cor.startsWith('#')) return cor;
   if (cor.startsWith('rgb')) {
-    const m = cor.match(/\d+/g);
+    const m=cor.match(/\d+/g);
     if (!m||m.length<3) return '#1a1a2e';
     return '#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');
   }
@@ -1109,27 +1006,18 @@ function normalizarCor(cor) {
 }
 function hexToRgb(hex) {
   hex=(hex||'#000000').replace('#','');
-  if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
   const n=parseInt(hex,16);
-  if(isNaN(n)) return{r:0,g:0,b:0};
+  if(isNaN(n))return{r:0,g:0,b:0};
   return{r:((n>>16)&255)/255,g:((n>>8)&255)/255,b:(n&255)/255};
 }
 function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  if (isIOS) {
-    window.open(url,'_blank');
-    setTimeout(()=>URL.revokeObjectURL(url),10_000);
-  } else {
-    const a=document.createElement('a');
-    a.href=url; a.download=filename;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  }
+  const url=URL.createObjectURL(blob);
+  if(isIOS){window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),10_000);}
+  else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
 }
 function escHtml(str) {
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 </script>
 </body>
