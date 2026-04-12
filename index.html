@@ -47,6 +47,16 @@
       transition: border-color .2s; -webkit-appearance: none;
     }
     input:focus { outline: none; border-color: #667eea; }
+    input.input-error { border-color: #ef4444; }
+    input.input-ok    { border-color: #10b981; }
+
+    /* Hint de validação do nome */
+    .nome-hint {
+      font-size: 12px; margin-top: -8px; padding: 0 4px;
+      color: #9ca3af; transition: color .2s;
+    }
+    .nome-hint.ok  { color: #10b981; }
+    .nome-hint.err { color: #ef4444; }
 
     button {
       width: 100%; padding: 16px; border: none; border-radius: 14px;
@@ -73,6 +83,7 @@
     .info.yellow { background: #fffbeb; color: #92400e; }
     .info.orange { background: #fff7ed; color: #9a3412; font-weight: 600; }
 
+    /* Banner offline */
     .offline-banner {
       position: fixed; top: 0; left: 0; right: 0;
       background: #ef4444; color: white;
@@ -83,170 +94,104 @@
     }
     .offline-banner.visible { transform: translateY(0); }
 
+    /* Banner Realtime desligado */
+    .realtime-banner {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: #f59e0b; color: white;
+      padding: 12px 20px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      font-size: 13px; font-weight: 600; text-align: center;
+      z-index: 9997; transform: translateY(-100%); transition: transform .3s ease;
+    }
+    .realtime-banner.visible { transform: translateY(0); }
+    /* Empurra o realtime banner abaixo do offline quando ambos visíveis */
+    .offline-banner.visible ~ .realtime-banner.visible { top: 44px; }
+
+    /* Contador */
     .counter-box {
       background: linear-gradient(135deg,#667eea,#764ba2);
       border-radius: 16px; padding: 18px 12px 14px;
       display: flex; flex-direction: column; gap: 12px;
     }
     .counter-box.warning { background: linear-gradient(135deg,#f59e0b,#d97706); }
-    .counter-grid {
-      display: grid; grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px; text-align: center;
-    }
+    .counter-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center; }
     .counter-item { color: white; }
     .counter-item .val { font-size: 28px; font-weight: 800; line-height: 1; }
     .counter-item .lbl { font-size: 11px; opacity: .85; margin-top: 4px; }
 
+    /* Barra de progresso */
     .uso-wrap { padding: 0 4px; }
-    .uso-label {
-      display: flex; justify-content: space-between;
-      font-size: 11px; color: rgba(255,255,255,.85);
-      margin-bottom: 6px; font-weight: 600;
-    }
-    .uso-track {
-      width: 100%; height: 8px;
-      background: rgba(255,255,255,.25); border-radius: 99px; overflow: hidden;
-    }
-    .uso-bar {
-      height: 100%; border-radius: 99px; background: white;
-      transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 4px;
-    }
+    .uso-label { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,.85); margin-bottom: 6px; font-weight: 600; }
+    .uso-track { width: 100%; height: 8px; background: rgba(255,255,255,.25); border-radius: 99px; overflow: hidden; }
+    .uso-bar { height: 100%; border-radius: 99px; background: white; transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 4px; }
     .counter-box.warning .uso-bar { background: #fef08a; }
+
+    /* Badge de sessão */
+    .sessao-badge {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      background: rgba(255,255,255,.18); border-radius: 10px;
+      padding: 7px 12px; font-size: 12px; color: white; font-weight: 600;
+    }
+    .sessao-badge .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #86efac;
+      box-shadow: 0 0 6px #86efac; flex-shrink: 0;
+    }
 
     .divider { height: 1px; background: #e5e7eb; margin: 2px 0; }
 
     .loading-box { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 0; }
-    .spinner {
-      width: 40px; height: 40px;
-      border: 4px solid #e5e7eb; border-top-color: #667eea;
-      border-radius: 50%; animation: spin .8s linear infinite;
-    }
+    .spinner { width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-box p { font-size: 14px; color: #6b7280; text-align: center; }
 
-    .timeout-bar-wrap {
-      width: 100%; background: #e5e7eb; border-radius: 99px;
-      height: 4px; overflow: hidden; display: none;
-    }
-    .timeout-bar {
-      height: 100%; background: #667eea; border-radius: 99px;
-      width: 100%; transition: width linear;
-    }
+    .timeout-bar-wrap { width: 100%; background: #e5e7eb; border-radius: 99px; height: 4px; overflow: hidden; display: none; }
+    .timeout-bar { height: 100%; background: #667eea; border-radius: 99px; width: 100%; transition: width linear; }
 
-    .session-restore {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 16px; padding: 36px 0 20px;
-    }
-    .session-restore .spinner-lg {
-      width: 52px; height: 52px;
-      border: 5px solid #e5e7eb; border-top-color: #667eea;
-      border-radius: 50%; animation: spin .8s linear infinite;
-    }
+    .session-restore { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 36px 0 20px; }
+    .session-restore .spinner-lg { width: 52px; height: 52px; border: 5px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: spin .8s linear infinite; }
     .session-restore p { font-size: 15px; color: #6b7280; font-weight: 500; text-align: center; }
 
     .convites-header { display: flex; align-items: center; gap: 8px; }
-    .convites-search {
-      flex: 1; padding: 11px 14px;
-      border: 1.5px solid #e5e7eb; border-radius: 10px;
-      font-size: 16px; font-family: inherit;
-      transition: border-color .2s; -webkit-appearance: none;
-    }
+    .convites-search { flex: 1; padding: 11px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 16px; font-family: inherit; transition: border-color .2s; -webkit-appearance: none; }
     .convites-search:focus { outline: none; border-color: #667eea; }
     .convites-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
 
-    .convites-lista {
-      display: flex; flex-direction: column; gap: 8px;
-      max-height: 300px; overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .convite-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 14px; border: 1px solid #e5e7eb; border-radius: 12px;
-      background: #fafafa; gap: 10px;
-    }
+    .convites-lista { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .convite-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fafafa; gap: 10px; }
     .convite-item-info { flex: 1; min-width: 0; }
-    .convite-item-nome {
-      font-size: 14px; font-weight: 600; color: #1a1a2e;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .btn-dl {
-      flex-shrink: 0; width: auto; padding: 10px 16px;
-      background: #667eea; color: white; border-radius: 10px;
-      font-size: 13px; font-weight: 600; border: none; cursor: pointer;
-      min-height: 44px; touch-action: manipulation;
-    }
+    .convite-item-nome { font-size: 14px; font-weight: 600; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-dl { flex-shrink: 0; width: auto; padding: 10px 16px; background: #667eea; color: white; border-radius: 10px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; min-height: 44px; touch-action: manipulation; }
     .btn-dl:active { background: #5568d3; transform: scale(0.96); }
 
     .section-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
 
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-      display: flex; align-items: flex-end; justify-content: center;
-      z-index: 1000; padding: 0; animation: fadeIn .2s ease;
-    }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; padding: 0; animation: fadeIn .2s ease; }
     .modal-overlay.hidden { display: none; }
     @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-    .modal-box {
-      background: white; border-radius: 24px 24px 0 0;
-      padding: 28px 20px;
-      padding-bottom: max(28px, env(safe-area-inset-bottom));
-      width: 100%; max-width: 480px;
-      display: flex; flex-direction: column; gap: 16px;
-      animation: slideUp .28s cubic-bezier(.32,1.01,.56,1);
-    }
-    @media (min-width: 540px) {
-      .modal-overlay { align-items: center; padding: 20px; }
-      .modal-box { border-radius: 24px; max-width: 420px; padding-bottom: 28px; }
-    }
-    @keyframes slideUp {
-      from { transform: translateY(60px); opacity: 0; }
-      to   { transform: translateY(0);    opacity: 1; }
-    }
+    .modal-box { background: white; border-radius: 24px 24px 0 0; padding: 28px 20px; padding-bottom: max(28px, env(safe-area-inset-bottom)); width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; animation: slideUp .28s cubic-bezier(.32,1.01,.56,1); }
+    @media (min-width: 540px) { .modal-overlay { align-items: center; padding: 20px; } .modal-box { border-radius: 24px; max-width: 420px; padding-bottom: 28px; } }
+    @keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
     .modal-handle { width: 44px; height: 5px; background: #d1d5db; border-radius: 3px; margin: 0 auto -4px; }
     @media (min-width: 540px) { .modal-handle { display: none; } }
     .modal-title { font-size: 18px; font-weight: 800; color: #1a1a2e; text-align: center; }
     .modal-body  { font-size: 14px; color: #6b7280; text-align: center; line-height: 1.6; }
-    .modal-nome  {
-      font-size: 20px; font-weight: 800; color: #667eea;
-      text-align: center; padding: 14px;
-      background: #f0f1ff; border-radius: 12px; word-break: break-word;
-    }
+    .modal-nome  { font-size: 20px; font-weight: 800; color: #667eea; text-align: center; padding: 14px; background: #f0f1ff; border-radius: 12px; word-break: break-word; }
     .modal-nome.duplicado { color: #92400e; background: #fffbeb; border: 2px solid #fcd34d; }
     .modal-actions { display: flex; flex-direction: column; gap: 10px; }
 
-    .ios-hint {
-      background: #f0f1ff; border-radius: 12px;
-      padding: 14px 16px; font-size: 14px; color: #4338ca;
-      line-height: 1.6; text-align: center; display: none;
-    }
+    .ios-hint { background: #f0f1ff; border-radius: 12px; padding: 14px 16px; font-size: 14px; color: #4338ca; line-height: 1.6; text-align: center; display: none; }
 
-    .toast {
-      position: fixed;
-      bottom: max(24px, env(safe-area-inset-bottom));
-      left: 50%; transform: translateX(-50%);
-      background: #10b981; color: white;
-      padding: 14px 24px; border-radius: 14px;
-      font-size: 15px; font-weight: 600;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-      z-index: 9999; white-space: nowrap;
-      max-width: calc(100vw - 32px);
-      overflow: hidden; text-overflow: ellipsis;
-      animation: fadeInUp .3s ease;
-    }
-    @keyframes fadeInUp {
-      from { opacity:0; transform:translateX(-50%) translateY(20px); }
-      to   { opacity:1; transform:translateX(-50%) translateY(0); }
-    }
+    .toast { position: fixed; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 14px 24px; border-radius: 14px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; animation: fadeInUp .3s ease; }
+    @keyframes fadeInUp { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 4px; }
   </style>
 </head>
 <body>
 
-<div class="offline-banner" id="offlineBanner">
-  📵 Sem ligação à internet — verifique o WiFi ou dados móveis
-</div>
+<div class="offline-banner"  id="offlineBanner">📵 Sem ligação à internet — verifique o WiFi ou dados móveis</div>
+<div class="realtime-banner" id="realtimeBanner">⚠️ Actualizações em tempo real desligadas — a reconectar...</div>
 
 <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
@@ -283,9 +228,7 @@
 
   <div class="step" id="step2">
     <div class="info green" id="eventoNomeBox" style="text-align:center;"></div>
-    <div class="info red"   id="expiradoBox"   style="display:none;">
-      ⏰ Este evento expirou. Já não é possível gerar convites.
-    </div>
+    <div class="info red"   id="expiradoBox"   style="display:none;">⏰ Este evento expirou. Já não é possível gerar convites.</div>
     <div class="info orange" id="limiteProximoBox" style="display:none;"></div>
 
     <div class="counter-box" id="counterBox">
@@ -299,9 +242,12 @@
           <span id="usoTexto">0 usados</span>
           <span id="usoPct">0%</span>
         </div>
-        <div class="uso-track">
-          <div class="uso-bar" id="usoBar" style="width:0%"></div>
-        </div>
+        <div class="uso-track"><div class="uso-bar" id="usoBar" style="width:0%"></div></div>
+      </div>
+      <!-- Badge de convites gerados nesta sessão -->
+      <div class="sessao-badge" id="sessaoBadge" style="display:none;">
+        <div class="dot"></div>
+        <span id="sessaoTexto">0 gerados nesta sessão</span>
       </div>
     </div>
 
@@ -311,7 +257,9 @@
       <label for="nomeInput">Nome completo do convidado</label>
       <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
              autocapitalize="words" autocorrect="off" spellcheck="false"
+             oninput="validarNomeInput()"
              onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
+      <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
     </div>
     <div class="info yellow" id="step2Info" style="display:none;"></div>
     <div class="ios-hint" id="iosHint">
@@ -324,8 +272,7 @@
     <div class="convites-header">
       <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
       <span class="convites-count" id="convitesCount"></span>
-      <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar"
-              onclick="recarregarLista()">🔄</button>
+      <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()">🔄</button>
     </div>
     <input type="text" class="convites-search" id="convitesSearch"
            placeholder="🔍 Pesquisar por nome..."
@@ -366,76 +313,58 @@ const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ═══════════════════════════════════════════
    CONSTANTES
 ═══════════════════════════════════════════ */
-const TIMEOUT_MS   = 12000;
-const MAX_RETRIES  = 2;
-const RETRY_DELAY  = 2000;
-const CLIENTE_COLS = 'token,nome,limite_scans,scans_usados,validade';
-const CONVITE_COLS = 'id,nome,codigo,created_at';
+const TIMEOUT_MS    = 12000;
+const MAX_RETRIES   = 2;
+const RETRY_DELAY   = 2000;
+const CLIENTE_COLS  = 'token,nome,limite_scans,scans_usados,validade';
+const CONVITE_COLS  = 'id,nome,codigo,created_at';
 const SS_CONFIG_KEY = 'adkira_config';
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 /* ═══════════════════════════════════════════
    ESTADO
 ═══════════════════════════════════════════ */
-let clienteData          = null;
-let configData           = null;
-let realtimeChannel      = null;
-let todosConvites        = [];
-let validadeTimer        = null;
-let ultimoContextoNome   = null;
+let clienteData        = null;
+let configData         = null;
+let realtimeChannel    = null;
+let todosConvites      = [];
+let validadeTimer      = null;
+let ultimoContextoNome = null;
+let convitesSessao     = 0;      // contador de convites gerados nesta sessão
+let realtimeOk         = false;  // estado da ligação Realtime
+let realtimeReconTimer = null;   // timer de reconexão
 
 /* ═══════════════════════════════════════════
-   SESSION STORAGE — config pesada (pdf_base, fonte)
+   SESSION STORAGE
 ═══════════════════════════════════════════ */
-function guardarConfigCache(token, cfg) {
-  try { sessionStorage.setItem(SS_CONFIG_KEY, JSON.stringify({ token, cfg })); }
-  catch(e) { console.warn('sessionStorage cheio:', e); }
-}
-function lerConfigCache(token) {
-  try {
-    const raw = sessionStorage.getItem(SS_CONFIG_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    return obj.token === token ? obj.cfg : null;
-  } catch(e) { return null; }
-}
-function limparCache() {
-  try { sessionStorage.removeItem(SS_CONFIG_KEY); } catch(e) {}
-}
+function guardarConfigCache(token,cfg){try{sessionStorage.setItem(SS_CONFIG_KEY,JSON.stringify({token,cfg}));}catch(e){console.warn('sessionStorage cheio:',e);}}
+function lerConfigCache(token){try{const r=sessionStorage.getItem(SS_CONFIG_KEY);if(!r)return null;const o=JSON.parse(r);return o.token===token?o.cfg:null;}catch(e){return null;}}
+function limparCache(){try{sessionStorage.removeItem(SS_CONFIG_KEY);}catch(e){}}
 
 /* ═══════════════════════════════════════════
    TIMEOUT HELPER
 ═══════════════════════════════════════════ */
-function comTimeout(promise, ms, msg) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() =>
-      reject(new Error(msg || `Ligação demorou demasiado (>${(ms||TIMEOUT_MS)/1000}s). Verifique a internet.`)),
-      ms || TIMEOUT_MS
-    );
-    promise.then(v => { clearTimeout(t); resolve(v); })
-           .catch(e => { clearTimeout(t); reject(e); });
+function comTimeout(promise,ms,msg){
+  return new Promise((resolve,reject)=>{
+    const t=setTimeout(()=>reject(new Error(msg||`Ligação demorou demasiado (>${(ms||TIMEOUT_MS)/1000}s). Verifique a internet.`)),ms||TIMEOUT_MS);
+    promise.then(v=>{clearTimeout(t);resolve(v);}).catch(e=>{clearTimeout(t);reject(e);});
   });
 }
 
 /* ═══════════════════════════════════════════
    RETRY HELPER
 ═══════════════════════════════════════════ */
-async function comRetry(fn, retries) {
-  const maxR = retries ?? MAX_RETRIES;
+async function comRetry(fn,retries){
+  const maxR=retries??MAX_RETRIES;
   let ultimoErro;
-  for (let i = 0; i <= maxR; i++) {
-    try { return await fn(); }
-    catch(e) {
-      ultimoErro = e;
-      const erroLogica = e.message && (
-        e.message.includes('LIMITE_ATINGIDO') ||
-        e.message.includes('inválido') ||
-        e.message.includes('expirou') ||
-        e.message.includes('não encontrado')
-      );
-      if (erroLogica || i === maxR) break;
+  for(let i=0;i<=maxR;i++){
+    try{return await fn();}
+    catch(e){
+      ultimoErro=e;
+      const erroLogica=e.message&&(e.message.includes('LIMITE_ATINGIDO')||e.message.includes('inválido')||e.message.includes('expirou')||e.message.includes('não encontrado'));
+      if(erroLogica||i===maxR) break;
       setLoading(`⚠️ Falha de rede, a tentar novamente (${i+1}/${maxR})...`);
-      await new Promise(r => setTimeout(r, RETRY_DELAY));
+      await new Promise(r=>setTimeout(r,RETRY_DELAY));
     }
   }
   throw ultimoErro;
@@ -444,74 +373,135 @@ async function comRetry(fn, retries) {
 /* ═══════════════════════════════════════════
    PROGRESS BAR
 ═══════════════════════════════════════════ */
-function iniciarProgressBar(ms) {
-  const wrap=document.getElementById('timeoutBarWrap'), bar=document.getElementById('timeoutBar');
-  if(!wrap||!bar) return;
-  wrap.style.display='block';
-  bar.style.transition='none'; bar.style.width='100%';
-  bar.offsetWidth;
-  bar.style.transition=`width ${ms}ms linear`; bar.style.width='0%';
+function iniciarProgressBar(ms){
+  const wrap=document.getElementById('timeoutBarWrap'),bar=document.getElementById('timeoutBar');
+  if(!wrap||!bar)return;
+  wrap.style.display='block';bar.style.transition='none';bar.style.width='100%';
+  bar.offsetWidth;bar.style.transition=`width ${ms}ms linear`;bar.style.width='0%';
 }
-function pararProgressBar() {
-  const wrap=document.getElementById('timeoutBarWrap');
-  if(wrap) wrap.style.display='none';
-}
+function pararProgressBar(){const w=document.getElementById('timeoutBarWrap');if(w)w.style.display='none';}
 
 /* ═══════════════════════════════════════════
    OFFLINE
 ═══════════════════════════════════════════ */
-function verificarOffline() {
-  if(!navigator.onLine){ document.getElementById('offlineBanner').classList.add('visible'); return true; }
-  return false;
+function verificarOffline(){if(!navigator.onLine){document.getElementById('offlineBanner').classList.add('visible');return true;}return false;}
+window.addEventListener('offline',()=>{document.getElementById('offlineBanner').classList.add('visible');haptic('warning');showToast('📵 Sem ligação à internet','#ef4444');});
+window.addEventListener('online', ()=>{document.getElementById('offlineBanner').classList.remove('visible');haptic('success');showToast('✅ Ligação restabelecida','#10b981');});
+
+/* ═══════════════════════════════════════════
+   REALTIME — com reconexão automática
+═══════════════════════════════════════════ */
+function mostrarBannerRealtime(visivel){
+  document.getElementById('realtimeBanner').classList.toggle('visible',visivel);
 }
-window.addEventListener('offline', () => {
-  document.getElementById('offlineBanner').classList.add('visible');
-  haptic('warning'); showToast('📵 Sem ligação à internet','#ef4444');
-});
-window.addEventListener('online', () => {
-  document.getElementById('offlineBanner').classList.remove('visible');
-  haptic('success'); showToast('✅ Ligação restabelecida','#10b981');
-});
+
+function iniciarRealtime(token){
+  pararRealtime();
+  realtimeOk=false;
+
+  realtimeChannel=DB.channel('cli-'+token)
+    .on('postgres_changes',
+      {event:'UPDATE',schema:'public',table:'clientes',filter:`token=eq.${token}`},
+      (payload)=>{
+        if(!payload.new)return;
+        clienteData.scans_usados=payload.new.scans_usados;
+        clienteData.limite_scans=payload.new.limite_scans;
+        clienteData.nome        =payload.new.nome;
+        clienteData.validade    =payload.new.validade;
+        document.getElementById('eventoNomeBox').textContent='🎉 '+payload.new.nome;
+        actualizarContador();iniciarTimerValidade();haptic('light');
+        showToast('🔄 Evento actualizado!','#667eea');
+      }
+    )
+    .on('postgres_changes',
+      {event:'INSERT',schema:'public',table:'convidados',filter:`token_cliente=eq.${token}`},
+      (payload)=>{
+        if(!payload.new)return;
+        if(todosConvites.find(c=>c.id===payload.new.id))return;
+        todosConvites.unshift({id:payload.new.id,nome:payload.new.nome,codigo:payload.new.codigo,created_at:payload.new.created_at});
+        renderizarConvites(todosConvites);
+        clienteData.scans_usados=(clienteData.scans_usados||0)+1;
+        actualizarContador();
+      }
+    )
+    .on('postgres_changes',
+      {event:'DELETE',schema:'public',table:'convidados',filter:`token_cliente=eq.${token}`},
+      async(payload)=>{
+        if(payload.old?.id){todosConvites=todosConvites.filter(c=>c.id!==payload.old.id);renderizarConvites(todosConvites);}
+        const{data}=await DB.from('clientes').select('scans_usados,limite_scans').eq('token',token).single();
+        if(data){clienteData.scans_usados=data.scans_usados;clienteData.limite_scans=data.limite_scans;actualizarContador();}
+        haptic('light');
+      }
+    )
+    .on('system',{},(status)=>{
+      // Monitoriza estado da ligação WebSocket
+      if(status==='SUBSCRIBED'){
+        realtimeOk=true;
+        mostrarBannerRealtime(false);
+        pararReconTimer();
+      } else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        if(realtimeOk){
+          // Só avisa se estava conectado antes (evita falso alarme no arranque)
+          realtimeOk=false;
+          mostrarBannerRealtime(true);
+          haptic('warning');
+        }
+        agendarReconexao(token);
+      }
+    })
+    .subscribe();
+}
+
+function agendarReconexao(token){
+  pararReconTimer();
+  // Tenta reconectar após 5 segundos
+  realtimeReconTimer=setTimeout(()=>{
+    if(!clienteData) return; // utilizador já saiu
+    console.log('Realtime: a reconectar...');
+    iniciarRealtime(token);
+  },5000);
+}
+
+function pararReconTimer(){
+  if(realtimeReconTimer){clearTimeout(realtimeReconTimer);realtimeReconTimer=null;}
+}
+
+function pararRealtime(){
+  pararReconTimer();
+  if(realtimeChannel){DB.removeChannel(realtimeChannel);realtimeChannel=null;}
+  realtimeOk=false;
+  mostrarBannerRealtime(false);
+}
 
 /* ═══════════════════════════════════════════
    HÁPTICO
 ═══════════════════════════════════════════ */
-function haptic(tipo) {
+function haptic(tipo){
   if(navigator.vibrate){
-    if(tipo==='success')      navigator.vibrate([10,50,10]);
-    else if(tipo==='error')   navigator.vibrate([80,40,80]);
-    else if(tipo==='warning') navigator.vibrate(40);
-    else                      navigator.vibrate(10);
+    if(tipo==='success')navigator.vibrate([10,50,10]);
+    else if(tipo==='error')navigator.vibrate([80,40,80]);
+    else if(tipo==='warning')navigator.vibrate(40);
+    else navigator.vibrate(10);
     return;
   }
-  try {
-    const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    const osc=ctx.createOscillator(), gain=ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0,ctx.currentTime);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.01);
-    setTimeout(()=>ctx.close(),100);
-  } catch(e){}
+  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const osc=ctx.createOscillator(),gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);gain.gain.setValueAtTime(0,ctx.currentTime);osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.01);setTimeout(()=>ctx.close(),100);}catch(e){}
 }
 
 /* ═══════════════════════════════════════════
    TRANSIÇÕES
 ═══════════════════════════════════════════ */
-let stepAtual = null;
-function showStep(id) {
+let stepAtual=null;
+function showStep(id){
   const novoStep=document.getElementById(id);
-  if(!novoStep||stepAtual===novoStep) return;
-  document.querySelectorAll('.step').forEach(s=>{
-    s.classList.remove('active','visible','exit'); s.style.display='none';
-  });
-  stepAtual=novoStep;
-  novoStep.style.display='flex'; novoStep.classList.add('active');
+  if(!novoStep||stepAtual===novoStep)return;
+  document.querySelectorAll('.step').forEach(s=>{s.classList.remove('active','visible','exit');s.style.display='none';});
+  stepAtual=novoStep;novoStep.style.display='flex';novoStep.classList.add('active');
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     novoStep.classList.add('visible');
-    if(id==='step1') setTimeout(()=>document.getElementById('tokenInput')?.focus(),320);
-    if(id==='step2') setTimeout(()=>{
-      const el=document.getElementById('nomeInput'); if(!el) return;
-      if(document.activeElement!==document.getElementById('convitesSearch')) el.focus();
+    if(id==='step1')setTimeout(()=>document.getElementById('tokenInput')?.focus(),320);
+    if(id==='step2')setTimeout(()=>{
+      const el=document.getElementById('nomeInput');if(!el)return;
+      if(document.activeElement!==document.getElementById('convitesSearch'))el.focus();
       el.scrollIntoView({behavior:'smooth',block:'center'});
     },380);
   }));
@@ -520,64 +510,48 @@ function showStep(id) {
 /* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', async () => {
-  document.querySelectorAll('.step').forEach(s=>{
-    s.classList.remove('active','visible','exit'); s.style.display='none';
-  });
-  if(!navigator.onLine) document.getElementById('offlineBanner').classList.add('visible');
+document.addEventListener('DOMContentLoaded',async()=>{
+  document.querySelectorAll('.step').forEach(s=>{s.classList.remove('active','visible','exit');s.style.display='none';});
+  if(!navigator.onLine)document.getElementById('offlineBanner').classList.add('visible');
 
   const savedToken=localStorage.getItem('adkira_token');
   if(savedToken){
     showStep('stepRestore');
     try{
-      const ok=await comTimeout(tentarRestaurarSessao(savedToken),TIMEOUT_MS,
-        'Ligação demorou demasiado. Verifique a internet.');
-      if(!ok){ limparTudo(); showStep('step1'); }
-    }catch(e){
-      limparTudo(); showStep('step1');
-      showInfo('step1Info','⚠️ '+e.message,'yellow');
-    }
-  } else {
-    showStep('step1');
-  }
+      const ok=await comTimeout(tentarRestaurarSessao(savedToken),TIMEOUT_MS,'Ligação demorou demasiado. Verifique a internet.');
+      if(!ok){limparTudo();showStep('step1');}
+    }catch(e){limparTudo();showStep('step1');showInfo('step1Info','⚠️ '+e.message,'yellow');}
+  }else{showStep('step1');}
 });
 
-/* ═══════════════════════════════════════════
+/* ═══════════════��═══════════════════════════
    RESTAURAR SESSÃO
 ═══════════════════════════════════════════ */
-async function tentarRestaurarSessao(token) {
+async function tentarRestaurarSessao(token){
   try{
-    const{data:cli,error:e1}=await DB
-      .from('clientes').select(CLIENTE_COLS).eq('token',token).single();
-    if(e1||!cli) return false;
-    if(cli.validade&&cli.validade<Math.floor(Date.now()/1000)) return false;
-
+    const{data:cli,error:e1}=await DB.from('clientes').select(CLIENTE_COLS).eq('token',token).single();
+    if(e1||!cli)return false;
+    if(cli.validade&&cli.validade<Math.floor(Date.now()/1000))return false;
     let cfg=lerConfigCache(token);
     if(!cfg){
-      const{data:cfgDb,error:e2}=await DB
-        .from('convite_config').select('*').eq('token_cliente',token).single();
-      if(e2||!cfgDb) return false;
-      cfg=cfgDb;
-      guardarConfigCache(token,cfg);
+      const{data:cfgDb,error:e2}=await DB.from('convite_config').select('*').eq('token_cliente',token).single();
+      if(e2||!cfgDb)return false;
+      cfg=cfgDb;guardarConfigCache(token,cfg);
     }
-
-    clienteData=cli; configData=cfg;
+    clienteData=cli;configData=cfg;
     document.getElementById('eventoNomeBox').textContent='🎉 '+cli.nome;
     actualizarContador();
     await carregarConvitesGerados();
-    iniciarRealtime(token); iniciarTimerValidade();
-    showStep('step2');
-    return true;
-  }catch(e){ return false; }
+    iniciarRealtime(token);iniciarTimerValidade();
+    showStep('step2');return true;
+  }catch(e){return false;}
 }
 
 /* ═══════════════════════════════════════════
    TOAST
 ═══════════════════════════════════════════ */
 function showToast(msg,cor){
-  const t=document.createElement('div');
-  t.className='toast'; t.style.background=cor||'#10b981'; t.textContent=msg;
-  document.body.appendChild(t);
+  const t=document.createElement('div');t.className='toast';t.style.background=cor||'#10b981';t.textContent=msg;document.body.appendChild(t);
   setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3500);
 }
 
@@ -592,115 +566,89 @@ function setLoading(msg){document.getElementById('loadingMsg').textContent=msg;}
    LIMPAR TUDO
 ═══════════════════════════════════════════ */
 function limparTudo(){
-  pararRealtime(); pararTimerValidade();
-  localStorage.removeItem('adkira_token');
-  limparCache();
-  clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
+  pararRealtime();pararTimerValidade();
+  localStorage.removeItem('adkira_token');limparCache();
+  clienteData=null;configData=null;todosConvites=[];ultimoContextoNome=null;
+  convitesSessao=0;
   document.getElementById('tokenInput').value='';
   document.getElementById('nomeInput').value='';
+  document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
+  document.getElementById('nomeHint').className='nome-hint';
+  document.getElementById('nomeInput').className='';
   document.getElementById('convitesSearch').style.display='none';
   document.getElementById('iosHint').style.display='none';
-  hideInfo('step1Info'); hideInfo('expiradoBox'); hideInfo('limiteProximoBox');
+  hideInfo('step1Info');hideInfo('expiradoBox');hideInfo('limiteProximoBox');
 }
-function voltarStep1(){ limparTudo(); showStep('step1'); }
-function voltarPainel(){
-  document.getElementById('nomeInput').value='';
-  hideInfo('step2Info'); actualizarContador(); carregarConvitesGerados(); showStep('step2');
-}
+function voltarStep1(){limparTudo();showStep('step1');}
+function voltarPainel(){document.getElementById('nomeInput').value='';hideInfo('step2Info');actualizarContador();carregarConvitesGerados();showStep('step2');}
 
 /* ═══════════════════════════════════════════
    CONFIRMAÇÃO SAIR
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoSair(){
   haptic('light');
-  abrirModal({
-    titulo:'👋 Sair do evento?',
-    corpo:'Se sair terá de inserir o código do evento novamente.',
-    nome:clienteData?.nome||'', nomeCls:'',
-    acoes:[
-      {label:'← Sim, sair',cls:'btn-danger',fn:()=>voltarStep1()},
-      {label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{}}
-    ]
+  abrirModal({titulo:'👋 Sair do evento?',corpo:'Se sair terá de inserir o código do evento novamente.',nome:clienteData?.nome||'',nomeCls:'',
+    acoes:[{label:'← Sim, sair',cls:'btn-danger',fn:()=>voltarStep1()},{label:'✕ Cancelar',cls:'btn-ghost',fn:()=>{}}]
   });
 }
 
 /* ═══════════════════════════════════════════
    RETRY MANUAL
 ═══════════════════════════════════════════ */
-function tentarRetry(){
-  if(ultimoContextoNome) gerarConvite(ultimoContextoNome);
-  else voltarPainel();
-}
-
-/* ═══════════════════════════════════════════
-   REALTIME
-═══════════════════════════════════════════ */
-function iniciarRealtime(token){
-  pararRealtime();
-  realtimeChannel=DB.channel('cli-'+token)
-    .on('postgres_changes',
-      {event:'UPDATE',schema:'public',table:'clientes',filter:`token=eq.${token}`},
-      (payload)=>{
-        if(!payload.new) return;
-        clienteData.scans_usados=payload.new.scans_usados;
-        clienteData.limite_scans=payload.new.limite_scans;
-        clienteData.nome        =payload.new.nome;
-        clienteData.validade    =payload.new.validade;
-        document.getElementById('eventoNomeBox').textContent='🎉 '+payload.new.nome;
-        actualizarContador(); iniciarTimerValidade(); haptic('light');
-        showToast('🔄 Evento actualizado!','#667eea');
-      }
-    )
-    .on('postgres_changes',
-      {event:'INSERT',schema:'public',table:'convidados',filter:`token_cliente=eq.${token}`},
-      (payload)=>{
-        if(!payload.new) return;
-        if(todosConvites.find(c=>c.id===payload.new.id)) return;
-        todosConvites.unshift({
-          id:payload.new.id, nome:payload.new.nome,
-          codigo:payload.new.codigo, created_at:payload.new.created_at
-        });
-        renderizarConvites(todosConvites);
-        clienteData.scans_usados=(clienteData.scans_usados||0)+1;
-        actualizarContador();
-      }
-    )
-    .on('postgres_changes',
-      {event:'DELETE',schema:'public',table:'convidados',filter:`token_cliente=eq.${token}`},
-      async(payload)=>{
-        if(payload.old?.id){
-          todosConvites=todosConvites.filter(c=>c.id!==payload.old.id);
-          renderizarConvites(todosConvites);
-        }
-        const{data}=await DB.from('clientes')
-          .select('scans_usados,limite_scans').eq('token',token).single();
-        if(data){clienteData.scans_usados=data.scans_usados;clienteData.limite_scans=data.limite_scans;actualizarContador();}
-        haptic('light');
-      }
-    )
-    .subscribe();
-}
-function pararRealtime(){if(realtimeChannel){DB.removeChannel(realtimeChannel);realtimeChannel=null;}}
+function tentarRetry(){if(ultimoContextoNome)gerarConvite(ultimoContextoNome);else voltarPainel();}
 
 /* ═══════════════════════════════════════════
    TIMER VALIDADE
 ═══════════════════════════════════════════ */
 function iniciarTimerValidade(){
   pararTimerValidade();
-  if(!clienteData?.validade) return;
+  if(!clienteData?.validade)return;
   const verificar=()=>{
     if(clienteData.validade<Math.floor(Date.now()/1000)){
       pararTimerValidade();
       document.getElementById('expiradoBox').style.display='block';
-      const btn=document.getElementById('btnGerar');
-      btn.disabled=true; btn.textContent='⏰ Evento expirado';
-      haptic('warning'); showToast('⏰ Este evento expirou.','#ef4444');
+      const btn=document.getElementById('btnGerar');btn.disabled=true;btn.textContent='⏰ Evento expirado';
+      haptic('warning');showToast('⏰ Este evento expirou.','#ef4444');
     }
   };
-  verificar();
-  validadeTimer=setInterval(verificar,30_000);
+  verificar();validadeTimer=setInterval(verificar,30_000);
 }
 function pararTimerValidade(){if(validadeTimer){clearInterval(validadeTimer);validadeTimer=null;}}
+
+/* ═══════════════════════════════════════════
+   VALIDAÇÃO DO NOME — em tempo real
+   Regras:
+   - Mínimo 2 palavras
+   - Cada palavra mínimo 2 letras
+   - Apenas letras, espaços, hífens e apóstrofos
+   - Sem números ou símbolos
+═══════════════════════════════════════════ */
+function validarNome(nome){
+  const n=nome.trim();
+  if(!n) return {ok:false,msg:'Introduza o nome próprio e apelido'};
+  // Apenas letras (incluindo acentuadas), espaços, hífens e apóstrofos
+  if(/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-]/.test(n))
+    return{ok:false,msg:'❌ O nome não pode conter números ou símbolos'};
+  const palavras=n.split(/\s+/).filter(p=>p.length>0);
+  if(palavras.length<2)
+    return{ok:false,msg:'⚠️ Introduza pelo menos nome e apelido'};
+  if(palavras.some(p=>p.replace(/['\-]/g,'').length<2))
+    return{ok:false,msg:'⚠️ Cada palavra deve ter pelo menos 2 letras'};
+  return{ok:true,msg:'✓ Nome válido'};
+}
+
+function validarNomeInput(){
+  const input=document.getElementById('nomeInput');
+  const hint =document.getElementById('nomeHint');
+  const valor=input.value;
+  if(!valor){
+    input.className='';hint.className='nome-hint';hint.textContent='Introduza o nome próprio e apelido';return;
+  }
+  const{ok,msg}=validarNome(valor);
+  input.className=ok?'input-ok':'input-error';
+  hint.className ='nome-hint '+(ok?'ok':'err');
+  hint.textContent=msg;
+}
 
 /* ═══════════════════════════════════════════
    VALIDAR TOKEN
@@ -711,39 +659,30 @@ async function validarToken(){
   if(!token){haptic('warning');showInfo('step1Info','Insira o código do evento.','yellow');return;}
   showInfo('step1Info','⏳ A verificar...','blue');
   try{
-    const{data:cli,error:e1}=await comTimeout(
-      DB.from('clientes').select(CLIENTE_COLS).eq('token',token).single()
-    );
+    const{data:cli,error:e1}=await comTimeout(DB.from('clientes').select(CLIENTE_COLS).eq('token',token).single());
     if(e1||!cli){haptic('error');showInfo('step1Info','❌ Código inválido ou não encontrado.','red');return;}
     if(cli.validade&&cli.validade<Math.floor(Date.now()/1000)){haptic('error');showInfo('step1Info','❌ Evento expirado.','red');return;}
-
     let cfg=lerConfigCache(token);
     if(!cfg){
-      const{data:cfgDb,error:e2}=await comTimeout(
-        DB.from('convite_config').select('*').eq('token_cliente',token).single()
-      );
+      const{data:cfgDb,error:e2}=await comTimeout(DB.from('convite_config').select('*').eq('token_cliente',token).single());
       if(e2||!cfgDb){haptic('warning');showInfo('step1Info','⚠️ Template não configurado. Contacte o organizador.','yellow');return;}
-      cfg=cfgDb; guardarConfigCache(token,cfg);
+      cfg=cfgDb;guardarConfigCache(token,cfg);
     }
-
-    clienteData=cli; configData=cfg;
+    clienteData=cli;configData=cfg;
     localStorage.setItem('adkira_token',token);
     document.getElementById('eventoNomeBox').textContent='🎉 '+cli.nome;
     actualizarContador();
     await carregarConvitesGerados();
-    iniciarRealtime(token); iniciarTimerValidade();
-    hideInfo('step1Info'); haptic('success'); showStep('step2');
-  }catch(e){
-    haptic('error');
-    showInfo('step1Info','❌ '+(navigator.onLine?e.message:'Sem ligação à internet.'),'red');
-  }
+    iniciarRealtime(token);iniciarTimerValidade();
+    hideInfo('step1Info');haptic('success');showStep('step2');
+  }catch(e){haptic('error');showInfo('step1Info','❌ '+(navigator.onLine?e.message:'Sem ligação à internet.'),'red');}
 }
 
 /* ═══════════════════════════════════════════
-   CONTADOR + BARRA DE PROGRESSO
+   CONTADOR + BARRA + BADGE SESSÃO
 ═══════════════════════════════════════════ */
 function actualizarContador(){
-  if(!clienteData) return;
+  if(!clienteData)return;
   const limite   =clienteData.limite_scans||0;
   const gerados  =clienteData.scans_usados||0;
   const restantes=Math.max(0,limite-gerados);
@@ -752,6 +691,7 @@ function actualizarContador(){
   document.getElementById('cntGerados').textContent   =gerados;
   document.getElementById('cntRestantes').textContent =limite?restantes:'∞';
 
+  // Barra de progresso
   const usoWrap=document.getElementById('usoWrap');
   if(limite>0){
     const pct=Math.min(100,Math.round((gerados/limite)*100));
@@ -759,7 +699,14 @@ function actualizarContador(){
     document.getElementById('usoTexto').textContent=`${gerados} de ${limite} usados`;
     document.getElementById('usoPct').textContent  =pct+'%';
     usoWrap.style.display='block';
-  } else { usoWrap.style.display='none'; }
+  }else{usoWrap.style.display='none';}
+
+  // Badge de sessão
+  const badge=document.getElementById('sessaoBadge');
+  if(convitesSessao>0){
+    document.getElementById('sessaoTexto').textContent=`${convitesSessao} gerado${convitesSessao===1?'':'s'} nesta sessão`;
+    badge.style.display='flex';
+  }else{badge.style.display='none';}
 
   const perto=limite&&restantes<=3&&restantes>0;
   document.getElementById('counterBox').className='counter-box'+(perto?' warning':'');
@@ -769,32 +716,21 @@ function actualizarContador(){
 
   const btnGerar=document.getElementById('btnGerar');
   const expirado=clienteData.validade&&clienteData.validade<Math.floor(Date.now()/1000);
-  if(expirado){
-    btnGerar.disabled=true; btnGerar.textContent='⏰ Evento expirado';
-    document.getElementById('expiradoBox').style.display='block';
-  } else if(limite&&gerados>=limite){
-    btnGerar.disabled=true; btnGerar.textContent='🚫 Limite atingido';
-    showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red');
-  } else {
-    btnGerar.disabled=false; btnGerar.textContent='🎉 Gerar Convite';
-    hideInfo('step2Info');
-  }
+  if(expirado){btnGerar.disabled=true;btnGerar.textContent='⏰ Evento expirado';document.getElementById('expiradoBox').style.display='block';}
+  else if(limite&&gerados>=limite){btnGerar.disabled=true;btnGerar.textContent='🚫 Limite atingido';showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red');}
+  else{btnGerar.disabled=false;btnGerar.textContent='🎉 Gerar Convite';hideInfo('step2Info');}
 }
 
 /* ═══════════════════════════════════════════
    CARREGAR CONVITES
 ═══════════════════════════════════════════ */
 async function carregarConvitesGerados(){
-  if(!clienteData) return;
+  if(!clienteData)return;
   const lista=document.getElementById('convitesLista');
   lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
   try{
-    const{data,error}=await comTimeout(
-      DB.from('convidados').select(CONVITE_COLS)
-        .eq('token_cliente',clienteData.token)
-        .order('created_at',{ascending:false})
-    );
-    if(error) throw error;
+    const{data,error}=await comTimeout(DB.from('convidados').select(CONVITE_COLS).eq('token_cliente',clienteData.token).order('created_at',{ascending:false}));
+    if(error)throw error;
     todosConvites=data||[];
     document.getElementById('convitesSearch').value='';
     if(todosConvites.length===0){
@@ -811,36 +747,27 @@ async function carregarConvitesGerados(){
   }
 }
 async function recarregarLista(){
-  const btn=document.getElementById('btnRecarregar');
-  btn.disabled=true; btn.textContent='⏳';
-  await carregarConvitesGerados();
-  btn.disabled=false; btn.textContent='🔄';
+  const btn=document.getElementById('btnRecarregar');btn.disabled=true;btn.textContent='⏳';
+  await carregarConvitesGerados();btn.disabled=false;btn.textContent='🔄';
 }
 
 /* ═══════════════════════════════════════════
    FILTRAR / RENDERIZAR
-═══════════════════════════════════════════ */
+══════════��════════════════════════════════ */
 function filtrarConvites(){
   const t=document.getElementById('convitesSearch').value.trim().toLowerCase();
   renderizarConvites(t?todosConvites.filter(c=>c.nome.toLowerCase().includes(t)):todosConvites,t||null);
 }
 function renderizarConvites(lista,termo){
-  const el=document.getElementById('convitesLista');
-  const total=todosConvites.length;
-  document.getElementById('convitesCount').textContent=
-    termo?`${lista.length} de ${total}`:`${total} convite${total===1?'':'s'}`;
+  const el=document.getElementById('convitesLista'),total=todosConvites.length;
+  document.getElementById('convitesCount').textContent=termo?`${lista.length} de ${total}`:`${total} convite${total===1?'':'s'}`;
   if(lista.length===0){el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>';return;}
   el.innerHTML='';
   lista.forEach(conv=>{
-    const item=document.createElement('div'); item.className='convite-item';
+    const item=document.createElement('div');item.className='convite-item';
     item.innerHTML=`
-      <div class="convite-item-info">
-        <div class="convite-item-nome">${escHtml(conv.nome)}</div>
-      </div>
-      <button class="btn-dl"
-        onclick="pedirConfirmacaoDownload('${escHtml(conv.nome)}','${escHtml(conv.codigo)}',this)">
-        📥
-      </button>`;
+      <div class="convite-item-info"><div class="convite-item-nome">${escHtml(conv.nome)}</div></div>
+      <button class="btn-dl" onclick="pedirConfirmacaoDownload('${escHtml(conv.nome)}','${escHtml(conv.codigo)}',this)">📥</button>`;
     el.appendChild(item);
   });
 }
@@ -855,46 +782,44 @@ function encontrarDuplicado(nome){const n=normalizarNome(nome);return todosConvi
    MODAL
 ═══════════════════════════════════════════ */
 function abrirModal({titulo,corpo,nome,nomeCls,acoes}){
-  document.getElementById('modalTitle').textContent=titulo;
-  document.getElementById('modalBody').textContent=corpo;
-  const nEl=document.getElementById('modalNome');
-  nEl.textContent=nome; nEl.className='modal-nome'+(nomeCls?' '+nomeCls:'');
-  nEl.style.display=nome?'block':'none';
-  const aEl=document.getElementById('modalActions'); aEl.innerHTML='';
-  acoes.forEach(({label,cls,fn})=>{
-    const b=document.createElement('button'); b.className=cls; b.textContent=label;
-    b.onclick=()=>{haptic('light');fecharModal();fn();};
-    aEl.appendChild(b);
-  });
+  document.getElementById('modalTitle').textContent=titulo;document.getElementById('modalBody').textContent=corpo;
+  const nEl=document.getElementById('modalNome');nEl.textContent=nome;nEl.className='modal-nome'+(nomeCls?' '+nomeCls:'');nEl.style.display=nome?'block':'none';
+  const aEl=document.getElementById('modalActions');aEl.innerHTML='';
+  acoes.forEach(({label,cls,fn})=>{const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=()=>{haptic('light');fecharModal();fn();};aEl.appendChild(b);});
   document.getElementById('modalOverlay').classList.remove('hidden');
 }
 function fecharModal(){document.getElementById('modalOverlay').classList.add('hidden');}
 document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this){haptic('light');fecharModal();}});
 
 /* ═══════════════════════════════════════════
-   CONFIRMAÇÕES
+   CONFIRMAÇÃO GERAR
+   Valida o nome antes de prosseguir
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar(){
   if(verificarOffline()){haptic('error');showInfo('step2Info','📵 Sem ligação à internet.','red');return;}
-  const nome=document.getElementById('nomeInput').value.trim();
-  if(!nome||nome.length<2){haptic('warning');showInfo('step2Info','Insira o nome completo.','yellow');return;}
+  const nomeRaw=document.getElementById('nomeInput').value.trim();
+
+  // Validação de qualidade do nome
+  const{ok,msg}=validarNome(nomeRaw);
+  if(!ok){haptic('warning');showInfo('step2Info',msg,'yellow');validarNomeInput();return;}
+
   if(!clienteData||!configData){haptic('error');showInfo('step2Info','Sessão expirada.','red');return;}
-  const limite=clienteData.limite_scans||0, gerados=clienteData.scans_usados||0;
+  const limite=clienteData.limite_scans||0,gerados=clienteData.scans_usados||0;
   if(limite&&gerados>=limite){haptic('error');showInfo('step2Info',`Limite de ${limite} atingido.`,'red');actualizarContador();return;}
   haptic('light');
-  const dup=encontrarDuplicado(nome);
+  const dup=encontrarDuplicado(nomeRaw);
   if(dup){
-    abrirModal({titulo:'⚠️ Nome já existe',corpo:'Já existe um convite com este nome.',nome,nomeCls:'duplicado',
+    abrirModal({titulo:'⚠️ Nome já existe',corpo:'Já existe um convite com este nome.',nome:nomeRaw,nomeCls:'duplicado',
       acoes:[
-        {label:'✅ Gerar mesmo assim',    cls:'btn-warning',fn:()=>gerarConvite(nome)},
+        {label:'✅ Gerar mesmo assim',    cls:'btn-warning',fn:()=>gerarConvite(nomeRaw)},
         {label:'📥 Re-download existente',cls:'btn-outline', fn:()=>baixarConviteExistente(dup.nome,dup.codigo,{textContent:'📥',disabled:false})},
         {label:'✕ Cancelar',             cls:'btn-ghost',   fn:()=>{}}
       ]
     });
-  } else {
-    abrirModal({titulo:'✅ Confirmar Convite',corpo:'Vai gerar um convite para:',nome,nomeCls:'',
+  }else{
+    abrirModal({titulo:'✅ Confirmar Convite',corpo:'Vai gerar um convite para:',nome:nomeRaw,nomeCls:'',
       acoes:[
-        {label:'🎉 Sim, gerar convite',cls:'btn-main',fn:()=>gerarConvite(nome)},
+        {label:'🎉 Sim, gerar convite',cls:'btn-main',fn:()=>gerarConvite(nomeRaw)},
         {label:'✕ Cancelar',          cls:'btn-ghost',fn:()=>{}}
       ]
     });
@@ -903,10 +828,7 @@ function pedirConfirmacaoGerar(){
 function pedirConfirmacaoDownload(nome,codigo,btn){
   haptic('light');
   abrirModal({titulo:'📥 Re-download',corpo:'Vai descarregar novamente o convite de:',nome,nomeCls:'',
-    acoes:[
-      {label:'📥 Sim, descarregar',cls:'btn-main',fn:()=>baixarConviteExistente(nome,codigo,btn)},
-      {label:'✕ Cancelar',        cls:'btn-ghost',fn:()=>{}}
-    ]
+    acoes:[{label:'📥 Sim, descarregar',cls:'btn-main',fn:()=>baixarConviteExistente(nome,codigo,btn)},{label:'✕ Cancelar',cls:'btn-ghost',fn:()=>{}}]
   });
 }
 
@@ -916,18 +838,12 @@ function pedirConfirmacaoDownload(nome,codigo,btn){
 function gerarQRDataURL(codigo,tamanho){
   return new Promise((resolve,reject)=>{
     if(typeof QRCode==='undefined'){reject(new Error('QRCode não carregado.'));return;}
-    const div=document.createElement('div');
-    div.style.cssText='position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
-    document.body.appendChild(div);
+    const div=document.createElement('div');div.style.cssText='position:fixed;left:-9999px;top:-9999px;visibility:hidden;';document.body.appendChild(div);
     try{
       new QRCode(div,{text:codigo,width:tamanho||300,height:tamanho||300,correctLevel:QRCode.CorrectLevel.M});
       setTimeout(()=>{
-        try{
-          const c=div.querySelector('canvas');
-          if(c) resolve(c.toDataURL('image/png'));
-          else{const i=div.querySelector('img');i&&i.src?resolve(i.src):reject(new Error('QR sem imagem.'));}
-        }catch(e){reject(e);}
-        finally{if(document.body.contains(div))document.body.removeChild(div);}
+        try{const c=div.querySelector('canvas');if(c)resolve(c.toDataURL('image/png'));else{const i=div.querySelector('img');i&&i.src?resolve(i.src):reject(new Error('QR sem imagem.'));}}
+        catch(e){reject(e);}finally{if(document.body.contains(div))document.body.removeChild(div);}
       },150);
     }catch(e){if(document.body.contains(div))document.body.removeChild(div);reject(e);}
   });
@@ -935,35 +851,70 @@ function gerarQRDataURL(codigo,tamanho){
 
 /* ═══════════════════════════════════════════
    GERAR CONVITE
+   — valida no servidor via incrementar_scans
+     que é a única barreira real ao limite
 ═══════════════════════════════════════════ */
 async function gerarConvite(nome){
   if(verificarOffline()){haptic('error');document.getElementById('erroMsg').textContent='📵 Sem ligação à internet.';showStep('stepErro');return;}
   ultimoContextoNome=nome;
-  hideInfo('step2Info'); showStep('step3'); iniciarProgressBar(TIMEOUT_MS*(MAX_RETRIES+1));
+  hideInfo('step2Info');showStep('step3');iniciarProgressBar(TIMEOUT_MS*(MAX_RETRIES+1));
   try{
     await comRetry(async()=>{
+      setLoading('A verificar disponibilidade...');
+      // ── Validação no servidor — ponto único de verdade ──
+      // incrementar_scans verifica o limite atomicamente na BD
+      // Se falhar aqui, nem geramos o PDF (poupa processamento)
+      const{error:eCheck}=await comTimeout(DB.rpc('incrementar_scans',{p_token:clienteData.token}));
+      if(eCheck){
+        if(eCheck.message?.includes('LIMITE_ATINGIDO')){
+          // Sincroniza estado local com o real da BD
+          const{data}=await DB.from('clientes').select('scans_usados,limite_scans').eq('token',clienteData.token).single();
+          if(data){clienteData.scans_usados=data.scans_usados;clienteData.limite_scans=data.limite_scans;}
+          throw new Error('LIMITE_ATINGIDO: Limite de convites atingido.');
+        }
+        // RPC indisponível — fallback local (melhor esforço)
+        const n=(clienteData.scans_usados||0)+1;
+        await DB.from('clientes').update({scans_usados:n}).eq('token',clienteData.token);
+        clienteData.scans_usados=n;
+      } else {
+        clienteData.scans_usados=(clienteData.scans_usados||0)+1;
+      }
+
       setLoading('A gerar o código único...');
       const codigo=await comTimeout(gerarCodigoUnico(clienteData.token));
+
       let qrDataUrl=null;
-      if(configData.qr_ativo!==false){
-        setLoading('A criar o QR Code...');
-        qrDataUrl=await gerarQRDataURL(codigo,300);
-      }
+      if(configData.qr_ativo!==false){setLoading('A criar o QR Code...');qrDataUrl=await gerarQRDataURL(codigo,300);}
+
       setLoading('A personalizar o convite...');
       const pdfBlob=await gerarPDF(nome,codigo,qrDataUrl,configData);
-      setLoading('A registar...');
-      await comTimeout(registarConvite(nome,codigo,clienteData.token));
+
+      setLoading('A registar o convidado...');
+      const{error:eIns}=await comTimeout(DB.from('convidados').insert([{token_cliente:clienteData.token,codigo,nome,status:'convite_gerado'}]));
+      if(eIns)throw new Error('Erro ao registar: '+eIns.message);
+
       pararProgressBar();
       triggerDownload(pdfBlob,`${nome}.pdf`);
     });
+
+    // Sucesso
     ultimoContextoNome=null;
+    convitesSessao++;              // incrementa o contador de sessão
     document.getElementById('nomeInput').value='';
-    actualizarContador(); haptic('success'); showStep('step2');
+    document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
+    document.getElementById('nomeHint').className='nome-hint';
+    document.getElementById('nomeInput').className='';
+    actualizarContador();haptic('success');showStep('step2');
     if(isIOS){document.getElementById('iosHint').style.display='block';showToast('✅ Convite gerado!','#667eea');}
     else showToast(`✅ Convite de ${nome} gerado!`);
   }catch(e){
-    pararProgressBar(); haptic('error'); console.error(e);
-    document.getElementById('erroMsg').textContent='❌ '+(navigator.onLine?e.message:'Sem ligação à internet.');
+    pararProgressBar();haptic('error');console.error(e);
+    const msg=e.message?.includes('LIMITE_ATINGIDO')
+      ?'🚫 Limite de convites atingido. Não é possível gerar mais.'
+      :(navigator.onLine?e.message:'📵 Sem ligação à internet.');
+    document.getElementById('erroMsg').textContent='❌ '+msg;
+    // Se for limite atingido, não faz sentido mostrar "Tentar novamente"
+    document.getElementById('btnRetry').style.display=e.message?.includes('LIMITE_ATINGIDO')?'none':'block';
     showStep('stepErro');
   }
 }
@@ -973,12 +924,11 @@ async function gerarConvite(nome){
 ═══════════════════════════════════════════ */
 async function baixarConviteExistente(nome,codigo,btn){
   if(verificarOffline()){haptic('error');showToast('📵 Sem ligação','#ef4444');return;}
-  const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
+  const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳';
   try{
-    let qr=null;
-    if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
+    let qr=null;if(configData?.qr_ativo!==false)qr=await gerarQRDataURL(codigo,300);
     const blob=await gerarPDF(nome,codigo,qr,configData);
-    triggerDownload(blob,`${nome}.pdf`); haptic('success');
+    triggerDownload(blob,`${nome}.pdf`);haptic('success');
     if(isIOS){document.getElementById('iosHint').style.display='block';showToast('📥 Aberto! Guarde na janela.','#667eea');}
     else showToast('📥 Download iniciado!');
   }catch(e){haptic('error');alert('Erro: '+e.message);}
@@ -991,9 +941,9 @@ async function baixarConviteExistente(nome,codigo,btn){
 async function gerarCodigoUnico(tokenCliente){
   const chars='abcdefghjkmnpqrstuvwxyz23456789';
   for(let t=0;t<10;t++){
-    let c=''; for(let i=0;i<8;i++) c+=chars[Math.floor(Math.random()*chars.length)];
+    let c='';for(let i=0;i<8;i++)c+=chars[Math.floor(Math.random()*chars.length)];
     const{data}=await DB.from('convidados').select('id').eq('codigo',c).maybeSingle();
-    if(!data) return c;
+    if(!data)return c;
   }
   throw new Error('Não foi possível gerar código único.');
 }
@@ -1007,16 +957,12 @@ async function gerarPDF(nome,codigo,qrDataUrl,config){
   const pdfDoc=await PDFDocument.load(pdfBytes);
   let customFont=null;
   if(config.fonte_custom_b64&&typeof fontkit!=='undefined'){
-    try{
-      pdfDoc.registerFontkit(fontkit);
-      const fb=Uint8Array.from(atob(config.fonte_custom_b64),c=>c.charCodeAt(0));
-      customFont=await pdfDoc.embedFont(fb);
-    }catch(e){console.warn('Fonte falhou:',e);}
+    try{pdfDoc.registerFontkit(fontkit);const fb=Uint8Array.from(atob(config.fonte_custom_b64),c=>c.charCodeAt(0));customFont=await pdfDoc.embedFont(fb);}
+    catch(e){console.warn('Fonte falhou:',e);}
   }
   const elementos=config.elementos||{};
   for(let pi=0;pi<pdfDoc.getPageCount();pi++){
-    const page=pdfDoc.getPage(pi);
-    const{width:pW,height:pH}=page.getSize();
+    const page=pdfDoc.getPage(pi);const{width:pW,height:pH}=page.getSize();
     const CANVAS_W=794,scaleX=pW/CANVAS_W,scaleY=pH/(CANVAS_W*(pH/pW));
     const els=elementos[pi+1]||elementos[String(pi+1)]||[];
     for(const el of els){
@@ -1026,30 +972,16 @@ async function gerarPDF(nome,codigo,qrDataUrl,config){
         const fontSize=(parseFloat(el.fontSize)||config.tamanho_nome||16)*scaleX;
         const cor=hexToRgb(normalizarCor(el.elementType==='table'?(el.color||config.cor_mesa||'#1a1a2e'):(el.color||config.cor_nome||'#1a1a2e')));
         let font;
-        if(customFont) font=customFont;
-        else{
-          const b=el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito;
-          const i=el.fontStyle==='italic'||config.italico;
-          if(b&&i) font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
-          else if(b) font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-          else if(i) font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
-          else font=await pdfDoc.embedFont(StandardFonts.Helvetica);
-        }
+        if(customFont)font=customFont;
+        else{const b=el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito,i=el.fontStyle==='italic'||config.italico;if(b&&i)font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);else if(b)font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);else if(i)font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);else font=await pdfDoc.embedFont(StandardFonts.Helvetica);}
         const lines=text.split('\n'),lineH=fontSize*1.2,topPx=parseFloat(el.top)||0;
         lines.forEach((line,li)=>{
-          const xPos=el.transform?.includes('translateX(-50%)')
-            ?(pW/2)-(font.widthOfTextAtSize(line,fontSize)/2)
-            :(parseFloat(el.left)||0)*scaleX;
+          const xPos=el.transform?.includes('translateX(-50%)')?(pW/2)-(font.widthOfTextAtSize(line,fontSize)/2):(parseFloat(el.left)||0)*scaleX;
           page.drawText(line,{x:xPos,y:pH-(topPx*scaleY)-fontSize*0.85-(li*lineH),size:fontSize,font,color:rgb(cor.r,cor.g,cor.b)});
         });
-      } else if(el.type==='qr'&&qrDataUrl){
-        try{
-          const qrImg=await pdfDoc.embedPng(qrDataUrl);
-          const qrW=(parseFloat(el.width)||config.tamanho_qr||100)*scaleX;
-          const qrH=(parseFloat(el.height)||config.tamanho_qr||100)*scaleY;
-          const xPos=el.transform?.includes('translateX(-50%)')?(pW/2)-(qrW/2):(parseFloat(el.left)||0)*scaleX;
-          page.drawImage(qrImg,{x:xPos,y:pH-(parseFloat(el.top)||0)*scaleY-qrH,width:qrW,height:qrH});
-        }catch(e){console.warn('QR falhou:',e);}
+      }else if(el.type==='qr'&&qrDataUrl){
+        try{const qrImg=await pdfDoc.embedPng(qrDataUrl);const qrW=(parseFloat(el.width)||config.tamanho_qr||100)*scaleX,qrH=(parseFloat(el.height)||config.tamanho_qr||100)*scaleY;const xPos=el.transform?.includes('translateX(-50%)')?(pW/2)-(qrW/2):(parseFloat(el.left)||0)*scaleX;page.drawImage(qrImg,{x:xPos,y:pH-(parseFloat(el.top)||0)*scaleY-qrH,width:qrW,height:qrH});}
+        catch(e){console.warn('QR falhou:',e);}
       }
     }
   }
@@ -1057,44 +989,11 @@ async function gerarPDF(nome,codigo,qrDataUrl,config){
 }
 
 /* ═══════════════════════════════════════════
-   REGISTAR
-═══════════════════════════════════════════ */
-async function registarConvite(nome,codigo,tokenCliente){
-  const{error:eRpc}=await DB.rpc('incrementar_scans',{p_token:tokenCliente});
-  if(eRpc){
-    if(eRpc.message?.includes('LIMITE_ATINGIDO')){
-      const{data}=await DB.from('clientes').select('scans_usados,limite_scans').eq('token',tokenCliente).single();
-      if(data){clienteData.scans_usados=data.scans_usados;clienteData.limite_scans=data.limite_scans;}
-      throw new Error('Limite atingido.');
-    }
-    const n=(clienteData.scans_usados||0)+1;
-    await DB.from('clientes').update({scans_usados:n}).eq('token',tokenCliente);
-    clienteData.scans_usados=n;
-  } else { clienteData.scans_usados=(clienteData.scans_usados||0)+1; }
-  const{error:eIns}=await DB.from('convidados').insert([{token_cliente:tokenCliente,codigo,nome,status:'convite_gerado'}]);
-  if(eIns) throw new Error('Erro ao registar: '+eIns.message);
-}
-
-/* ═══════════════════════════════════════════
    UTILS
 ═══════════════════════════════════════════ */
-function normalizarCor(cor){
-  if(!cor)return'#1a1a2e';cor=cor.trim();
-  if(cor.startsWith('#'))return cor;
-  if(cor.startsWith('rgb')){const m=cor.match(/\d+/g);if(!m||m.length<3)return'#1a1a2e';return'#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');}
-  return'#1a1a2e';
-}
-function hexToRgb(hex){
-  hex=(hex||'#000000').replace('#','');
-  if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
-  const n=parseInt(hex,16);if(isNaN(n))return{r:0,g:0,b:0};
-  return{r:((n>>16)&255)/255,g:((n>>8)&255)/255,b:(n&255)/255};
-}
-function triggerDownload(blob,filename){
-  const url=URL.createObjectURL(blob);
-  if(isIOS){window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),10_000);}
-  else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
-}
+function normalizarCor(cor){if(!cor)return'#1a1a2e';cor=cor.trim();if(cor.startsWith('#'))return cor;if(cor.startsWith('rgb')){const m=cor.match(/\d+/g);if(!m||m.length<3)return'#1a1a2e';return'#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');}return'#1a1a2e';}
+function hexToRgb(hex){hex=(hex||'#000000').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const n=parseInt(hex,16);if(isNaN(n))return{r:0,g:0,b:0};return{r:((n>>16)&255)/255,g:((n>>8)&255)/255,b:(n&255)/255};}
+function triggerDownload(blob,filename){const url=URL.createObjectURL(blob);if(isIOS){window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),10_000);}else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 </script>
 </body>
