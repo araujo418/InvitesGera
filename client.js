@@ -6,6 +6,14 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ══════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════
+const MAX_CODE_GENERATION_ATTEMPTS = 20;
+const QR_GENERATION_TIMEOUT_MS = 300;
+const TOAST_DISPLAY_DURATION_MS = 3500;
+const DOWNLOAD_CLEANUP_DELAY_MS = 1000;
+
+// ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
 let currentToken = null;
@@ -290,7 +298,7 @@ async function generateUniqueCode() {
     const { data } = await sb.from('convidados').select('codigo').eq('codigo', code).maybeSingle();
     exists = !!data;
     attempts++;
-    if (attempts > 20) throw new Error('Não foi possível gerar um código único. Tente novamente.');
+    if (attempts > MAX_CODE_GENERATION_ATTEMPTS) throw new Error('Não foi possível gerar um código único. Tente novamente.');
   } while (exists);
   return code;
 }
@@ -327,7 +335,7 @@ async function generateQRDataURL(text) {
         } finally {
           document.body.removeChild(container);
         }
-      }, 300);
+      }, QR_GENERATION_TIMEOUT_MS);
     } catch (e) {
       document.body.removeChild(container);
       reject(e);
@@ -515,7 +523,7 @@ function triggerDownload(bytes, filename) {
   a.download = filename;
   document.body.appendChild(a);
   a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, DOWNLOAD_CLEANUP_DELAY_MS);
 }
 
 function setProgress(show, msg, pct) {
@@ -532,7 +540,7 @@ function showToast(msg, isError = false) {
   t.className = 'toast' + (isError ? ' err' : '');
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
+  setTimeout(() => t.remove(), TOAST_DISPLAY_DURATION_MS);
 }
 
 function esc(s) {
