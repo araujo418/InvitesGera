@@ -89,35 +89,18 @@
     .erro-detalhe.visivel { display: block; }
     .erro-detalhe-toggle { font-size: 11px; color: #9ca3af; text-decoration: underline; cursor: pointer; background: none; border: none; width: auto; min-height: unset; padding: 0; font-weight: 400; }
 
-    /* Banner offline */
-    .offline-banner {
+    /* Banners */
+    .offline-banner, .offline-mode-banner, .realtime-banner {
       position: fixed; top: 0; left: 0; right: 0;
-      background: #ef4444; color: white;
-      padding: 12px 20px; padding-top: max(12px, env(safe-area-inset-top));
-      font-size: 14px; font-weight: 600; text-align: center;
-      z-index: 9998; transform: translateY(-100%); transition: transform .3s ease;
-    }
-    .offline-banner.visible { transform: translateY(0); }
-
-    /* Banner offline-modo (sem QR, com créditos offline disponíveis) */
-    .offline-mode-banner {
-      position: fixed; top: 0; left: 0; right: 0;
-      background: #7c3aed; color: white;
       padding: 12px 20px; padding-top: max(12px, env(safe-area-inset-top));
       font-size: 13px; font-weight: 600; text-align: center;
-      z-index: 9997; transform: translateY(-100%); transition: transform .3s ease;
+      transform: translateY(-100%); transition: transform .3s ease;
+      color: white;
     }
-    .offline-mode-banner.visible { transform: translateY(0); }
-
-    /* Banner Realtime desligado */
-    .realtime-banner {
-      position: fixed; top: 0; left: 0; right: 0;
-      background: #f59e0b; color: white;
-      padding: 12px 20px; padding-top: max(12px, env(safe-area-inset-top));
-      font-size: 13px; font-weight: 600; text-align: center;
-      z-index: 9996; transform: translateY(-100%); transition: transform .3s ease;
-    }
-    .realtime-banner.visible { transform: translateY(0); }
+    .offline-banner      { background: #ef4444; z-index: 9998; font-size: 14px; }
+    .offline-mode-banner { background: #7c3aed; z-index: 9997; }
+    .realtime-banner     { background: #f59e0b; z-index: 9996; }
+    .offline-banner.visible, .offline-mode-banner.visible, .realtime-banner.visible { transform: translateY(0); }
 
     /* Contador */
     .counter-box {
@@ -130,34 +113,42 @@
     .counter-item { color: white; }
     .counter-item .val { font-size: 28px; font-weight: 800; line-height: 1; }
     .counter-item .lbl { font-size: 11px; opacity: .85; margin-top: 4px; }
-
     .uso-wrap { padding: 0 4px; }
     .uso-label { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,.85); margin-bottom: 6px; font-weight: 600; }
     .uso-track { width: 100%; height: 8px; background: rgba(255,255,255,.25); border-radius: 99px; overflow: hidden; }
     .uso-bar   { height: 100%; border-radius: 99px; background: white; transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 4px; }
     .counter-box.warning .uso-bar { background: #fef08a; }
-
-    .sessao-badge { display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,.18); border-radius: 10px; padding: 7px 12px; font-size: 12px; color: white; font-weight: 600; }
-    .sessao-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #86efac; box-shadow: 0 0 6px #86efac; flex-shrink: 0; }
-
-    /* Badge offline créditos */
-    .offline-creditos-badge {
+    .sessao-badge, .offline-creditos-badge {
       display: flex; align-items: center; justify-content: center; gap: 6px;
       background: rgba(255,255,255,.18); border-radius: 10px;
       padding: 7px 12px; font-size: 12px; color: white; font-weight: 600;
     }
+    .sessao-badge .dot     { width: 8px; height: 8px; border-radius: 50%; background: #86efac; box-shadow: 0 0 6px #86efac; flex-shrink: 0; }
     .offline-creditos-badge .dot-off { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; flex-shrink: 0; }
 
-    /* Fila de sincronização pendente */
+    /* Rate limit feedback */
+    .rate-bar-wrap {
+      width: 100%; height: 3px; background: rgba(102,126,234,.15);
+      border-radius: 99px; overflow: hidden;
+      transition: opacity .3s;
+    }
+    .rate-bar {
+      height: 100%; background: linear-gradient(90deg,#667eea,#764ba2);
+      border-radius: 99px; width: 0%;
+      transition: width linear;
+    }
+
+    /* Sync pendente */
     .sync-pendente {
       display: flex; align-items: center; gap: 10px;
       background: #faf5ff; border: 1.5px solid #c4b5fd;
       border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #6d28d9;
     }
-    .sync-pendente .sync-icon { font-size: 20px; flex-shrink: 0; }
+    .sync-pendente .sync-icon  { font-size: 20px; flex-shrink: 0; }
     .sync-pendente .sync-texto { flex: 1; line-height: 1.4; }
-    .sync-pendente .sync-btn { width: auto; min-height: 36px; padding: 6px 14px; font-size: 12px; background: #7c3aed; color: white; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; flex-shrink: 0; }
+    .sync-pendente .sync-btn   { width: auto; min-height: 36px; padding: 6px 14px; font-size: 12px; background: #7c3aed; color: white; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; flex-shrink: 0; }
     .sync-pendente .sync-btn:active { opacity: .8; transform: scale(0.97); }
+    .sync-pendente .sync-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     .divider { height: 1px; background: #e5e7eb; margin: 2px 0; }
 
@@ -165,7 +156,6 @@
     .spinner { width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-box p { font-size: 14px; color: #6b7280; text-align: center; }
-
     .timeout-bar-wrap { width: 100%; background: #e5e7eb; border-radius: 99px; height: 4px; overflow: hidden; display: none; }
     .timeout-bar { height: 100%; background: #667eea; border-radius: 99px; width: 100%; transition: width linear; }
 
@@ -185,11 +175,11 @@
     .convite-item-info { flex: 1; min-width: 0; }
     .convite-item-nome { font-size: 14px; font-weight: 600; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .convite-item-tag  { font-size: 11px; margin-top: 2px; }
-    .convite-item-tag.verde   { color: #10b981; font-weight: 600; }
-    .convite-item-tag.roxo    { color: #7c3aed; font-weight: 600; }
+    .convite-item-tag.verde { color: #10b981; font-weight: 600; }
+    .convite-item-tag.roxo  { color: #7c3aed; font-weight: 600; }
     .btn-dl { flex-shrink: 0; width: auto; padding: 10px 16px; background: #667eea; color: white; border-radius: 10px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; min-height: 44px; touch-action: manipulation; }
-    .btn-dl:active { background: #5568d3; transform: scale(0.96); }
-    .btn-dl.ja-dl  { background: #d1fae5; color: #065f46; }
+    .btn-dl:active   { background: #5568d3; transform: scale(0.96); }
+    .btn-dl.ja-dl    { background: #d1fae5; color: #065f46; }
     .btn-dl.ja-dl:active { background: #a7f3d0; }
     .btn-dl.pendente { background: #ede9fe; color: #6d28d9; }
 
@@ -262,7 +252,6 @@
     <div class="info red"   id="expiradoBox"   style="display:none;">⏰ Este evento expirou. Já não é possível gerar convites.</div>
     <div class="info orange" id="limiteProximoBox" style="display:none;"></div>
 
-    <!-- Aviso de sincronização pendente -->
     <div class="sync-pendente" id="syncPendente" style="display:none;">
       <div class="sync-icon">🔄</div>
       <div class="sync-texto">
@@ -283,12 +272,10 @@
         <div class="uso-track"><div class="uso-bar" id="usoBar" style="width:0%"></div></div>
       </div>
       <div class="sessao-badge" id="sessaoBadge" style="display:none;">
-        <div class="dot"></div>
-        <span id="sessaoTexto">0 gerados nesta sessão</span>
+        <div class="dot"></div><span id="sessaoTexto">0 gerados nesta sessão</span>
       </div>
       <div class="offline-creditos-badge" id="offlineCreditosBadge" style="display:none;">
-        <div class="dot-off"></div>
-        <span id="offlineCreditosTexto">5 convites offline disponíveis</span>
+        <div class="dot-off"></div><span id="offlineCreditosTexto">5 convites offline disponíveis</span>
       </div>
     </div>
 
@@ -302,6 +289,12 @@
              onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
       <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
     </div>
+
+    <!-- Barra de rate limit — só visível durante o cooldown -->
+    <div class="rate-bar-wrap" id="rateBarWrap" style="opacity:0;">
+      <div class="rate-bar" id="rateBar"></div>
+    </div>
+
     <div class="info yellow" id="step2Info" style="display:none;"></div>
     <div class="ios-hint" id="iosHint">
       📱 No seu dispositivo, o convite abre numa nova janela.<br>
@@ -360,15 +353,16 @@ const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ═══════════════════════════════════════════
    CONSTANTES
 ═══════════════════════════════════════════ */
-const TIMEOUT_MS       = 12000;
-const MAX_RETRIES      = 2;
-const RETRY_DELAY      = 2000;
-const CLIENTE_COLS     = 'token,nome,limite_scans,scans_usados,validade';
-const CONVITE_COLS     = 'id,nome,codigo,created_at';
-const SS_CONFIG_KEY    = 'adkira_config';
-const SS_SESSAO_KEY    = 'adkira_sessao';
-const SS_OFFLINE_KEY   = 'adkira_offline_fila'; // fila de convites por sincronizar
-const MAX_OFFLINE      = 5;  // máximo de convites offline permitidos
+const TIMEOUT_MS     = 12000;
+const MAX_RETRIES    = 2;
+const RETRY_DELAY    = 2000;
+const RATE_LIMIT_MS  = 3000;   // cooldown entre gerações
+const CLIENTE_COLS   = 'token,nome,limite_scans,scans_usados,validade';
+const CONVITE_COLS   = 'id,nome,codigo,created_at';
+const SS_CONFIG_KEY  = 'adkira_config';
+const SS_SESSAO_KEY  = 'adkira_sessao';
+const SS_OFFLINE_KEY = 'adkira_offline_fila';
+const MAX_OFFLINE    = 5;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 /* ═══════════════════════════════════════════
@@ -377,351 +371,392 @@ const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 let clienteData        = null;
 let configData         = null;
 let realtimeChannel    = null;
-let todosConvites      = [];   // apenas convites sincronizados (vêm da BD)
+let todosConvites      = [];
 let validadeTimer      = null;
 let ultimoContextoNome = null;
 let realtimeOk         = false;
 let realtimeReconTimer = null;
 let convitesSessao     = 0;
 let downloadsSessao    = new Set();
+let filaOffline        = [];
+
+/* ── Rate limiting ── */
+let ultimaGeracao      = 0;     // timestamp da última geração concluída
+let rateLockTimer      = null;  // timer que liberta o botão
+let rateBarTimer       = null;  // timer da animação da barra
 
 /* ═══════════════════════════════════════════
-   FILA OFFLINE
+   RATE LIMITING
+   Bloqueia o botão por RATE_LIMIT_MS após cada geração.
+   Mostra uma barra de progresso que esvazia durante o cooldown.
+═══════════════════════════════════════════ */
+function iniciarRateLimit() {
+  ultimaGeracao = Date.now();
+  const btn = document.getElementById('btnGerar');
+  btn.disabled = true;
+
+  /* Barra visual */
+  const wrap = document.getElementById('rateBarWrap');
+  const bar  = document.getElementById('rateBar');
+  wrap.style.opacity = '1';
+  bar.style.transition = 'none';
+  bar.style.width = '100%';
+  bar.offsetWidth; // força reflow
+  bar.style.transition = `width ${RATE_LIMIT_MS}ms linear`;
+  bar.style.width = '0%';
+
+  /* Liberta o botão após cooldown */
+  clearTimeout(rateLockTimer);
+  clearTimeout(rateBarTimer);
+  rateLockTimer = setTimeout(() => {
+    btn.disabled = false;
+    rateBarTimer = setTimeout(() => { wrap.style.opacity = '0'; }, 300);
+  }, RATE_LIMIT_MS);
+}
+
+function cancelarRateLimit() {
+  clearTimeout(rateLockTimer);
+  clearTimeout(rateBarTimer);
+  const btn  = document.getElementById('btnGerar');
+  const wrap = document.getElementById('rateBarWrap');
+  // Só liberta se o botão não estiver desactivado por outra razão (limite, expirado)
+  const expirado = clienteData?.validade && clienteData.validade < Math.floor(Date.now()/1000);
+  const limite   = clienteData?.limite_scans || 0;
+  const gerados  = clienteData?.scans_usados || 0;
+  if (!expirado && !(limite && gerados >= limite)) btn.disabled = false;
+  wrap.style.opacity = '0';
+}
+
+function estaEmCooldown() {
+  return Date.now() - ultimaGeracao < RATE_LIMIT_MS;
+}
+
+/* ═══════════════════════════════════════════
+   FILA OFFLINE — com PDFs em Base64
    Estrutura de cada item:
-   { id_local, nome, codigo, created_at, pdfBlob (temporário, não persiste) }
-   O pdfBlob só existe em memória — ao reload perde-se mas o nome e código ficam
+   { id_local, nome, codigo, created_at, pdf_b64 }
+   pdf_b64 é o PDF completo em Base64 — sobrevive a refreshes
 ═══════════════════════════════════════════ */
-let filaOffline = []; // array em memória
-// Blobs gerados offline — keyed por id_local (sobrevivem apenas à sessão em memória)
-const blobsOffline = {};
+function blobParaBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(',')[1]); // remove "data:...;base64,"
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+function base64ParaBlob(b64) {
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  return new Blob([bytes], { type: 'application/pdf' });
+}
 
-function carregarFilaOffline(token){
-  try{
-    const r=sessionStorage.getItem(SS_OFFLINE_KEY);
-    if(!r){filaOffline=[];return;}
-    const o=JSON.parse(r);
-    filaOffline=(o.token===token)?( o.fila||[]) : [];
-  }catch(e){filaOffline=[];}
+function carregarFilaOffline(token) {
+  try {
+    const r = sessionStorage.getItem(SS_OFFLINE_KEY);
+    if (!r) { filaOffline = []; return; }
+    const o = JSON.parse(r);
+    filaOffline = (o.token === token) ? (o.fila || []) : [];
+  } catch(e) { filaOffline = []; }
 }
-function guardarFilaOffline(token){
-  try{
-    // Guarda apenas os metadados — os blobs não são serializáveis
-    const fila=filaOffline.map(({id_local,nome,codigo,created_at})=>({id_local,nome,codigo,created_at}));
-    sessionStorage.setItem(SS_OFFLINE_KEY,JSON.stringify({token,fila}));
-  }catch(e){}
+function guardarFilaOffline(token) {
+  try {
+    sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: filaOffline }));
+  } catch(e) {
+    // sessionStorage cheio — tenta guardar sem os PDFs como fallback
+    try {
+      const semPdf = filaOffline.map(({ id_local, nome, codigo, created_at }) =>
+        ({ id_local, nome, codigo, created_at }));
+      sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: semPdf }));
+      console.warn('sessionStorage cheio: PDFs offline não persistidos.');
+    } catch(e2) { console.warn('sessionStorage completamente cheio:', e2); }
+  }
 }
-function limparFilaOffline(){
-  filaOffline=[];
-  try{sessionStorage.removeItem(SS_OFFLINE_KEY);}catch(e){}
+function limparFilaOffline() {
+  filaOffline = [];
+  try { sessionStorage.removeItem(SS_OFFLINE_KEY); } catch(e) {}
+}
+
+/* ── Obtém o blob de um item offline (de Base64 ou de memória) ── */
+function obterBlobOffline(item) {
+  if (item.pdf_b64) return base64ParaBlob(item.pdf_b64);
+  return null;
 }
 
 /* ═══════════════════════════════════════════
-   SESSÃO STATE — persiste entre refreshes
+   SESSION STORAGE — estado de sessão
 ═══════════════════════════════════════════ */
-function guardarEstadoSessaoComToken(token){
-  try{sessionStorage.setItem(SS_SESSAO_KEY,JSON.stringify({token,convites:convitesSessao,downloads:[...downloadsSessao]}));}catch(e){}
+function guardarEstadoSessaoComToken(token) {
+  try { sessionStorage.setItem(SS_SESSAO_KEY, JSON.stringify({ token, convites: convitesSessao, downloads: [...downloadsSessao] })); } catch(e) {}
 }
-function lerEstadoSessao(token){
-  try{
-    const r=sessionStorage.getItem(SS_SESSAO_KEY);if(!r)return;
-    const o=JSON.parse(r);if(o.token&&o.token!==token)return;
-    convitesSessao=o.convites||0;downloadsSessao=new Set(o.downloads||[]);
-  }catch(e){}
+function lerEstadoSessao(token) {
+  try {
+    const r = sessionStorage.getItem(SS_SESSAO_KEY); if (!r) return;
+    const o = JSON.parse(r); if (o.token && o.token !== token) return;
+    convitesSessao  = o.convites  || 0;
+    downloadsSessao = new Set(o.downloads || []);
+  } catch(e) {}
 }
 
 /* ═══════════════════════════════════════════
    SESSION STORAGE — config pesada
 ═══════════════════════════════════════════ */
-function guardarConfigCache(token,cfg){try{sessionStorage.setItem(SS_CONFIG_KEY,JSON.stringify({token,cfg}));}catch(e){}}
-function lerConfigCache(token){try{const r=sessionStorage.getItem(SS_CONFIG_KEY);if(!r)return null;const o=JSON.parse(r);return o.token===token?o.cfg:null;}catch(e){return null;}}
-function limparCache(){
-  try{sessionStorage.removeItem(SS_CONFIG_KEY);}catch(e){}
-  try{sessionStorage.removeItem(SS_SESSAO_KEY);}catch(e){}
-  try{sessionStorage.removeItem(SS_OFFLINE_KEY);}catch(e){}
+function guardarConfigCache(token, cfg) { try { sessionStorage.setItem(SS_CONFIG_KEY, JSON.stringify({ token, cfg })); } catch(e) {} }
+function lerConfigCache(token) { try { const r = sessionStorage.getItem(SS_CONFIG_KEY); if (!r) return null; const o = JSON.parse(r); return o.token === token ? o.cfg : null; } catch(e) { return null; } }
+function limparCache() {
+  [SS_CONFIG_KEY, SS_SESSAO_KEY, SS_OFFLINE_KEY].forEach(k => { try { sessionStorage.removeItem(k); } catch(e) {} });
 }
 
 /* ═══════════════════════════════════════════
-   HELPERS — modo offline permitido?
-   Só é permitido se qr_ativo === false E
-   ainda há créditos offline disponíveis
+   MODO OFFLINE
 ═══════════════════════════════════════════ */
-function modoOfflinePermitido(){
-  return configData && configData.qr_ativo === false;
-}
-function creditosOfflineRestantes(){
-  return Math.max(0, MAX_OFFLINE - filaOffline.length);
-}
+function modoOfflinePermitido() { return configData && configData.qr_ativo === false; }
+function creditosOfflineRestantes() { return Math.max(0, MAX_OFFLINE - filaOffline.length); }
 
 /* ═══════════════════════════════════════════
-   TIMEOUT / RETRY HELPERS
+   TIMEOUT / RETRY
 ═══════════════════════════════════════════ */
-function comTimeout(promise,ms,msg){
-  return new Promise((resolve,reject)=>{
-    const t=setTimeout(()=>reject(new Error(msg||`Ligação demorou demasiado (>${(ms||TIMEOUT_MS)/1000}s). Verifique a internet.`)),ms||TIMEOUT_MS);
-    promise.then(v=>{clearTimeout(t);resolve(v);}).catch(e=>{clearTimeout(t);reject(e);});
+function comTimeout(promise, ms, msg) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(msg || `Ligação demorou demasiado (>${(ms||TIMEOUT_MS)/1000}s). Verifique a internet.`)), ms || TIMEOUT_MS);
+    promise.then(v => { clearTimeout(t); resolve(v); }).catch(e => { clearTimeout(t); reject(e); });
   });
 }
-async function comRetry(fn,retries){
-  const maxR=retries??MAX_RETRIES;let ultimoErro;
-  for(let i=0;i<=maxR;i++){
-    try{return await fn();}
-    catch(e){
-      ultimoErro=e;
-      const erroLogica=e.message&&(e.message.toLowerCase().includes('limite_atingido')||e.message.toLowerCase().includes('inválido')||e.message.toLowerCase().includes('expirou')||e.message.toLowerCase().includes('não encontrado'));
-      if(erroLogica||i===maxR)break;
+async function comRetry(fn, retries) {
+  const maxR = retries ?? MAX_RETRIES; let ultimoErro;
+  for (let i = 0; i <= maxR; i++) {
+    try { return await fn(); }
+    catch(e) {
+      ultimoErro = e;
+      const logica = e.message && (e.message.toLowerCase().includes('limite_atingido') || e.message.toLowerCase().includes('inválido') || e.message.toLowerCase().includes('expirou') || e.message.toLowerCase().includes('não encontrado'));
+      if (logica || i === maxR) break;
       setLoading(`⚠️ Falha de rede, a tentar novamente (${i+1}/${maxR})...`);
-      await new Promise(r=>setTimeout(r,RETRY_DELAY));
+      await new Promise(r => setTimeout(r, RETRY_DELAY));
     }
   }
   throw ultimoErro;
 }
 
 /* ═══════════════════════════════════════════
-   PROGRESS BAR
+   PROGRESS BAR (loading)
 ═══════════════════════════════════════════ */
-function iniciarProgressBar(ms){
-  const wrap=document.getElementById('timeoutBarWrap'),bar=document.getElementById('timeoutBar');
-  if(!wrap||!bar)return;
-  wrap.style.display='block';bar.style.transition='none';bar.style.width='100%';
-  bar.offsetWidth;bar.style.transition=`width ${ms}ms linear`;bar.style.width='0%';
+function iniciarProgressBar(ms) {
+  const wrap = document.getElementById('timeoutBarWrap'), bar = document.getElementById('timeoutBar');
+  if (!wrap || !bar) return;
+  wrap.style.display = 'block'; bar.style.transition = 'none'; bar.style.width = '100%';
+  bar.offsetWidth; bar.style.transition = `width ${ms}ms linear`; bar.style.width = '0%';
 }
-function pararProgressBar(){const w=document.getElementById('timeoutBarWrap');if(w)w.style.display='none';}
+function pararProgressBar() { const w = document.getElementById('timeoutBarWrap'); if (w) w.style.display = 'none'; }
 
 /* ═══════════════════════════════════════════
    CATEGORIZAÇÃO DE ERROS
 ═══════════════════════════════════════════ */
-const ERROS={
-  OFFLINE:      {icon:'📵',titulo:'Sem ligação à internet',      corpo:'Verifique o WiFi ou os dados móveis e tente novamente.',            retry:true },
-  OFFLINE_CHEIO:{icon:'📴',titulo:'Limite offline atingido',     corpo:`Gerou os ${MAX_OFFLINE} convites offline permitidos. Ligue à internet para sincronizar e continuar.`, retry:false},
-  TIMEOUT:      {icon:'⏱️',titulo:'A ligação está muito lenta',  corpo:'O servidor demorou demasiado a responder. Tente novamente.',        retry:true },
-  LIMITE:       {icon:'🚫',titulo:'Limite de convites atingido', corpo:'Não é possível gerar mais convites para este evento.',              retry:false},
-  EXPIRADO:     {icon:'⏰',titulo:'Evento expirado',             corpo:'Este evento já terminou. Não é possível gerar mais convites.',       retry:false},
-  CODIGO_UNICO: {icon:'🔄',titulo:'Erro ao gerar código',        corpo:'Não foi possível gerar um código único. Tente novamente.',          retry:true },
-  REGISTO:      {icon:'💾',titulo:'Erro ao guardar',             corpo:'O convite foi criado mas não foi guardado. Contacte o organizador.',retry:true },
-  SERVIDOR:     {icon:'🔧',titulo:'Erro no servidor',            corpo:'O servidor encontrou um problema. Aguarde uns momentos e tente.',   retry:true },
-  GENERICO:     {icon:'⚠️',titulo:'Algo correu mal',             corpo:'Ocorreu um erro inesperado. Tente novamente.',                     retry:true },
+const ERROS = {
+  OFFLINE:      { icon:'📵', titulo:'Sem ligação à internet',      corpo:'Verifique o WiFi ou os dados móveis e tente novamente.',             retry:true  },
+  OFFLINE_CHEIO:{ icon:'📴', titulo:'Limite offline atingido',     corpo:`Gerou os ${MAX_OFFLINE} convites offline permitidos. Ligue à internet para sincronizar e continuar.`, retry:false },
+  TIMEOUT:      { icon:'⏱️', titulo:'A ligação está muito lenta',  corpo:'O servidor demorou demasiado a responder. Tente novamente.',         retry:true  },
+  LIMITE:       { icon:'🚫', titulo:'Limite de convites atingido', corpo:'Não é possível gerar mais convites para este evento.',               retry:false },
+  EXPIRADO:     { icon:'⏰', titulo:'Evento expirado',             corpo:'Este evento já terminou. Não é possível gerar mais convites.',        retry:false },
+  CODIGO_UNICO: { icon:'🔄', titulo:'Erro ao gerar código',        corpo:'Não foi possível gerar um código único. Tente novamente.',           retry:true  },
+  REGISTO:      { icon:'💾', titulo:'Erro ao guardar',             corpo:'O convite foi criado mas não foi guardado. Contacte o organizador.', retry:true  },
+  SERVIDOR:     { icon:'🔧', titulo:'Erro no servidor',            corpo:'O servidor encontrou um problema. Aguarde uns momentos e tente.',    retry:true  },
+  GENERICO:     { icon:'⚠️', titulo:'Algo correu mal',             corpo:'Ocorreu um erro inesperado. Tente novamente.',                      retry:true  },
 };
-function categorizarErro(e){
-  const msg=(e?.message||'').toLowerCase();
-  if(msg.includes('offline_cheio'))                                           return 'OFFLINE_CHEIO';
-  if(!navigator.onLine||msg.includes('failed to fetch')||msg.includes('network')) return 'OFFLINE';
-  if(msg.includes('demorou demasiado')||msg.includes('timeout'))             return 'TIMEOUT';
-  if(msg.includes('limite_atingido')||msg.includes('limite atingido'))       return 'LIMITE';
-  if(msg.includes('expirou')||msg.includes('expirado'))                      return 'EXPIRADO';
-  if(msg.includes('código único')||msg.includes('codigo unico'))             return 'CODIGO_UNICO';
-  if(msg.includes('registar')||msg.includes('inserir'))                      return 'REGISTO';
-  if(msg.includes('500')||msg.includes('servidor')||msg.includes('rpc'))    return 'SERVIDOR';
+function categorizarErro(e) {
+  const msg = (e?.message || '').toLowerCase();
+  if (msg.includes('offline_cheio'))                                                return 'OFFLINE_CHEIO';
+  if (!navigator.onLine || msg.includes('failed to fetch') || msg.includes('network')) return 'OFFLINE';
+  if (msg.includes('demorou demasiado') || msg.includes('timeout'))                return 'TIMEOUT';
+  if (msg.includes('limite_atingido') || msg.includes('limite atingido'))          return 'LIMITE';
+  if (msg.includes('expirou') || msg.includes('expirado'))                         return 'EXPIRADO';
+  if (msg.includes('código único') || msg.includes('codigo unico'))                return 'CODIGO_UNICO';
+  if (msg.includes('registar') || msg.includes('inserir'))                         return 'REGISTO';
+  if (msg.includes('500') || msg.includes('servidor') || msg.includes('rpc'))     return 'SERVIDOR';
   return 'GENERICO';
 }
-function mostrarErro(e){
-  const cat=categorizarErro(e),info=ERROS[cat]||ERROS.GENERICO,detalhe=e?.message||'';
-  document.getElementById('erroIcon').textContent  =info.icon;
-  document.getElementById('erroTitulo').textContent=info.titulo;
-  document.getElementById('erroCorpo').textContent =info.corpo;
-  const toggleBtn=document.getElementById('erroDetalheToggle'),detalheEl=document.getElementById('erroDetalhe');
-  if(detalhe&&detalhe!==info.corpo){detalheEl.textContent=detalhe;detalheEl.classList.remove('visivel');toggleBtn.style.display='inline';toggleBtn.textContent='ver detalhe técnico';}
-  else{toggleBtn.style.display='none';detalheEl.classList.remove('visivel');}
-  document.getElementById('btnRetry').style.display       =info.retry?'block':'none';
-  document.getElementById('btnVoltarPainel').style.display=cat==='LIMITE'||cat==='EXPIRADO'?'none':'block';
+function mostrarErro(e) {
+  const cat = categorizarErro(e), info = ERROS[cat] || ERROS.GENERICO;
+  document.getElementById('erroIcon').textContent   = info.icon;
+  document.getElementById('erroTitulo').textContent = info.titulo;
+  document.getElementById('erroCorpo').textContent  = info.corpo;
+  const tBtn = document.getElementById('erroDetalheToggle'), dEl = document.getElementById('erroDetalhe');
+  const detalhe = e?.message || '';
+  if (detalhe && detalhe !== info.corpo) { dEl.textContent = detalhe; dEl.classList.remove('visivel'); tBtn.style.display = 'inline'; tBtn.textContent = 'ver detalhe técnico'; }
+  else { tBtn.style.display = 'none'; dEl.classList.remove('visivel'); }
+  document.getElementById('btnRetry').style.display        = info.retry ? 'block' : 'none';
+  document.getElementById('btnVoltarPainel').style.display = (cat === 'LIMITE' || cat === 'EXPIRADO') ? 'none' : 'block';
   showStep('stepErro');
 }
-function toggleErroDetalhe(){const el=document.getElementById('erroDetalhe'),btn=document.getElementById('erroDetalheToggle');const a=el.classList.toggle('visivel');btn.textContent=a?'ocultar detalhe':'ver detalhe técnico';}
+function toggleErroDetalhe() { const el = document.getElementById('erroDetalhe'), btn = document.getElementById('erroDetalheToggle'); const a = el.classList.toggle('visivel'); btn.textContent = a ? 'ocultar detalhe' : 'ver detalhe técnico'; }
 
 /* ═══════════════════════════════════════════
    OFFLINE / ONLINE EVENTS
 ═══════════════════════════════════════════ */
-function verificarOffline(){if(!navigator.onLine){document.getElementById('offlineBanner').classList.add('visible');return true;}return false;}
+function verificarOffline() { if (!navigator.onLine) { document.getElementById('offlineBanner').classList.add('visible'); return true; } return false; }
+window.addEventListener('offline', () => { document.getElementById('offlineBanner').classList.add('visible'); actualizarBannersOffline(); haptic('warning'); showToast('📵 Sem ligação à internet', '#ef4444'); });
+window.addEventListener('online',  () => { document.getElementById('offlineBanner').classList.remove('visible'); document.getElementById('offlineModeBanner').classList.remove('visible'); actualizarBannersOffline(); haptic('success'); showToast('✅ Ligação restabelecida', '#10b981'); if (filaOffline.length > 0 && clienteData) sincronizarFila(); });
 
-window.addEventListener('offline',()=>{
-  document.getElementById('offlineBanner').classList.add('visible');
-  actualizarBannersOffline();
-  haptic('warning');showToast('📵 Sem ligação à internet','#ef4444');
-});
-window.addEventListener('online',()=>{
-  document.getElementById('offlineBanner').classList.remove('visible');
-  document.getElementById('offlineModeBanner').classList.remove('visible');
-  actualizarBannersOffline();
-  haptic('success');showToast('✅ Ligação restabelecida','#10b981');
-  // Auto-sincroniza se houver fila pendente
-  if(filaOffline.length>0&&clienteData) sincronizarFila();
-});
-
-/* Actualiza banners conforme estado de rede e modo offline */
-function actualizarBannersOffline(){
-  const offline=!navigator.onLine;
-  const modoOff=modoOfflinePermitido();
-  const temCreditos=creditosOfflineRestantes()>0;
-  // Banner roxo só aparece quando: offline + qr desactivado + ainda tem créditos
-  document.getElementById('offlineModeBanner').classList.toggle('visible', offline&&modoOff&&temCreditos);
-  actualizarBadgeOffline();
-  actualizarSyncPendente();
+function actualizarBannersOffline() {
+  const offline = !navigator.onLine, modoOff = modoOfflinePermitido(), temCreditos = creditosOfflineRestantes() > 0;
+  document.getElementById('offlineModeBanner').classList.toggle('visible', offline && modoOff && temCreditos);
+  actualizarBadgeOffline(); actualizarSyncPendente();
 }
-
-function actualizarBadgeOffline(){
-  const badge=document.getElementById('offlineCreditosBadge');
-  const creditos=creditosOfflineRestantes();
-  if(!navigator.onLine&&modoOfflinePermitido()&&creditos>0){
-    document.getElementById('offlineCreditosTexto').textContent=`${creditos} convite${creditos===1?'':'s'} offline disponíve${creditos===1?'l':'is'}`;
-    badge.style.display='flex';
-  }else{badge.style.display='none';}
+function actualizarBadgeOffline() {
+  const badge = document.getElementById('offlineCreditosBadge'), creditos = creditosOfflineRestantes();
+  if (!navigator.onLine && modoOfflinePermitido() && creditos > 0) {
+    document.getElementById('offlineCreditosTexto').textContent = `${creditos} convite${creditos===1?'':'s'} offline disponíve${creditos===1?'l':'is'}`;
+    badge.style.display = 'flex';
+  } else { badge.style.display = 'none'; }
 }
-
-function actualizarSyncPendente(){
-  const box=document.getElementById('syncPendente');
-  if(filaOffline.length>0){
-    const n=filaOffline.length;
-    document.getElementById('syncPendenteTexto').textContent=`${n} convite${n===1?'':'s'} offline por sincronizar`;
-    box.style.display='flex';
-    // Botão de sincronizar só activo se online
-    box.querySelector('.sync-btn').disabled=!navigator.onLine;
-  }else{box.style.display='none';}
+function actualizarSyncPendente() {
+  const box = document.getElementById('syncPendente');
+  if (filaOffline.length > 0) {
+    const n = filaOffline.length;
+    document.getElementById('syncPendenteTexto').textContent = `${n} convite${n===1?'':'s'} offline por sincronizar`;
+    box.style.display = 'flex';
+    box.querySelector('.sync-btn').disabled = !navigator.onLine;
+  } else { box.style.display = 'none'; }
 }
 
 /* ═══════════════════════════════════════════
    SINCRONIZAR FILA OFFLINE
-   Envia para o Supabase os convites gerados offline
 ═══════════════════════════════════════════ */
-async function sincronizarFila(){
-  if(!navigator.onLine){showToast('📵 Sem ligação para sincronizar','#ef4444');return;}
-  if(filaOffline.length===0)return;
-  const btn=document.querySelector('#syncPendente .sync-btn');
-  if(btn){btn.disabled=true;btn.textContent='⏳';}
-  showToast('🔄 A sincronizar...','#7c3aed');
-
-  const falhados=[];
-  for(const item of filaOffline){
-    try{
-      // 1. Incrementa contador na BD
-      const{error:eRpc}=await DB.rpc('incrementar_scans',{p_token:clienteData.token});
-      if(eRpc&&!eRpc.message?.includes('LIMITE_ATINGIDO')){
-        const n=(clienteData.scans_usados||0)+1;
-        await DB.from('clientes').update({scans_usados:n}).eq('token',clienteData.token);
-        clienteData.scans_usados=n;
-      }else if(!eRpc){clienteData.scans_usados=(clienteData.scans_usados||0)+1;}
-      // 2. Regista convidado
-      await DB.from('convidados').insert([{token_cliente:clienteData.token,codigo:item.codigo,nome:item.nome,status:'convite_gerado'}]);
-    }catch(e){falhados.push(item);}
+async function sincronizarFila() {
+  if (!navigator.onLine) { showToast('📵 Sem ligação para sincronizar', '#ef4444'); return; }
+  if (filaOffline.length === 0) return;
+  const btn = document.querySelector('#syncPendente .sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  showToast('🔄 A sincronizar...', '#7c3aed');
+  const falhados = [];
+  for (const item of filaOffline) {
+    try {
+      const { error: eRpc } = await DB.rpc('incrementar_scans', { p_token: clienteData.token });
+      if (eRpc && !eRpc.message?.includes('LIMITE_ATINGIDO')) {
+        const n = (clienteData.scans_usados || 0) + 1;
+        await DB.from('clientes').update({ scans_usados: n }).eq('token', clienteData.token);
+        clienteData.scans_usados = n;
+      } else if (!eRpc) { clienteData.scans_usados = (clienteData.scans_usados || 0) + 1; }
+      await DB.from('convidados').insert([{ token_cliente: clienteData.token, codigo: item.codigo, nome: item.nome, status: 'convite_gerado' }]);
+    } catch(e) { falhados.push(item); }
   }
-
-  filaOffline=falhados;
+  filaOffline = falhados;
   guardarFilaOffline(clienteData.token);
-  actualizarContador();
-  actualizarSyncPendente();
+  actualizarContador(); actualizarSyncPendente();
   await carregarConvitesGerados();
-
-  if(falhados.length===0){haptic('success');showToast('✅ Sincronização concluída!','#10b981');}
-  else{haptic('warning');showToast(`⚠️ ${falhados.length} convite(s) não sincronizados. Tente novamente.`,'#f59e0b');}
-  if(btn){btn.disabled=false;btn.textContent='Sincronizar';}
+  if (falhados.length === 0) { haptic('success'); showToast('✅ Sincronização concluída!', '#10b981'); }
+  else { haptic('warning'); showToast(`⚠️ ${falhados.length} convite(s) não sincronizados.`, '#f59e0b'); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Sincronizar'; }
 }
 
 /* ═══════════════════════════════════════════
    REALTIME — reconexão automática
 ═══════════════════════════════════════════ */
-function mostrarBannerRealtime(v){document.getElementById('realtimeBanner').classList.toggle('visible',v);}
-function iniciarRealtime(token){
-  pararRealtime();realtimeOk=false;
-  realtimeChannel=DB.channel('cli-'+token)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'clientes',filter:`token=eq.${token}`},(payload)=>{
-      if(!payload.new)return;
-      clienteData.scans_usados=payload.new.scans_usados;clienteData.limite_scans=payload.new.limite_scans;
-      clienteData.nome=payload.new.nome;clienteData.validade=payload.new.validade;
-      document.getElementById('eventoNomeBox').textContent='🎉 '+payload.new.nome;
-      actualizarContador();iniciarTimerValidade();haptic('light');showToast('🔄 Evento actualizado!','#667eea');
+function mostrarBannerRealtime(v) { document.getElementById('realtimeBanner').classList.toggle('visible', v); }
+function iniciarRealtime(token) {
+  pararRealtime(); realtimeOk = false;
+  realtimeChannel = DB.channel('cli-' + token)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'clientes', filter:`token=eq.${token}` }, (p) => {
+      if (!p.new) return;
+      clienteData.scans_usados = p.new.scans_usados; clienteData.limite_scans = p.new.limite_scans;
+      clienteData.nome = p.new.nome; clienteData.validade = p.new.validade;
+      document.getElementById('eventoNomeBox').textContent = '🎉 ' + p.new.nome;
+      actualizarContador(); iniciarTimerValidade(); haptic('light'); showToast('🔄 Evento actualizado!', '#667eea');
     })
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'convidados',filter:`token_cliente=eq.${token}`},(payload)=>{
-      if(!payload.new||todosConvites.find(c=>c.id===payload.new.id))return;
-      todosConvites.unshift({id:payload.new.id,nome:payload.new.nome,codigo:payload.new.codigo,created_at:payload.new.created_at});
-      renderizarConvites(todosConvites);clienteData.scans_usados=(clienteData.scans_usados||0)+1;actualizarContador();
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, (p) => {
+      if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
+      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, created_at:p.new.created_at });
+      renderizarConvites([...filaOffline, ...todosConvites]);
+      clienteData.scans_usados = (clienteData.scans_usados || 0) + 1; actualizarContador();
     })
-    .on('postgres_changes',{event:'DELETE',schema:'public',table:'convidados',filter:`token_cliente=eq.${token}`},async(payload)=>{
-      if(payload.old?.id){todosConvites=todosConvites.filter(c=>c.id!==payload.old.id);renderizarConvites(todosConvites);}
-      const{data}=await DB.from('clientes').select('scans_usados,limite_scans').eq('token',token).single();
-      if(data){clienteData.scans_usados=data.scans_usados;clienteData.limite_scans=data.limite_scans;actualizarContador();}
+    .on('postgres_changes', { event:'DELETE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, async (p) => {
+      if (p.old?.id) { todosConvites = todosConvites.filter(c => c.id !== p.old.id); renderizarConvites([...filaOffline, ...todosConvites]); }
+      const { data } = await DB.from('clientes').select('scans_usados,limite_scans').eq('token', token).single();
+      if (data) { clienteData.scans_usados = data.scans_usados; clienteData.limite_scans = data.limite_scans; actualizarContador(); }
       haptic('light');
     })
-    .on('system',{},(status)=>{
-      if(status==='SUBSCRIBED'){realtimeOk=true;mostrarBannerRealtime(false);pararReconTimer();}
-      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
-        if(realtimeOk){realtimeOk=false;mostrarBannerRealtime(true);haptic('warning');}
+    .on('system', {}, (status) => {
+      if (status === 'SUBSCRIBED') { realtimeOk = true; mostrarBannerRealtime(false); pararReconTimer(); }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (realtimeOk) { realtimeOk = false; mostrarBannerRealtime(true); haptic('warning'); }
         agendarReconexao(token);
       }
     })
     .subscribe();
 }
-function agendarReconexao(token){pararReconTimer();realtimeReconTimer=setTimeout(()=>{if(!clienteData)return;iniciarRealtime(token);},5000);}
-function pararReconTimer(){if(realtimeReconTimer){clearTimeout(realtimeReconTimer);realtimeReconTimer=null;}}
-function pararRealtime(){pararReconTimer();if(realtimeChannel){DB.removeChannel(realtimeChannel);realtimeChannel=null;}realtimeOk=false;mostrarBannerRealtime(false);}
+function agendarReconexao(token) { pararReconTimer(); realtimeReconTimer = setTimeout(() => { if (!clienteData) return; iniciarRealtime(token); }, 5000); }
+function pararReconTimer() { if (realtimeReconTimer) { clearTimeout(realtimeReconTimer); realtimeReconTimer = null; } }
+function pararRealtime() { pararReconTimer(); if (realtimeChannel) { DB.removeChannel(realtimeChannel); realtimeChannel = null; } realtimeOk = false; mostrarBannerRealtime(false); }
 
 /* ═══════════════════════════════════════════
    HÁPTICO
 ═══════════════════════════════════════════ */
-function haptic(tipo){
-  if(navigator.vibrate){if(tipo==='success')navigator.vibrate([10,50,10]);else if(tipo==='error')navigator.vibrate([80,40,80]);else if(tipo==='warning')navigator.vibrate(40);else navigator.vibrate(10);return;}
-  try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const osc=ctx.createOscillator(),gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);gain.gain.setValueAtTime(0,ctx.currentTime);osc.start(ctx.currentTime);osc.stop(ctx.currentTime+0.01);setTimeout(()=>ctx.close(),100);}catch(e){}
+function haptic(tipo) {
+  if (navigator.vibrate) { if (tipo==='success') navigator.vibrate([10,50,10]); else if (tipo==='error') navigator.vibrate([80,40,80]); else if (tipo==='warning') navigator.vibrate(40); else navigator.vibrate(10); return; }
+  try { const ctx=new(window.AudioContext||window.webkitAudioContext)(); const osc=ctx.createOscillator(),gain=ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); gain.gain.setValueAtTime(0,ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.01); setTimeout(()=>ctx.close(),100); } catch(e) {}
 }
 
 /* ═══════════════════════════════════════════
    TRANSIÇÕES
 ═══════════════════════════════════════════ */
-let stepAtual=null;
-function showStep(id){
-  const novoStep=document.getElementById(id);if(!novoStep||stepAtual===novoStep)return;
-  document.querySelectorAll('.step').forEach(s=>{s.classList.remove('active','visible','exit');s.style.display='none';});
-  stepAtual=novoStep;novoStep.style.display='flex';novoStep.classList.add('active');
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+let stepAtual = null;
+function showStep(id) {
+  const novoStep = document.getElementById(id); if (!novoStep || stepAtual === novoStep) return;
+  document.querySelectorAll('.step').forEach(s => { s.classList.remove('active','visible','exit'); s.style.display = 'none'; });
+  stepAtual = novoStep; novoStep.style.display = 'flex'; novoStep.classList.add('active');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     novoStep.classList.add('visible');
-    if(id==='step1')setTimeout(()=>document.getElementById('tokenInput')?.focus(),320);
-    if(id==='step2')setTimeout(()=>{const el=document.getElementById('nomeInput');if(!el)return;if(document.activeElement!==document.getElementById('convitesSearch'))el.focus();el.scrollIntoView({behavior:'smooth',block:'center'});},380);
+    if (id === 'step1') setTimeout(() => document.getElementById('tokenInput')?.focus(), 320);
+    if (id === 'step2') setTimeout(() => { const el = document.getElementById('nomeInput'); if (!el) return; if (document.activeElement !== document.getElementById('convitesSearch')) el.focus(); el.scrollIntoView({ behavior:'smooth', block:'center' }); }, 380);
   }));
 }
 
 /* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded',async()=>{
-  document.querySelectorAll('.step').forEach(s=>{s.classList.remove('active','visible','exit');s.style.display='none';});
-  if(!navigator.onLine)document.getElementById('offlineBanner').classList.add('visible');
-  const savedToken=localStorage.getItem('adkira_token');
-  if(savedToken){
+document.addEventListener('DOMContentLoaded', async () => {
+  document.querySelectorAll('.step').forEach(s => { s.classList.remove('active','visible','exit'); s.style.display = 'none'; });
+  if (!navigator.onLine) document.getElementById('offlineBanner').classList.add('visible');
+  const savedToken = localStorage.getItem('adkira_token');
+  if (savedToken) {
     showStep('stepRestore');
-    try{
-      const ok=await comTimeout(tentarRestaurarSessao(savedToken),TIMEOUT_MS,'Ligação demorou demasiado. Verifique a internet.');
-      if(!ok){limparTudo();showStep('step1');}
-    }catch(e){limparTudo();showStep('step1');showInfo('step1Info','⚠️ '+e.message,'yellow');}
-  }else{showStep('step1');}
+    try {
+      const ok = await comTimeout(tentarRestaurarSessao(savedToken), TIMEOUT_MS, 'Ligação demorou demasiado. Verifique a internet.');
+      if (!ok) { limparTudo(); showStep('step1'); }
+    } catch(e) { limparTudo(); showStep('step1'); showInfo('step1Info', '⚠️ ' + e.message, 'yellow'); }
+  } else { showStep('step1'); }
 });
 
 /* ═══════════════════════════════════════════
    RESTAURAR SESSÃO
 ═══════════════════════════════════════════ */
-async function tentarRestaurarSessao(token){
-  try{
-    const{data:cli,error:e1}=await DB.from('clientes').select(CLIENTE_COLS).eq('token',token).single();
-    if(e1||!cli)return false;
-    if(cli.validade&&cli.validade<Math.floor(Date.now()/1000))return false;
-    let cfg=lerConfigCache(token);
-    if(!cfg){
-      const{data:cfgDb,error:e2}=await DB.from('convite_config').select('*').eq('token_cliente',token).single();
-      if(e2||!cfgDb)return false;
-      cfg=cfgDb;guardarConfigCache(token,cfg);
+async function tentarRestaurarSessao(token) {
+  try {
+    const { data:cli, error:e1 } = await DB.from('clientes').select(CLIENTE_COLS).eq('token', token).single();
+    if (e1 || !cli) return false;
+    if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) return false;
+    let cfg = lerConfigCache(token);
+    if (!cfg) {
+      const { data:cfgDb, error:e2 } = await DB.from('convite_config').select('*').eq('token_cliente', token).single();
+      if (e2 || !cfgDb) return false;
+      cfg = cfgDb; guardarConfigCache(token, cfg);
     }
-    clienteData=cli;configData=cfg;
-    lerEstadoSessao(token);
-    carregarFilaOffline(token);
-    document.getElementById('eventoNomeBox').textContent='🎉 '+cli.nome;
-    actualizarContador();actualizarBannersOffline();
+    clienteData = cli; configData = cfg;
+    lerEstadoSessao(token); carregarFilaOffline(token);
+    document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
-    iniciarRealtime(token);iniciarTimerValidade();
-    // Auto-sincroniza fila pendente se online
-    if(navigator.onLine&&filaOffline.length>0)setTimeout(()=>sincronizarFila(),2000);
-    showStep('step2');return true;
-  }catch(e){return false;}
+    iniciarRealtime(token); iniciarTimerValidade();
+    if (navigator.onLine && filaOffline.length > 0) setTimeout(() => sincronizarFila(), 2000);
+    showStep('step2'); return true;
+  } catch(e) { return false; }
 }
 
 /* ═══════════════════════════════════════════
    TOAST
 ═══════════════════════════════════════════ */
-function showToast(msg,cor){const t=document.createElement('div');t.className='toast';t.style.background=cor||'#10b981';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3500);}
+function showToast(msg, cor) {
+  const t = document.createElement('div'); t.className = 'toast'; t.style.background = cor || '#10b981'; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
+}
 
 /* ═══════════════════════════════════════════
    UI UTILS
@@ -733,11 +768,12 @@ function setLoading(msg){document.getElementById('loadingMsg').textContent=msg;}
 /* ═══════════════════════════════════════════
    LIMPAR TUDO
 ═══════════════════════════════════════════ */
-function limparTudo(){
-  pararRealtime();pararTimerValidade();
-  localStorage.removeItem('adkira_token');limparCache();
-  clienteData=null;configData=null;todosConvites=[];ultimoContextoNome=null;
-  convitesSessao=0;downloadsSessao=new Set();filaOffline=[];
+function limparTudo() {
+  pararRealtime(); pararTimerValidade(); cancelarRateLimit();
+  localStorage.removeItem('adkira_token'); limparCache();
+  clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
+  convitesSessao=0; downloadsSessao=new Set(); filaOffline=[];
+  ultimaGeracao=0;
   document.getElementById('tokenInput').value='';
   document.getElementById('nomeInput').value='';
   document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
@@ -746,414 +782,406 @@ function limparTudo(){
   document.getElementById('convitesSearch').style.display='none';
   document.getElementById('iosHint').style.display='none';
   document.getElementById('offlineModeBanner').classList.remove('visible');
-  hideInfo('step1Info');hideInfo('expiradoBox');hideInfo('limiteProximoBox');
+  document.getElementById('rateBarWrap').style.opacity='0';
+  hideInfo('step1Info'); hideInfo('expiradoBox'); hideInfo('limiteProximoBox');
 }
-function voltarStep1(){limparTudo();showStep('step1');}
-function voltarPainel(){document.getElementById('nomeInput').value='';hideInfo('step2Info');actualizarContador();carregarConvitesGerados();showStep('step2');}
-function pedirConfirmacaoSair(){
+function voltarStep1() { limparTudo(); showStep('step1'); }
+function voltarPainel() { document.getElementById('nomeInput').value=''; hideInfo('step2Info'); actualizarContador(); carregarConvitesGerados(); showStep('step2'); }
+function pedirConfirmacaoSair() {
   haptic('light');
-  const temPendentes=filaOffline.length>0;
+  const temPendentes = filaOffline.length > 0;
   abrirModal({
-    titulo:temPendentes?'⚠️ Há convites por sincronizar':'👋 Sair do evento?',
-    corpo:temPendentes?`Tem ${filaOffline.length} convite(s) offline por sincronizar. Se sair agora, esses convites não serão registados no servidor.`:'Se sair terá de inserir o código do evento novamente.',
-    nome:clienteData?.nome||'',nomeCls:temPendentes?'duplicado':'',
-    acoes:[
-      {label:'← Sim, sair mesmo assim',cls:'btn-danger',fn:()=>voltarStep1()},
-      {label:'✕ Cancelar',             cls:'btn-ghost', fn:()=>{}}
+    titulo: temPendentes ? '⚠️ Há convites por sincronizar' : '👋 Sair do evento?',
+    corpo:  temPendentes ? `Tem ${filaOffline.length} convite(s) offline por sincronizar. Se sair agora, esses convites não serão registados no servidor.` : 'Se sair terá de inserir o código do evento novamente.',
+    nome: clienteData?.nome || '', nomeCls: temPendentes ? 'duplicado' : '',
+    acoes: [
+      { label:'← Sim, sair mesmo assim', cls:'btn-danger', fn:()=>voltarStep1() },
+      { label:'✕ Cancelar',              cls:'btn-ghost',  fn:()=>{} }
     ]
   });
 }
-function tentarRetry(){if(ultimoContextoNome)gerarConvite(ultimoContextoNome);else voltarPainel();}
+function tentarRetry() { if (ultimoContextoNome) gerarConvite(ultimoContextoNome); else voltarPainel(); }
 
 /* ═══════════════════════════════════════════
    TIMER VALIDADE
 ═══════════════════════════════════════════ */
-function iniciarTimerValidade(){
-  pararTimerValidade();if(!clienteData?.validade)return;
-  const v=()=>{if(clienteData.validade<Math.floor(Date.now()/1000)){pararTimerValidade();document.getElementById('expiradoBox').style.display='block';const b=document.getElementById('btnGerar');b.disabled=true;b.textContent='⏰ Evento expirado';haptic('warning');showToast('⏰ Este evento expirou.','#ef4444');}};
-  v();validadeTimer=setInterval(v,30_000);
+function iniciarTimerValidade() {
+  pararTimerValidade(); if (!clienteData?.validade) return;
+  const v = () => { if (clienteData.validade < Math.floor(Date.now()/1000)) { pararTimerValidade(); document.getElementById('expiradoBox').style.display='block'; const b=document.getElementById('btnGerar'); b.disabled=true; b.textContent='⏰ Evento expirado'; haptic('warning'); showToast('⏰ Este evento expirou.','#ef4444'); } };
+  v(); validadeTimer = setInterval(v, 30_000);
 }
-function pararTimerValidade(){if(validadeTimer){clearInterval(validadeTimer);validadeTimer=null;}}
+function pararTimerValidade() { if (validadeTimer) { clearInterval(validadeTimer); validadeTimer = null; } }
 
 /* ═══════════════════════════════════════════
    VALIDAR TOKEN
 ═══════════════════════════════════════════ */
-async function validarToken(){
-  if(verificarOffline()){showInfo('step1Info','📵 Sem ligação à internet.','red');haptic('error');return;}
-  const token=document.getElementById('tokenInput').value.trim().toLowerCase();
-  if(!token){haptic('warning');showInfo('step1Info','Insira o código do evento.','yellow');return;}
+async function validarToken() {
+  if (verificarOffline()) { showInfo('step1Info','📵 Sem ligação à internet.','red'); haptic('error'); return; }
+  const token = document.getElementById('tokenInput').value.trim().toLowerCase();
+  if (!token) { haptic('warning'); showInfo('step1Info','Insira o código do evento.','yellow'); return; }
   showInfo('step1Info','⏳ A verificar...','blue');
-  try{
-    const{data:cli,error:e1}=await comTimeout(DB.from('clientes').select(CLIENTE_COLS).eq('token',token).single());
-    if(e1||!cli){haptic('error');showInfo('step1Info','❌ Código inválido ou não encontrado.','red');return;}
-    if(cli.validade&&cli.validade<Math.floor(Date.now()/1000)){haptic('error');showInfo('step1Info','❌ Evento expirado.','red');return;}
-    let cfg=lerConfigCache(token);
-    if(!cfg){
-      const{data:cfgDb,error:e2}=await comTimeout(DB.from('convite_config').select('*').eq('token_cliente',token).single());
-      if(e2||!cfgDb){haptic('warning');showInfo('step1Info','⚠️ Template não configurado. Contacte o organizador.','yellow');return;}
-      cfg=cfgDb;guardarConfigCache(token,cfg);
+  try {
+    const { data:cli, error:e1 } = await comTimeout(DB.from('clientes').select(CLIENTE_COLS).eq('token', token).single());
+    if (e1 || !cli) { haptic('error'); showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
+    if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) { haptic('error'); showInfo('step1Info','❌ Evento expirado.','red'); return; }
+    let cfg = lerConfigCache(token);
+    if (!cfg) {
+      const { data:cfgDb, error:e2 } = await comTimeout(DB.from('convite_config').select('*').eq('token_cliente', token).single());
+      if (e2 || !cfgDb) { haptic('warning'); showInfo('step1Info','⚠️ Template não configurado. Contacte o organizador.','yellow'); return; }
+      cfg = cfgDb; guardarConfigCache(token, cfg);
     }
-    clienteData=cli;configData=cfg;
-    localStorage.setItem('adkira_token',token);
-    lerEstadoSessao(token);carregarFilaOffline(token);
-    document.getElementById('eventoNomeBox').textContent='🎉 '+cli.nome;
-    actualizarContador();actualizarBannersOffline();
+    clienteData = cli; configData = cfg;
+    localStorage.setItem('adkira_token', token);
+    lerEstadoSessao(token); carregarFilaOffline(token);
+    document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
-    iniciarRealtime(token);iniciarTimerValidade();
-    hideInfo('step1Info');haptic('success');showStep('step2');
-  }catch(e){haptic('error');showInfo('step1Info','❌ '+(navigator.onLine?e.message:'Sem ligação à internet.'),'red');}
+    iniciarRealtime(token); iniciarTimerValidade();
+    hideInfo('step1Info'); haptic('success'); showStep('step2');
+  } catch(e) { haptic('error'); showInfo('step1Info','❌ ' + (navigator.onLine ? e.message : 'Sem ligação à internet.'), 'red'); }
 }
 
 /* ═══════════════════════════════════════════
    VALIDAÇÃO DO NOME
-═══════════════════════════════════════════ */
-function validarNome(nome){
-  const n=nome.trim();
-  if(!n)return{ok:false,msg:'Introduza o nome próprio e apelido'};
-  if(/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-]/.test(n))return{ok:false,msg:'❌ O nome não pode conter números ou símbolos'};
-  const p=n.split(/\s+/).filter(x=>x.length>0);
-  if(p.length<2)return{ok:false,msg:'⚠️ Introduza pelo menos nome e apelido'};
-  if(p.some(x=>x.replace(/['\-]/g,'').length<2))return{ok:false,msg:'⚠️ Cada palavra deve ter pelo menos 2 letras'};
-  return{ok:true,msg:'✓ Nome válido'};
+═════════════════════════════════════════���═ */
+function validarNome(nome) {
+  const n = nome.trim();
+  if (!n) return { ok:false, msg:'Introduza o nome próprio e apelido' };
+  if (/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-]/.test(n)) return { ok:false, msg:'❌ O nome não pode conter números ou símbolos' };
+  const p = n.split(/\s+/).filter(x => x.length > 0);
+  if (p.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
+  if (p.some(x => x.replace(/['\-]/g,'').length < 2)) return { ok:false, msg:'⚠️ Cada palavra deve ter pelo menos 2 letras' };
+  return { ok:true, msg:'✓ Nome válido' };
 }
-function validarNomeInput(){
-  const input=document.getElementById('nomeInput'),hint=document.getElementById('nomeHint'),v=input.value;
-  if(!v){input.className='';hint.className='nome-hint';hint.textContent='Introduza o nome próprio e apelido';return;}
-  const{ok,msg}=validarNome(v);
-  input.className=ok?'input-ok':'input-error';hint.className='nome-hint '+(ok?'ok':'err');hint.textContent=msg;
+function validarNomeInput() {
+  const input=document.getElementById('nomeInput'), hint=document.getElementById('nomeHint'), v=input.value;
+  if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Introduza o nome próprio e apelido'; return; }
+  const { ok, msg } = validarNome(v);
+  input.className = ok ? 'input-ok' : 'input-error';
+  hint.className  = 'nome-hint ' + (ok ? 'ok' : 'err');
+  hint.textContent = msg;
 }
 
 /* ═══════════════════════════════════════════
    CONTADOR
 ═══════════════════════════════════════════ */
-function actualizarContador(){
-  if(!clienteData)return;
-  const limite=clienteData.limite_scans||0,gerados=clienteData.scans_usados||0,restantes=Math.max(0,limite-gerados);
-  document.getElementById('cntLimite').textContent    =limite||'∞';
-  document.getElementById('cntGerados').textContent   =gerados;
-  document.getElementById('cntRestantes').textContent =limite?restantes:'∞';
-  const usoWrap=document.getElementById('usoWrap');
-  if(limite>0){const pct=Math.min(100,Math.round((gerados/limite)*100));document.getElementById('usoBar').style.width=pct+'%';document.getElementById('usoTexto').textContent=`${gerados} de ${limite} usados`;document.getElementById('usoPct').textContent=pct+'%';usoWrap.style.display='block';}
-  else usoWrap.style.display='none';
-  const badge=document.getElementById('sessaoBadge');
-  if(convitesSessao>0){document.getElementById('sessaoTexto').textContent=`${convitesSessao} gerado${convitesSessao===1?'':'s'} nesta sessão`;badge.style.display='flex';}else badge.style.display='none';
-  actualizarBadgeOffline();actualizarSyncPendente();
-  const perto=limite&&restantes<=3&&restantes>0;
-  document.getElementById('counterBox').className='counter-box'+(perto?' warning':'');
-  const limBox=document.getElementById('limiteProximoBox');
-  if(perto){limBox.textContent=`⚠️ Restam apenas ${restantes} convite${restantes===1?'':'s'}.`;limBox.style.display='block';}else limBox.style.display='none';
-  const btnGerar=document.getElementById('btnGerar'),expirado=clienteData.validade&&clienteData.validade<Math.floor(Date.now()/1000);
-  if(expirado){btnGerar.disabled=true;btnGerar.textContent='⏰ Evento expirado';document.getElementById('expiradoBox').style.display='block';}
-  else if(limite&&gerados>=limite){btnGerar.disabled=true;btnGerar.textContent='🚫 Limite atingido';showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red');}
-  else{btnGerar.disabled=false;btnGerar.textContent='🎉 Gerar Convite';hideInfo('step2Info');}
+function actualizarContador() {
+  if (!clienteData) return;
+  const limite=clienteData.limite_scans||0, gerados=clienteData.scans_usados||0, restantes=Math.max(0,limite-gerados);
+  document.getElementById('cntLimite').textContent    = limite || '∞';
+  document.getElementById('cntGerados').textContent   = gerados;
+  document.getElementById('cntRestantes').textContent = limite ? restantes : '∞';
+  const usoWrap = document.getElementById('usoWrap');
+  if (limite > 0) {
+    const pct = Math.min(100, Math.round((gerados/limite)*100));
+    document.getElementById('usoBar').style.width   = pct + '%';
+    document.getElementById('usoTexto').textContent = `${gerados} de ${limite} usados`;
+    document.getElementById('usoPct').textContent   = pct + '%';
+    usoWrap.style.display = 'block';
+  } else { usoWrap.style.display = 'none'; }
+  const badge = document.getElementById('sessaoBadge');
+  if (convitesSessao > 0) { document.getElementById('sessaoTexto').textContent = `${convitesSessao} gerado${convitesSessao===1?'':'s'} nesta sessão`; badge.style.display = 'flex'; }
+  else badge.style.display = 'none';
+  actualizarBadgeOffline(); actualizarSyncPendente();
+  const perto = limite && restantes <= 3 && restantes > 0;
+  document.getElementById('counterBox').className = 'counter-box' + (perto ? ' warning' : '');
+  const limBox = document.getElementById('limiteProximoBox');
+  if (perto) { limBox.textContent = `⚠️ Restam apenas ${restantes} convite${restantes===1?'':'s'}.`; limBox.style.display = 'block'; } else limBox.style.display = 'none';
+  const btnGerar = document.getElementById('btnGerar');
+  const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
+  if (expirado) { btnGerar.disabled=true; btnGerar.textContent='⏰ Evento expirado'; document.getElementById('expiradoBox').style.display='block'; }
+  else if (limite && gerados >= limite) { btnGerar.disabled=true; btnGerar.textContent='🚫 Limite atingido'; showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red'); }
+  else if (!estaEmCooldown()) { btnGerar.disabled=false; btnGerar.textContent='🎉 Gerar Convite'; hideInfo('step2Info'); }
 }
 
 /* ═══════════════════════════════════════════
    CARREGAR CONVITES
 ═══════════════════════════════════════════ */
-async function carregarConvitesGerados(){
-  if(!clienteData)return;
-  const lista=document.getElementById('convitesLista');
-  lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
-  try{
-    let online=[];
-    if(navigator.onLine){
-      const{data,error}=await comTimeout(DB.from('convidados').select(CONVITE_COLS).eq('token_cliente',clienteData.token).order('created_at',{ascending:false}));
-      if(error)throw error;
-      online=data||[];
-      todosConvites=online;
+async function carregarConvitesGerados() {
+  if (!clienteData) return;
+  const lista = document.getElementById('convitesLista');
+  lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
+  try {
+    if (navigator.onLine) {
+      const { data, error } = await comTimeout(DB.from('convidados').select(CONVITE_COLS).eq('token_cliente', clienteData.token).order('created_at', { ascending:false }));
+      if (error) throw error;
+      todosConvites = data || [];
     }
-    document.getElementById('convitesSearch').value='';
-    const total=[...filaOffline,...todosConvites];
-    if(total.length===0){
-      document.getElementById('convitesSearch').style.display='none';document.getElementById('convitesCount').textContent='';
-      lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';return;
-    }
-    document.getElementById('convitesSearch').style.display='block';
+    document.getElementById('convitesSearch').value = '';
+    const total = [...filaOffline, ...todosConvites];
+    if (total.length === 0) { document.getElementById('convitesSearch').style.display='none'; document.getElementById('convitesCount').textContent=''; lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>'; return; }
+    document.getElementById('convitesSearch').style.display = 'block';
     renderizarConvites(total);
-  }catch(e){lista.innerHTML=`<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${navigator.onLine?e.message:'Sem ligação à internet'}</div>`;}
+  } catch(e) { lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${navigator.onLine ? e.message : 'Sem ligação à internet'}</div>`; }
 }
-async function recarregarLista(){const btn=document.getElementById('btnRecarregar');btn.disabled=true;btn.textContent='⏳';await carregarConvitesGerados();btn.disabled=false;btn.textContent='🔄';}
+async function recarregarLista() { const btn=document.getElementById('btnRecarregar'); btn.disabled=true; btn.textContent='⏳'; await carregarConvitesGerados(); btn.disabled=false; btn.textContent='🔄'; }
 
 /* ═══════════════════════════════════════════
    FILTRAR / RENDERIZAR
-   — mostra convites offline pendentes no topo
 ═══════════════════════════════════════════ */
-function filtrarConvites(){
-  const t=document.getElementById('convitesSearch').value.trim().toLowerCase();
-  const todos=[...filaOffline,...todosConvites];
-  renderizarConvites(t?todos.filter(c=>c.nome.toLowerCase().includes(t)):todos,t||null);
+function filtrarConvites() {
+  const t = document.getElementById('convitesSearch').value.trim().toLowerCase();
+  const todos = [...filaOffline, ...todosConvites];
+  renderizarConvites(t ? todos.filter(c => c.nome.toLowerCase().includes(t)) : todos, t || null);
 }
-function renderizarConvites(lista,termo){
-  const el=document.getElementById('convitesLista');
-  const totalOnline=todosConvites.length,totalPendentes=filaOffline.length,total=totalOnline+totalPendentes;
-  document.getElementById('convitesCount').textContent=termo?`${lista.length} de ${total}`:`${total} convite${total===1?'':'s'}${totalPendentes>0?' ('+totalPendentes+' offline)':''}`;
-  if(lista.length===0){el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>';return;}
-  el.innerHTML='';
-  lista.forEach(conv=>{
-    const isPendente=!!conv.id_local; // items da filaOffline têm id_local em vez de id
-    const jaDl=!isPendente&&downloadsSessao.has(conv.id);
-    const item=document.createElement('div');
-    item.className='convite-item'+(jaDl?' ja-descarregado':isPendente?' offline-pendente':'');
-    let tag='',btnCls='btn-dl',btnTxt='📥';
-    if(isPendente){tag='<div class="convite-item-tag roxo">⏳ offline — por sincronizar</div>';btnCls='btn-dl pendente';btnTxt='📥';}
-    else if(jaDl){tag='<div class="convite-item-tag verde">✓ descarregado nesta sessão</div>';btnCls='btn-dl ja-dl';btnTxt='✓';}
+function renderizarConvites(lista, termo) {
+  const el=document.getElementById('convitesLista'), totalOnline=todosConvites.length, totalPend=filaOffline.length, total=totalOnline+totalPend;
+  document.getElementById('convitesCount').textContent = termo ? `${lista.length} de ${total}` : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}`;
+  if (lista.length === 0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>'; return; }
+  el.innerHTML = '';
+  lista.forEach(conv => {
+    const isPend = !!conv.id_local;
+    const jaDl   = !isPend && downloadsSessao.has(conv.id);
+    const item   = document.createElement('div');
+    item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
+    let tag='', btnCls='btn-dl', btnTxt='📥';
+    if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline — por sincronizar</div>'; btnCls='btn-dl pendente'; }
+    else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado nesta sessão</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
     item.innerHTML=`
       <div class="convite-item-info">
-        <div class="convite-item-nome">${escHtml(conv.nome)}</div>
-        ${tag}
+        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${tag}
       </div>
       <button class="${btnCls}"
-        onclick="pedirConfirmacaoDownload('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPendente?conv.id_local:conv.id}',${isPendente},this)">
+        onclick="pedirConfirmacaoDownload('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
         ${btnTxt}
       </button>`;
     el.appendChild(item);
   });
 }
 
-/* ═══════════════════════════════════════════
+/* ═══════════════════════��═══════════════════
    DUPLICADO
 ═══════════════════════════════════════════ */
-function normalizarNome(n){return n.trim().toLowerCase().replace(/\s+/g,' ');}
-function encontrarDuplicado(nome){
-  const n=normalizarNome(nome);
-  const online=todosConvites.find(c=>normalizarNome(c.nome)===n);
-  const offline=filaOffline.find(c=>normalizarNome(c.nome)===n);
-  return online||offline||null;
-}
+function normalizarNome(n) { return n.trim().toLowerCase().replace(/\s+/g,' '); }
+function encontrarDuplicado(nome) { const n=normalizarNome(nome); return todosConvites.find(c=>normalizarNome(c.nome)===n) || filaOffline.find(c=>normalizarNome(c.nome)===n) || null; }
 
 /* ═══════════════════════════════════════════
    MODAL
 ═══════════════════════════════════════════ */
-function abrirModal({titulo,corpo,nome,nomeCls,acoes}){
-  document.getElementById('modalTitle').textContent=titulo;document.getElementById('modalBody').textContent=corpo;
-  const nEl=document.getElementById('modalNome');nEl.textContent=nome;nEl.className='modal-nome'+(nomeCls?' '+nomeCls:'');nEl.style.display=nome?'block':'none';
-  const aEl=document.getElementById('modalActions');aEl.innerHTML='';
-  acoes.forEach(({label,cls,fn})=>{const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=()=>{haptic('light');fecharModal();fn();};aEl.appendChild(b);});
+function abrirModal({titulo,corpo,nome,nomeCls,acoes}) {
+  document.getElementById('modalTitle').textContent=titulo; document.getElementById('modalBody').textContent=corpo;
+  const nEl=document.getElementById('modalNome'); nEl.textContent=nome; nEl.className='modal-nome'+(nomeCls?' '+nomeCls:''); nEl.style.display=nome?'block':'none';
+  const aEl=document.getElementById('modalActions'); aEl.innerHTML='';
+  acoes.forEach(({label,cls,fn})=>{ const b=document.createElement('button'); b.className=cls; b.textContent=label; b.onclick=()=>{ haptic('light'); fecharModal(); fn(); }; aEl.appendChild(b); });
   document.getElementById('modalOverlay').classList.remove('hidden');
 }
-function fecharModal(){document.getElementById('modalOverlay').classList.add('hidden');}
-document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this){haptic('light');fecharModal();}});
+function fecharModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
+document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target===this) { haptic('light'); fecharModal(); } });
 
-/* ══════════════════���════════════════════════
+/* ═══════════════════════════════════════════
    CONFIRMAÇÃO GERAR
 ═══════════════════════════════════════════ */
-function pedirConfirmacaoGerar(){
-  const nomeRaw=document.getElementById('nomeInput').value.trim();
-  const{ok,msg}=validarNome(nomeRaw);
-  if(!ok){haptic('warning');showInfo('step2Info',msg,'yellow');validarNomeInput();return;}
-  if(!clienteData||!configData){haptic('error');showInfo('step2Info','Sessão expirada.','red');return;}
-
-  // Verifica se offline e se tem permissão
-  if(!navigator.onLine){
-    if(!modoOfflinePermitido()){
-      haptic('error');
-      showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red');
-      return;
-    }
-    if(creditosOfflineRestantes()<=0){
-      haptic('error');
-      mostrarErro(new Error('offline_cheio'));
-      return;
-    }
+function pedirConfirmacaoGerar() {
+  // Rate limit — bloqueia se ainda em cooldown
+  if (estaEmCooldown()) {
+    const restam = Math.ceil((RATE_LIMIT_MS - (Date.now() - ultimaGeracao)) / 1000);
+    haptic('warning');
+    showInfo('step2Info', `⏳ Aguarde ${restam}s antes de gerar outro convite.`, 'yellow');
+    return;
   }
 
-  const limite=clienteData.limite_scans||0,gerados=clienteData.scans_usados||0;
-  if(limite&&gerados>=limite){haptic('error');showInfo('step2Info',`Limite de ${limite} atingido.`,'red');actualizarContador();return;}
+  const nomeRaw = document.getElementById('nomeInput').value.trim();
+  const { ok, msg } = validarNome(nomeRaw);
+  if (!ok) { haptic('warning'); showInfo('step2Info', msg, 'yellow'); validarNomeInput(); return; }
+  if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada.','red'); return; }
+
+  if (!navigator.onLine) {
+    if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
+    if (creditosOfflineRestantes() <= 0) { haptic('error'); mostrarErro(new Error('offline_cheio')); return; }
+  }
+
+  const limite=clienteData.limite_scans||0, gerados=clienteData.scans_usados||0;
+  if (limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} atingido.`,'red'); actualizarContador(); return; }
+
   haptic('light');
-  const dup=encontrarDuplicado(nomeRaw);
-  if(dup){
-    const isPendente=!!dup.id_local;
-    abrirModal({titulo:'⚠️ Nome já existe',corpo:'Já existe um convite com este nome.',nome:nomeRaw,nomeCls:'duplicado',
+  const dup = encontrarDuplicado(nomeRaw);
+  if (dup) {
+    const isPend = !!dup.id_local;
+    abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeRaw, nomeCls:'duplicado',
       acoes:[
-        {label:'✅ Gerar mesmo assim',cls:'btn-warning',fn:()=>gerarConvite(nomeRaw)},
-        {label:'📥 Re-download existente',cls:'btn-outline',fn:()=>{
-          if(isPendente){
-            // Download do blob em memória
-            const blob=blobsOffline[dup.id_local];
-            if(blob)triggerDownload(blob,`${dup.nome}.pdf`);
-            else showToast('⚠️ PDF offline não está em memória. Reabra a página.','#f59e0b');
-          }else{
-            baixarConviteExistente(dup.nome,dup.codigo,dup.id,{textContent:'📥',disabled:false});
-          }
+        { label:'✅ Gerar mesmo assim',    cls:'btn-warning', fn:()=>gerarConvite(nomeRaw) },
+        { label:'📥 Re-download existente', cls:'btn-outline', fn:()=>{
+          if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob,`${dup.nome}.pdf`); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
+          else baixarConviteExistente(dup.nome, dup.codigo, dup.id, { textContent:'📥', disabled:false });
         }},
-        {label:'✕ Cancelar',cls:'btn-ghost',fn:()=>{}}
+        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
-  }else{
-    const modoOff=!navigator.onLine&&modoOfflinePermitido();
-    const creditos=creditosOfflineRestantes();
+  } else {
+    const modoOff = !navigator.onLine && modoOfflinePermitido();
+    const creditos = creditosOfflineRestantes();
     abrirModal({
-      titulo: modoOff?'📴 Gerar offline':'✅ Confirmar Convite',
-      corpo:  modoOff?`Sem internet. O convite será gerado localmente e sincronizado quando ligar à rede. Restam ${creditos-1} crédito${creditos-1===1?'':'s'} offline após este.`:'Vai gerar um convite para:',
-      nome:nomeRaw,nomeCls:'',
+      titulo: modoOff ? '📴 Gerar offline' : '✅ Confirmar Convite',
+      corpo:  modoOff ? `Sem internet. O convite será gerado localmente e sincronizado quando ligar à rede. Restam ${creditos-1} crédito${creditos-1===1?'':'s'} offline após este.` : 'Vai gerar um convite para:',
+      nome:nomeRaw, nomeCls:'',
       acoes:[
-        {label: modoOff?'📴 Sim, gerar offline':'🎉 Sim, gerar convite',cls:'btn-main',fn:()=>gerarConvite(nomeRaw)},
-        {label:'✕ Cancelar',cls:'btn-ghost',fn:()=>{}}
+        { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw) },
+        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
   }
 }
 
-function pedirConfirmacaoDownload(nome,codigo,id,isPendente,btn){
+function pedirConfirmacaoDownload(nome, codigo, id, isPendente, btn) {
   haptic('light');
-  const jaDl=!isPendente&&downloadsSessao.has(id);
+  const jaDl = !isPendente && downloadsSessao.has(id);
   abrirModal({
-    titulo:isPendente?'📴 Convite offline':jaDl?'♻️ Já descarregado':'📥 Re-download',
-    corpo: isPendente?'Este convite ainda não foi sincronizado com o servidor.'
-          :jaDl?'Este convite já foi descarregado nesta sessão. Quer descarregar novamente?'
-          :'Vai descarregar novamente o convite de:',
-    nome,nomeCls:jaDl?'duplicado':'',
+    titulo: isPendente ? '📴 Convite offline' : jaDl ? '♻️ Já descarregado' : '📥 Re-download',
+    corpo:  isPendente ? 'Este convite ainda não foi sincronizado com o servidor.'
+           : jaDl ? 'Este convite já foi descarregado nesta sessão. Quer descarregar novamente?'
+           : 'Vai descarregar novamente o convite de:',
+    nome, nomeCls: jaDl ? 'duplicado' : '',
     acoes:[
-      {label:'📥 Sim, descarregar',cls:'btn-main',fn:()=>{
-        if(isPendente){
-          const blob=blobsOffline[id];
-          if(blob){triggerDownload(blob,`${nome}.pdf`);haptic('success');showToast('📥 Download iniciado!');}
-          else showToast('⚠️ PDF não está em memória. Reabra a página para voltar a gerar.','#f59e0b');
-        }else{baixarConviteExistente(nome,codigo,id,btn);}
+      { label:'📥 Sim, descarregar', cls:'btn-main', fn:()=>{
+        if (isPendente) {
+          const item = filaOffline.find(f => f.id_local === id);
+          const blob = item ? obterBlobOffline(item) : null;
+          if (blob) { triggerDownload(blob, `${nome}.pdf`); haptic('success'); showToast('📥 Download iniciado!'); }
+          else showToast('⚠️ PDF não disponível. Feche e reabra a página para regenerar.','#f59e0b');
+        } else { baixarConviteExistente(nome, codigo, id, btn); }
       }},
-      {label:'✕ Cancelar',cls:'btn-ghost',fn:()=>{}}
+      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
     ]
   });
 }
 
-/* ═══════════════════════════════════════════
+/* ═════════════════════════���═════════════════
    GERAR QR
 ═══════════════════════════════════════════ */
-function gerarQRDataURL(codigo,tamanho){
-  return new Promise((resolve,reject)=>{
-    if(typeof QRCode==='undefined'){reject(new Error('QRCode não carregado.'));return;}
-    const div=document.createElement('div');div.style.cssText='position:fixed;left:-9999px;top:-9999px;visibility:hidden;';document.body.appendChild(div);
-    try{
-      new QRCode(div,{text:codigo,width:tamanho||300,height:tamanho||300,correctLevel:QRCode.CorrectLevel.M});
-      setTimeout(()=>{
-        try{const c=div.querySelector('canvas');if(c)resolve(c.toDataURL('image/png'));else{const i=div.querySelector('img');i&&i.src?resolve(i.src):reject(new Error('QR sem imagem.'));}}
-        catch(e){reject(e);}finally{if(document.body.contains(div))document.body.removeChild(div);}
-      },150);
-    }catch(e){if(document.body.contains(div))document.body.removeChild(div);reject(e);}
+function gerarQRDataURL(codigo, tamanho) {
+  return new Promise((resolve, reject) => {
+    if (typeof QRCode === 'undefined') { reject(new Error('QRCode não carregado.')); return; }
+    const div = document.createElement('div'); div.style.cssText='position:fixed;left:-9999px;top:-9999px;visibility:hidden;'; document.body.appendChild(div);
+    try {
+      new QRCode(div, { text:codigo, width:tamanho||300, height:tamanho||300, correctLevel:QRCode.CorrectLevel.M });
+      setTimeout(() => {
+        try { const c=div.querySelector('canvas'); if(c) resolve(c.toDataURL('image/png')); else { const i=div.querySelector('img'); i&&i.src?resolve(i.src):reject(new Error('QR sem imagem.')); } }
+        catch(e) { reject(e); } finally { if(document.body.contains(div)) document.body.removeChild(div); }
+      }, 150);
+    } catch(e) { if(document.body.contains(div)) document.body.removeChild(div); reject(e); }
   });
 }
 
 /* ═══════════════════════════════════════════
    GERAR CONVITE
-   — se offline e qr_ativo===false → modo offline
-   — caso contrário → requer rede
 ═══════════════════════════════════════════ */
-async function gerarConvite(nome){
+async function gerarConvite(nome) {
   const modoOff = !navigator.onLine && modoOfflinePermitido();
+  if (!navigator.onLine && !modoOff) { haptic('error'); mostrarErro(new Error('failed to fetch')); return; }
 
-  if(!navigator.onLine&&!modoOff){haptic('error');mostrarErro(new Error('failed to fetch'));return;}
+  ultimoContextoNome = nome;
+  hideInfo('step2Info'); showStep('step3');
+  if (!modoOff) iniciarProgressBar(TIMEOUT_MS * (MAX_RETRIES + 1));
 
-  ultimoContextoNome=nome;
-  hideInfo('step2Info');showStep('step3');
-  if(!modoOff)iniciarProgressBar(TIMEOUT_MS*(MAX_RETRIES+1));
-
-  try{
-    if(modoOff){
-      // ── MODO OFFLINE ──────────────────────────────
+  try {
+    if (modoOff) {
+      /* ── MODO OFFLINE ─────────────────────── */
       setLoading('A gerar o convite offline...');
+      const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+      let codigo = ''; for (let i=0;i<8;i++) codigo+=chars[Math.floor(Math.random()*chars.length)];
 
-      // Gera código localmente (sem verificar BD — aceitamos colisão improvável)
-      const chars='abcdefghjkmnpqrstuvwxyz23456789';
-      let codigo='';for(let i=0;i<8;i++)codigo+=chars[Math.floor(Math.random()*chars.length)];
+      const pdfBlob = await gerarPDF(nome, codigo, null, configData);
 
-      const pdfBlob=await gerarPDF(nome,codigo,null,configData);
+      // Converte para Base64 para persistir no sessionStorage
+      setLoading('A guardar offline...');
+      const pdf_b64 = await blobParaBase64(pdfBlob);
 
-      // Guarda na fila offline
-      const id_local='off_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-      const item={id_local,nome,codigo,created_at:new Date().toISOString()};
+      const id_local = 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+      const item = { id_local, nome, codigo, created_at: new Date().toISOString(), pdf_b64 };
       filaOffline.push(item);
-      blobsOffline[id_local]=pdfBlob; // em memória apenas
-      guardarFilaOffline(clienteData.token);
+      guardarFilaOffline(clienteData.token); // PDF já incluído no item
 
-      // Desconta crédito offline (apenas na memória local, sem tocar na BD)
       convitesSessao++;
       guardarEstadoSessaoComToken(clienteData.token);
+      triggerDownload(pdfBlob, `${nome}.pdf`);
 
-      triggerDownload(pdfBlob,`${nome}.pdf`);
       document.getElementById('nomeInput').value='';
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
-      actualizarContador();actualizarBannersOffline();
-      haptic('success');showStep('step2');
-      const restam=creditosOfflineRestantes();
-      showToast(`✅ Convite offline gerado! Restam ${restam} crédito${restam===1?'':'s'}.`,'#7c3aed');
+
+      iniciarRateLimit(); // aplica cooldown mesmo offline
+      actualizarContador(); actualizarBannersOffline(); haptic('success'); showStep('step2');
+      const restam = creditosOfflineRestantes();
+      showToast(`✅ Convite offline gerado! Restam ${restam} crédito${restam===1?'':'s'}.`, '#7c3aed');
       await carregarConvitesGerados();
 
-    }else{
-      // ── MODO ONLINE (comportamento normal) ────────
-      let conviteId=null;
-      await comRetry(async()=>{
+    } else {
+      /* ── MODO ONLINE ──────────────────────── */
+      let conviteId = null;
+      await comRetry(async () => {
         setLoading('A verificar disponibilidade...');
-        const{error:eCheck}=await comTimeout(DB.rpc('incrementar_scans',{p_token:clienteData.token}));
-        if(eCheck){
-          if(eCheck.message?.includes('LIMITE_ATINGIDO')){
-            const{data}=await DB.from('clientes').select('scans_usados,limite_scans').eq('token',clienteData.token).single();
-            if(data){clienteData.scans_usados=data.scans_usados;clienteData.limite_scans=data.limite_scans;}
+        const { error:eCheck } = await comTimeout(DB.rpc('incrementar_scans', { p_token:clienteData.token }));
+        if (eCheck) {
+          if (eCheck.message?.includes('LIMITE_ATINGIDO')) {
+            const { data } = await DB.from('clientes').select('scans_usados,limite_scans').eq('token',clienteData.token).single();
+            if (data) { clienteData.scans_usados=data.scans_usados; clienteData.limite_scans=data.limite_scans; }
             throw new Error('LIMITE_ATINGIDO: Limite de convites atingido.');
           }
           const n=(clienteData.scans_usados||0)+1;
           await DB.from('clientes').update({scans_usados:n}).eq('token',clienteData.token);
           clienteData.scans_usados=n;
-        }else{clienteData.scans_usados=(clienteData.scans_usados||0)+1;}
+        } else { clienteData.scans_usados=(clienteData.scans_usados||0)+1; }
 
         setLoading('A gerar o código único...');
-        const codigo=await comTimeout(gerarCodigoUnico(clienteData.token));
-        let qrDataUrl=null;
-        if(configData.qr_ativo!==false){setLoading('A criar o QR Code...');qrDataUrl=await gerarQRDataURL(codigo,300);}
+        const codigo = await comTimeout(gerarCodigoUnico(clienteData.token));
+        let qrDataUrl = null;
+        if (configData.qr_ativo !== false) { setLoading('A criar o QR Code...'); qrDataUrl = await gerarQRDataURL(codigo, 300); }
         setLoading('A personalizar o convite...');
-        const pdfBlob=await gerarPDF(nome,codigo,qrDataUrl,configData);
+        const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData);
         setLoading('A registar o convidado...');
-        const{data:inserted,error:eIns}=await comTimeout(DB.from('convidados').insert([{token_cliente:clienteData.token,codigo,nome,status:'convite_gerado'}]).select('id').single());
-        if(eIns)throw new Error('Erro ao registar: '+eIns.message);
-        conviteId=inserted?.id||null;
+        const { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([{ token_cliente:clienteData.token, codigo, nome, status:'convite_gerado' }]).select('id').single());
+        if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
+        conviteId = inserted?.id || null;
         pararProgressBar();
-        triggerDownload(pdfBlob,`${nome}.pdf`);
+        triggerDownload(pdfBlob, `${nome}.pdf`);
       });
 
-      ultimoContextoNome=null;
+      ultimoContextoNome = null;
       convitesSessao++;
-      if(conviteId){downloadsSessao.add(conviteId);}
+      if (conviteId) downloadsSessao.add(conviteId);
       guardarEstadoSessaoComToken(clienteData.token);
+
       document.getElementById('nomeInput').value='';
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
-      actualizarContador();haptic('success');showStep('step2');
-      if(isIOS){document.getElementById('iosHint').style.display='block';showToast('✅ Convite gerado!','#667eea');}
+
+      iniciarRateLimit(); // aplica cooldown após geração online
+      actualizarContador(); haptic('success'); showStep('step2');
+      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado!','#667eea'); }
       else showToast(`✅ Convite de ${nome} gerado!`);
     }
-  }catch(e){
-    pararProgressBar();haptic('error');console.error(e);mostrarErro(e);
+  } catch(e) {
+    pararProgressBar(); haptic('error'); console.error(e); mostrarErro(e);
   }
 }
 
 /* ═══════════════════════════════════════════
    BAIXAR EXISTENTE
 ═══════════════════════════════════════════ */
-async function baixarConviteExistente(nome,codigo,id,btn){
-  if(verificarOffline()){haptic('error');showToast('📵 Sem ligação','#ef4444');return;}
-  const orig=btn.textContent;btn.disabled=true;btn.textContent='⏳';
-  try{
-    let qr=null;if(configData?.qr_ativo!==false)qr=await gerarQRDataURL(codigo,300);
+async function baixarConviteExistente(nome, codigo, id, btn) {
+  if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
+  const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
+  try {
+    let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
     const blob=await gerarPDF(nome,codigo,qr,configData);
     triggerDownload(blob,`${nome}.pdf`);
-    if(id){downloadsSessao.add(id);guardarEstadoSessaoComToken(clienteData.token);}
+    if(id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); }
     renderizarConvites([...filaOffline,...todosConvites]);
     haptic('success');
-    if(isIOS){document.getElementById('iosHint').style.display='block';showToast('📥 Aberto! Guarde na janela.','#667eea');}
+    if(isIOS){ document.getElementById('iosHint').style.display='block'; showToast('📥 Aberto! Guarde na janela.','#667eea'); }
     else showToast('📥 Download iniciado!');
-  }catch(e){haptic('error');alert('Erro: '+e.message);}
-  finally{btn.disabled=false;btn.textContent=orig;}
+  } catch(e) { haptic('error'); alert('Erro: '+e.message); }
+  finally { btn.disabled=false; btn.textContent=orig; }
 }
 
 /* ═══════════════════════════════════════════
-   CÓDIGO ÚNICO (online)
+   CÓDIGO ÚNICO
 ═══════════════════════════════════════════ */
-async function gerarCodigoUnico(tokenCliente){
+async function gerarCodigoUnico(tokenCliente) {
   const chars='abcdefghjkmnpqrstuvwxyz23456789';
-  for(let t=0;t<10;t++){let c='';for(let i=0;i<8;i++)c+=chars[Math.floor(Math.random()*chars.length)];const{data}=await DB.from('convidados').select('id').eq('codigo',c).maybeSingle();if(!data)return c;}
+  for(let t=0;t<10;t++){ let c=''; for(let i=0;i<8;i++) c+=chars[Math.floor(Math.random()*chars.length)]; const{data}=await DB.from('convidados').select('id').eq('codigo',c).maybeSingle(); if(!data)return c; }
   throw new Error('Não foi possível gerar código único.');
 }
 
