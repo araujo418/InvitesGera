@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Administrativo - AdKira</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; min-height: 100vh; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid #2d2d4e;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 1.4rem; color: #667eea; font-weight: 700; }
+    .status-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+    .status-dot.connected { background: #22c55e; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .status-label { font-size: .85rem; color: #aaa; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      background: #1a1a2e;
+      border-bottom: 1px solid #2d2d4e;
+      overflow-x: auto;
+      gap: 0;
+    }
+    .tab-btn {
+      padding: 14px 22px;
+      background: none;
+      border: none;
+      color: #999;
+      font-size: .9rem;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    .tab-btn.active { color: #667eea; border-bottom-color: #667eea; }
+    .tab-btn:hover { color: #667eea; background: rgba(102,126,234,.08); }
+
+    /* Content */
+    .tab-content { display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }
+    .tab-content.active { display: block; }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-card .value { font-size: 2rem; font-weight: 700; color: #667eea; }
+    .stat-card .label { font-size: .8rem; color: #888; margin-top: 4px; }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .88rem;
+      font-weight: 600;
+      transition: all .2s;
+    }
+    .btn-primary { background: linear-gradient(135deg,#5c67f2,#667eea); color: #fff; }
+    .btn-primary:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-secondary { background: #374151; color: #e0e0e0; }
+    .btn-secondary:hover { background: #4b5563; }
+    .btn-warning { background: #f59e0b; color: #fff; }
+    .btn-sm { padding: 5px 12px; font-size: .8rem; }
+
+    /* Cards grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 18px;
+    }
+    .client-card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 14px;
+      padding: 20px;
+      transition: box-shadow .2s;
+    }
+    .client-card:hover { box-shadow: 0 4px 20px rgba(102,126,234,.2); }
+    .client-card .card-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; color: #e0e0e0; }
+    .client-card .card-meta { font-size: .8rem; color: #888; margin-bottom: 6px; }
+    .client-card .card-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .badge-green { background: rgba(34,197,94,.2); color: #22c55e; border: 1px solid #22c55e44; }
+    .badge-red { background: rgba(239,68,68,.2); color: #ef4444; border: 1px solid #ef444444; }
+    .badge-blue { background: rgba(102,126,234,.2); color: #667eea; border: 1px solid #667eea44; }
+    .badge-gray { background: rgba(156,163,175,.15); color: #9ca3af; border: 1px solid #9ca3af33; }
+
+    /* Progress bar */
+    .progress-wrap { margin: 8px 0; }
+    .progress-bar { background: #2d2d4e; border-radius: 10px; height: 8px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg,#5c67f2,#667eea); border-radius: 10px; transition: width .4s; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th { background: #1a1a2e; color: #667eea; padding: 12px 14px; text-align: left; border-bottom: 2px solid #2d2d4e; }
+    td { padding: 11px 14px; border-bottom: 1px solid #1e1e3a; vertical-align: middle; }
+    tr:hover td { background: rgba(102,126,234,.05); }
+
+    /* Modals */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal h2 { font-size: 1.2rem; color: #667eea; margin-bottom: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: .85rem; color: #aaa; margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0f0f1a;
+      border: 1px solid #2d2d4e;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: #667eea; }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .checkbox-group { display: flex; align-items: center; gap: 10px; }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #667eea; }
+    .checkbox-group label { margin: 0; font-size: .9rem; color: #e0e0e0; cursor: pointer; }
+
+    /* Search/filter bar */
+    .filter-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .filter-bar input, .filter-bar select {
+      padding: 9px 14px;
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: .88rem;
+      outline: none;
+    }
+    .filter-bar input { flex: 1; min-width: 200px; }
+    .filter-bar input:focus, .filter-bar select:focus { border-color: #667eea; }
+
+    /* Scans */
+    .scan-item {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      animation: fadeIn .4s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+    .scan-item .scan-name { font-weight: 600; font-size: .95rem; }
+    .scan-item .scan-meta { font-size: .78rem; color: #888; margin-top: 3px; }
+
+    /* Alert */
+    .alert-box {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: .9rem;
+      z-index: 9999;
+      animation: fadeIn .3s ease;
+      max-width: 340px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+    .alert-box.success { border-left: 4px solid #22c55e; }
+    .alert-box.error { border-left: 4px solid #ef4444; }
+    .alert-box.info { border-left: 4px solid #667eea; }
+
+    /* Convidados grid */
+    .convidados-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
+      gap: 12px;
+    }
+    .convidado-card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .convidado-card .nome { font-weight: 600; font-size: .9rem; }
+    .convidado-card .codigo { font-size: .75rem; color: #888; font-family: monospace; }
+
+    /* Token box */
+    .token-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0f0f1a;
+      border: 1px solid #2d2d4e;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: monospace;
+      font-size: .85rem;
+      color: #667eea;
+      word-break: break-all;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #667eea;
+      font-size: 1rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background .2s;
+    }
+    .copy-btn:hover { background: rgba(102,126,234,.15); }
+
+    /* Historico */
+    .historico-card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .historico-card input[type="checkbox"] { accent-color: #667eea; width: 16px; height: 16px; cursor: pointer; }
+
+    /* Section header */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .section-header h2 { font-size: 1.1rem; color: #e0e0e0; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 60px 20px; color: #555; }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* Responsive */
+    @media(max-width:600px){
+      .header h1 { font-size: 1.1rem; }
+      .tab-btn { padding: 10px 14px; font-size: .82rem; }
+      .tab-content { padding: 16px; }
+      .stats-grid { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>🎛️ AdKira — Painel Admin</h1>
+  <div>
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">A conectar…</span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+  <button class="tab-btn" onclick="switchTab('clientes')">👥 Clientes</button>
+  <button class="tab-btn" onclick="switchTab('convidados')">🎟️ Convidados</button>
+  <button class="tab-btn" onclick="switchTab('scans')">📡 Scans em Tempo Real</button>
+  <button class="tab-btn" onclick="switchTab('historico')">🗂️ Histórico</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="tab-content active" id="tab-dashboard">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="value" id="totalClientes">–</div><div class="label">Clientes</div></div>
+    <div class="stat-card"><div class="value" id="totalConvidados">–</div><div class="label">Convidados</div></div>
+    <div class="stat-card"><div class="value" id="totalCheckins">–</div><div class="label">Check-ins</div></div>
+    <div class="stat-card"><div class="value" id="aguardandoCheckin">–</div><div class="label">Aguardando</div></div>
+    <div class="stat-card"><div class="value" id="scansHoje">–</div><div class="label">Scans Hoje</div></div>
+    <div class="stat-card"><div class="value" id="scansTotal">–</div><div class="label">Scans Total</div></div>
+  </div>
+  <div id="alertasContainer"></div>
+  <div class="section-header"><h2>Scans Recentes</h2></div>
+  <div id="recentScansContainer"><div class="empty-state"><div class="icon">📡</div><p>Nenhum scan recente</p></div></div>
+</div>
+
+<!-- CLIENTES -->
+<div class="tab-content" id="tab-clientes">
+  <div class="section-header">
+    <h2>Clientes</h2>
+    <button class="btn btn-primary" onclick="abrirModalNovoCliente()">+ Novo Cliente</button>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="searchClientes" placeholder="🔍 Pesquisar clientes…" oninput="renderClientes()">
+  </div>
+  <div class="cards-grid" id="clientesGrid"></div>
+</div>
+
+<!-- CONVIDADOS -->
+<div class="tab-content" id="tab-convidados">
+  <div class="section-header">
+    <h2>Convidados</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="exportarConvidados()">⬇️ Exportar .txt</button>
+      <button class="btn btn-danger btn-sm" onclick="document.getElementById('modalEliminarTodos').classList.add('open')">🗑️ Eliminar todos</button>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <input type="text" id="searchConvidados" placeholder="🔍 Pesquisar por nome ou código…" oninput="filtrarConvidados()">
+    <select id="filterCliente" onchange="filtrarConvidados()">
+      <option value="">Todos os clientes</option>
+    </select>
+    <select id="filterStatus" onchange="filtrarConvidados()">
+      <option value="">Todos os status</option>
+      <option value="ativo">Ativo</option>
+      <option value="presente">Presente</option>
+      <option value="inativo">Inativo</option>
+    </select>
+  </div>
+  <div id="convidadosGrid" class="convidados-grid"></div>
+</div>
+
+<!-- SCANS EM TEMPO REAL -->
+<div class="tab-content" id="tab-scans">
+  <div class="section-header">
+    <h2>📡 Scans em Tempo Real</h2>
+    <button class="btn btn-secondary btn-sm" onclick="limparScansUI()">Limpar lista</button>
+  </div>
+  <div id="scansRealtimeContainer"><div class="empty-state"><div class="icon">📡</div><p>Aguardando scans…</p></div></div>
+</div>
+
+<!-- HISTÓRICO -->
+<div class="tab-content" id="tab-historico">
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+    <button class="btn btn-secondary" onclick="switchHistoricoTab('convidados')" id="hTabConvidados">🎟️ Convidados Eliminados</button>
+    <button class="btn btn-secondary" onclick="switchHistoricoTab('clientes')" id="hTabClientes">👥 Clientes Eliminados</button>
+  </div>
+
+  <!-- Historico convidados -->
+  <div id="historicoConvidadosPanel">
+    <div class="filter-bar">
+      <input type="text" id="searchHistorico" placeholder="🔍 Pesquisar…" oninput="filtrarHistorico()">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-success btn-sm" onclick="restaurarConvidadosSelecionados()">✅ Restaurar Selecionados</button>
+      <button class="btn btn-primary btn-sm" onclick="restaurarTodosConvidados()">♻️ Restaurar Todos</button>
+      <button class="btn btn-secondary btn-sm" onclick="selecionarTodosHistorico(true)">☑️ Selecionar Todos</button>
+      <button class="btn btn-secondary btn-sm" onclick="selecionarTodosHistorico(false)">⬜ Desselecionar</button>
+    </div>
+    <div id="historicoConvidadosList"></div>
+  </div>
+
+  <!-- Historico clientes -->
+  <div id="historicoClientesPanel" style="display:none">
+    <div class="filter-bar">
+      <input type="text" id="searchHistoricoClientes" placeholder="🔍 Pesquisar…" oninput="filtrarHistoricoClientes()">
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-success btn-sm" onclick="restaurarClientesSelecionados()">✅ Restaurar Selecionados</button>
+      <button class="btn btn-primary btn-sm" onclick="restaurarTodosClientes()">♻️ Restaurar Todos</button>
+    </div>
+    <div id="historicoClientesList"></div>
+  </div>
+</div>
+
+<!-- ========== MODAIS ========== -->
+
+<!-- Modal Novo Cliente -->
+<div class="modal-overlay" id="modalNovoCliente">
+  <div class="modal">
+    <h2>➕ Novo Cliente</h2>
+    <div class="form-group">
+      <label>Nome do evento / cliente</label>
+      <input type="text" id="nc_nome" placeholder="Ex: Casamento João & Maria">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Validade (data)</label>
+        <input type="date" id="nc_validade">
+      </div>
+      <div class="form-group">
+        <label>Limite de scans</label>
+        <input type="number" id="nc_limite" placeholder="200" min="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Dispositivos permitidos (ex: MOZ01,MOZ02)</label>
+      <input type="text" id="nc_dispositivos" placeholder="Deixar vazio = todos">
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="nc_qrcode">
+        <label for="nc_qrcode">☑️ Ativar QR Code — Cliente gera os seus próprios convites</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModais()">Cancelar</button>
+      <button class="btn btn-primary" onclick="criarCliente()">Criar Cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editar Cliente -->
+<div class="modal-overlay" id="modalEditarCliente">
+  <div class="modal">
+    <h2>✏️ Editar Cliente</h2>
+    <input type="hidden" id="ec_id">
+    <div class="form-group">
+      <label>Nome do evento / cliente</label>
+      <input type="text" id="ec_nome">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Validade (data)</label>
+        <input type="date" id="ec_validade">
+      </div>
+      <div class="form-group">
+        <label>Limite de scans</label>
+        <input type="number" id="ec_limite" min="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Dispositivos permitidos</label>
+      <input type="text" id="ec_dispositivos">
+    </div>
+    <div class="form-group">
+      <div class="checkbox-group">
+        <input type="checkbox" id="ec_qrcode">
+        <label for="ec_qrcode">☑️ Ativar QR Code — Cliente gera os seus próprios convites</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModais()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEdicaoCliente()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmar Remover Cliente -->
+<div class="modal-overlay" id="modalConfirmarRemover">
+  <div class="modal">
+    <h2>⚠️ Remover Cliente</h2>
+    <p style="color:#ccc;margin-bottom:20px">Tens a certeza que queres remover este cliente? Os seus convidados serão movidos para o histórico.</p>
+    <input type="hidden" id="remover_id">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModais()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarRemoverCliente()">Remover</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Eliminar Todos Convidados -->
+<div class="modal-overlay" id="modalEliminarTodos">
+  <div class="modal">
+    <h2>⚠️ Eliminar Todos os Convidados</h2>
+    <p style="color:#ccc;margin-bottom:12px">Seleciona o cliente ou deixa vazio para eliminar todos:</p>
+    <div class="form-group">
+      <select id="eliminarTodosCliente">
+        <option value="">Todos os clientes</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModais()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarEliminarTodos()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Desfazer Últimos -->
+<div class="modal-overlay" id="modalDesfazer">
+  <div class="modal">
+    <h2>↩️ Desfazer Últimos Convidados</h2>
+    <div class="form-group">
+      <label>Quantos convidados desfazer?</label>
+      <input type="number" id="desfazerQtd" value="10" min="1" max="500">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModais()">Cancelar</button>
+      <button class="btn btn-warning" onclick="desfazerUltimosConvidados()">Desfazer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  CONFIGURAÇÃO SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
+
+let supabase;
+let allClientes = [];
+let allConvidados = [];
+let allHistoricoConvidados = [];
+let allHistoricoClientes = [];
+let realtimeChannel = null;
+let scansRealtimeList = [];
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  connectSupabase();
+});
+
+async function connectSupabase() {
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    document.getElementById('statusDot').classList.add('connected');
+    document.getElementById('statusLabel').textContent = 'Conectado';
+    await loadAllData();
+    setupRealtimeListener();
+  } catch (e) {
+    document.getElementById('statusLabel').textContent = 'Erro de conexão';
+    showAlert('Erro ao conectar ao Supabase: ' + e.message, 'error');
+  }
+}
+
+async function loadAllData() {
+  await Promise.all([loadClientes(), loadConvidados(), loadStats(), loadHistorico()]);
+  checkAlertas();
+}
+
+// ============================================================
+//  CLIENTES
+// ============================================================
+async function loadClientes() {
+  const { data, error } = await supabase.from('clientes').select('*').order('id', { ascending: false });
+  if (error) { showAlert('Erro ao carregar clientes: ' + error.message, 'error'); return; }
+  allClientes = data || [];
+  renderClientes();
+  populateClienteSelects();
+}
+
+function renderClientes() {
+  const search = document.getElementById('searchClientes')?.value?.toLowerCase() || '';
+  const filtered = allClientes.filter(c => c.nome?.toLowerCase().includes(search) || c.token?.toLowerCase().includes(search));
+  const grid = document.getElementById('clientesGrid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="icon">👥</div><p>Nenhum cliente encontrado</p></div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(c => {
+    const agora = Math.floor(Date.now() / 1000);
+    const ativo = !c.validade || c.validade > agora;
+    const pct = c.limite_scans ? Math.min(100, Math.round((c.scans_usados || 0) / c.limite_scans * 100)) : 0;
+    const validadeStr = c.validade ? new Date(c.validade * 1000).toLocaleDateString('pt-PT') : '–';
+    const qrBadge = c.qr_code
+      ? '<span class="badge badge-blue">✅ QR Code Ativo</span>'
+      : '<span class="badge badge-gray">🔲 QR Code</span>';
+    return `
+      <div class="client-card">
+        <div class="card-title">${escapeHtml(c.nome || '–')}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <span class="badge ${ativo ? 'badge-green' : 'badge-red'}">${ativo ? '✅ Ativo' : '❌ Expirado'}</span>
+          ${qrBadge}
+        </div>
+        <div class="card-meta">🔑 Token: <span style="font-family:monospace;color:#667eea">${escapeHtml(c.token || '–')}</span>
+          <button class="copy-btn" onclick="copiarToken('${escapeHtml(c.token || '')}')">📋</button>
+        </div>
+        <div class="card-meta">📅 Validade: ${validadeStr}</div>
+        <div class="card-meta">📊 Scans: ${c.scans_usados || 0} / ${c.limite_scans || '∞'}</div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-secondary btn-sm" onclick="abrirModalEditar(${c.id})">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="abrirModalRemover(${c.id})">🗑️ Remover</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function populateClienteSelects() {
+  const opts = allClientes.map(c => `<option value="${escapeHtml(c.token || '')}">${escapeHtml(c.nome || c.token || '')}</option>`).join('');
+  const elFilter = document.getElementById('filterCliente');
+  const elEliminar = document.getElementById('eliminarTodosCliente');
+  if (elFilter) elFilter.innerHTML = '<option value="">Todos os clientes</option>' + opts;
+  if (elEliminar) elEliminar.innerHTML = '<option value="">Todos os clientes</option>' + opts;
+}
+
+// ============================================================
+//  CONVIDADOS
+// ============================================================
+async function loadConvidados() {
+  const { data, error } = await supabase.from('convidados').select('*').is('deleted_at', null).order('created_at', { ascending: false });
+  if (error) { showAlert('Erro ao carregar convidados: ' + error.message, 'error'); return; }
+  allConvidados = data || [];
+  filtrarConvidados();
+}
+
+function filtrarConvidados() {
+  const search = document.getElementById('searchConvidados')?.value?.toLowerCase() || '';
+  const clienteFilter = document.getElementById('filterCliente')?.value || '';
+  const statusFilter = document.getElementById('filterStatus')?.value || '';
+  const filtered = allConvidados.filter(c => {
+    const matchSearch = !search || c.nome?.toLowerCase().includes(search) || c.codigo?.toLowerCase().includes(search);
+    const matchCliente = !clienteFilter || c.token_cliente === clienteFilter;
+    const matchStatus = !statusFilter || c.status === statusFilter;
+    return matchSearch && matchCliente && matchStatus;
+  });
+  const grid = document.getElementById('convidadosGrid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🎟️</div><p>Nenhum convidado encontrado</p></div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(c => {
+    const statusBadge = c.status === 'presente'
+      ? '<span class="badge badge-green">✅ Presente</span>'
+      : c.status === 'inativo'
+        ? '<span class="badge badge-red">❌ Inativo</span>'
+        : '<span class="badge badge-blue">🎟️ Ativo</span>';
+    return `
+      <div class="convidado-card">
+        <div>
+          <div class="nome">${escapeHtml(c.nome || '–')}</div>
+          <div class="codigo">${escapeHtml(c.codigo || '–')}</div>
+          ${statusBadge}
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="eliminarConvidado(${c.id})">🗑️</button>
+      </div>`;
+  }).join('');
+}
+
+// ============================================================
+//  STATS
+// ============================================================
+async function loadStats() {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const hojeIso = hoje.toISOString();
+
+  const [resConvidados, resCheckins, resScansHoje, resScansTotal] = await Promise.all([
+    supabase.from('convidados').select('id, status', { count: 'exact' }).is('deleted_at', null),
+    supabase.from('convidados').select('id', { count: 'exact' }).eq('status', 'presente').is('deleted_at', null),
+    supabase.from('convidados').select('id', { count: 'exact' }).gte('checkin_data', hojeIso).not('checkin_data', 'is', null),
+    supabase.from('convidados').select('id', { count: 'exact' }).not('checkin_data', 'is', null),
+  ]);
+
+  const total = resConvidados.count || 0;
+  const checkins = resCheckins.count || 0;
+  document.getElementById('totalClientes').textContent = allClientes.length;
+  document.getElementById('totalConvidados').textContent = total;
+  document.getElementById('totalCheckins').textContent = checkins;
+  document.getElementById('aguardandoCheckin').textContent = total - checkins;
+  document.getElementById('scansHoje').textContent = resScansHoje.count || 0;
+  document.getElementById('scansTotal').textContent = resScansTotal.count || 0;
+}
+
+function checkAlertas() {
+  const agora = Math.floor(Date.now() / 1000);
+  const alertas = allClientes.filter(c => c.validade && c.validade < agora + 3 * 86400 && c.validade > agora);
+  const container = document.getElementById('alertasContainer');
+  if (!alertas.length) { container.innerHTML = ''; return; }
+  container.innerHTML = alertas.map(c =>
+    `<div style="background:rgba(245,158,11,.1);border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;margin-bottom:10px;color:#f59e0b">
+      ⚠️ Cliente <strong>${escapeHtml(c.nome)}</strong> expira em ${Math.ceil((c.validade - agora) / 86400)} dia(s)
+    </div>`
+  ).join('');
+}
+
+// ============================================================
+//  SCANS RECENTES & REALTIME
+// ============================================================
+async function loadRecentScans() {
+  const { data } = await supabase.from('convidados').select('*').eq('status', 'presente').order('checkin_data', { ascending: false }).limit(20);
+  const container = document.getElementById('recentScansContainer');
+  if (!data || !data.length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📡</div><p>Nenhum scan recente</p></div>';
+    return;
+  }
+  container.innerHTML = data.map(s => buildScanItem(s)).join('');
+}
+
+function buildScanItem(s) {
+  const dt = s.checkin_data ? new Date(s.checkin_data).toLocaleString('pt-PT') : '';
+  return `<div class="scan-item">
+    <div>
+      <div class="scan-name">${escapeHtml(s.nome || '–')}</div>
+      <div class="scan-meta">📋 ${escapeHtml(s.codigo || '')} · ${escapeHtml(s.token_cliente || '')} · ${dt}</div>
+    </div>
+    <span class="badge badge-green">✅ Presente</span>
+  </div>`;
+}
+
+function setupRealtimeListener() {
+  if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+  realtimeChannel = supabase.channel('convidados_realtime')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'convidados' }, handleNewScan)
+    .subscribe();
+}
+
+function handleNewScan(payload) {
+  const c = payload.new;
+  if (c.status !== 'presente') return;
+  scansRealtimeList.unshift(c);
+  if (scansRealtimeList.length > 50) scansRealtimeList.pop();
+  const container = document.getElementById('scansRealtimeContainer');
+  container.innerHTML = scansRealtimeList.map(s => buildScanItem(s)).join('');
+  // update dashboard recentes
+  loadRecentScans();
+  loadStats();
+  // Update local list
+  const idx = allConvidados.findIndex(x => x.id === c.id);
+  if (idx !== -1) allConvidados[idx] = c;
+  filtrarConvidados();
+}
+
+function limparScansUI() {
+  scansRealtimeList = [];
+  document.getElementById('scansRealtimeContainer').innerHTML = '<div class="empty-state"><div class="icon">📡</div><p>Aguardando scans…</p></div>';
+}
+
+// ============================================================
+//  CRUD CLIENTES
+// ============================================================
+function gerarToken() {
+  return Math.random().toString(36).substring(2, 10).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
+function abrirModalNovoCliente() {
+  document.getElementById('nc_nome').value = '';
+  document.getElementById('nc_validade').value = '';
+  document.getElementById('nc_limite').value = '';
+  document.getElementById('nc_dispositivos').value = '';
+  document.getElementById('nc_qrcode').checked = false;
+  document.getElementById('modalNovoCliente').classList.add('open');
+}
+
+async function criarCliente() {
+  const nome = document.getElementById('nc_nome').value.trim();
+  const validadeDate = document.getElementById('nc_validade').value;
+  const limite = parseInt(document.getElementById('nc_limite').value) || null;
+  const dispositivos = document.getElementById('nc_dispositivos').value.trim();
+  const qr_code = document.getElementById('nc_qrcode').checked;
+
+  if (!nome) { showAlert('O nome é obrigatório', 'error'); return; }
+
+  const token = gerarToken();
+  const validade = validadeDate ? Math.floor(new Date(validadeDate).getTime() / 1000) : null;
+
+  const { error } = await supabase.from('clientes').insert([{
+    nome, token, validade, limite_scans: limite, dispositivos: dispositivos || null,
+    scans_usados: 0, qr_code
+  }]);
+
+  if (error) { showAlert('Erro ao criar cliente: ' + error.message, 'error'); return; }
+  fecharModais();
+  showAlert('✅ Cliente criado! Token: ' + token, 'success');
+  await loadClientes();
+  await loadStats();
+}
+
+function abrirModalEditar(id) {
+  const c = allClientes.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('ec_id').value = c.id;
+  document.getElementById('ec_nome').value = c.nome || '';
+  document.getElementById('ec_validade').value = c.validade ? new Date(c.validade * 1000).toISOString().split('T')[0] : '';
+  document.getElementById('ec_limite').value = c.limite_scans || '';
+  document.getElementById('ec_dispositivos').value = c.dispositivos || '';
+  document.getElementById('ec_qrcode').checked = !!c.qr_code;
+  document.getElementById('modalEditarCliente').classList.add('open');
+}
+
+async function salvarEdicaoCliente() {
+  const id = parseInt(document.getElementById('ec_id').value);
+  const nome = document.getElementById('ec_nome').value.trim();
+  const validadeDate = document.getElementById('ec_validade').value;
+  const limite = parseInt(document.getElementById('ec_limite').value) || null;
+  const dispositivos = document.getElementById('ec_dispositivos').value.trim();
+  const qr_code = document.getElementById('ec_qrcode').checked;
+
+  if (!nome) { showAlert('O nome é obrigatório', 'error'); return; }
+
+  const validade = validadeDate ? Math.floor(new Date(validadeDate).getTime() / 1000) : null;
+
+  const { error } = await supabase.from('clientes').update({
+    nome, validade, limite_scans: limite, dispositivos: dispositivos || null, qr_code
+  }).eq('id', id);
+
+  if (error) { showAlert('Erro ao editar cliente: ' + error.message, 'error'); return; }
+  fecharModais();
+  showAlert('✅ Cliente atualizado!', 'success');
+  await loadClientes();
+}
+
+function abrirModalRemover(id) {
+  document.getElementById('remover_id').value = id;
+  document.getElementById('modalConfirmarRemover').classList.add('open');
+}
+
+async function confirmarRemoverCliente() {
+  const id = parseInt(document.getElementById('remover_id').value);
+  // Move convidados to historico (soft delete)
+  await supabase.from('convidados').update({ deleted_at: new Date().toISOString() }).eq('token_cliente',
+    allClientes.find(c => c.id === id)?.token || '');
+  // Soft delete the cliente
+  const { error } = await supabase.from('clientes').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  if (error) { showAlert('Erro ao remover cliente: ' + error.message, 'error'); return; }
+  fecharModais();
+  showAlert('✅ Cliente removido', 'success');
+  await loadAllData();
+}
+
+// ============================================================
+//  CRUD CONVIDADOS
+// ============================================================
+async function eliminarConvidado(id) {
+  if (!confirm('Eliminar este convidado?')) return;
+  const { error } = await supabase.from('convidados').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  if (error) { showAlert('Erro: ' + error.message, 'error'); return; }
+  showAlert('Convidado eliminado', 'success');
+  await loadConvidados();
+  await loadStats();
+}
+
+async function confirmarEliminarTodos() {
+  const clienteToken = document.getElementById('eliminarTodosCliente').value;
+  let query = supabase.from('convidados').update({ deleted_at: new Date().toISOString() }).is('deleted_at', null);
+  if (clienteToken) query = query.eq('token_cliente', clienteToken);
+  const { error } = await query;
+  if (error) { showAlert('Erro: ' + error.message, 'error'); return; }
+  fecharModais();
+  showAlert('✅ Convidados eliminados', 'success');
+  await loadConvidados();
+  await loadStats();
+}
+
+async function desfazerUltimosConvidados() {
+  const qtd = parseInt(document.getElementById('desfazerQtd').value) || 10;
+  const { data } = await supabase.from('convidados').select('id').is('deleted_at', null).order('created_at', { ascending: false }).limit(qtd);
+  if (!data || !data.length) { showAlert('Nenhum convidado para desfazer', 'info'); return; }
+  const ids = data.map(x => x.id);
+  const { error } = await supabase.from('convidados').update({ deleted_at: new Date().toISOString() }).in('id', ids);
+  if (error) { showAlert('Erro: ' + error.message, 'error'); return; }
+  fecharModais();
+  showAlert(`✅ ${ids.length} convidados desfeitos`, 'success');
+  await loadConvidados();
+  await loadStats();
+}
+
+// ============================================================
+//  HISTÓRICO
+// ============================================================
+async function loadHistorico() {
+  const [resConv, resClientes] = await Promise.all([
+    supabase.from('convidados').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false }),
+    supabase.from('clientes').select('*').not('deleted_at', 'is', null).order('deleted_at', { ascending: false }),
+  ]);
+  allHistoricoConvidados = resConv.data || [];
+  allHistoricoClientes = resClientes.data || [];
+  filtrarHistorico();
+  filtrarHistoricoClientes();
+}
+
+function filtrarHistorico() {
+  const search = document.getElementById('searchHistorico')?.value?.toLowerCase() || '';
+  const filtered = allHistoricoConvidados.filter(c =>
+    !search || c.nome?.toLowerCase().includes(search) || c.codigo?.toLowerCase().includes(search)
+  );
+  const container = document.getElementById('historicoConvidadosList');
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🗂️</div><p>Nenhum convidado no histórico</p></div>';
+    return;
+  }
+  container.innerHTML = filtered.map(c => `
+    <div class="historico-card">
+      <input type="checkbox" class="historico-check" value="${c.id}">
+      <div style="flex:1">
+        <div style="font-weight:600">${escapeHtml(c.nome || '–')}</div>
+        <div style="font-size:.78rem;color:#888">${escapeHtml(c.codigo || '')} · ${escapeHtml(c.token_cliente || '')} · Eliminado: ${c.deleted_at ? new Date(c.deleted_at).toLocaleString('pt-PT') : ''}</div>
+      </div>
+    </div>`).join('');
+}
+
+function filtrarHistoricoClientes() {
+  const search = document.getElementById('searchHistoricoClientes')?.value?.toLowerCase() || '';
+  const filtered = allHistoricoClientes.filter(c =>
+    !search || c.nome?.toLowerCase().includes(search)
+  );
+  const container = document.getElementById('historicoClientesList');
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🗂️</div><p>Nenhum cliente no histórico</p></div>';
+    return;
+  }
+  container.innerHTML = filtered.map(c => `
+    <div class="historico-card">
+      <input type="checkbox" class="historico-cliente-check" value="${c.id}">
+      <div style="flex:1">
+        <div style="font-weight:600">${escapeHtml(c.nome || '–')}</div>
+        <div style="font-size:.78rem;color:#888">Token: ${escapeHtml(c.token || '')} · Eliminado: ${c.deleted_at ? new Date(c.deleted_at).toLocaleString('pt-PT') : ''}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function restaurarConvidadosSelecionados() {
+  const ids = [...document.querySelectorAll('.historico-check:checked')].map(el => parseInt(el.value));
+  if (!ids.length) { showAlert('Seleciona pelo menos um convidado', 'error'); return; }
+  const { error } = await supabase.from('convidados').update({ deleted_at: null }).in('id', ids);
+  if (error) { showAlert('Erro: ' + error.message, 'error'); return; }
+  showAlert(`✅ ${ids.length} convidados restaurados`, 'success');
+  await loadHistorico();
+  await loadConvidados();
+  await loadStats();
+}
+
+async function restaurarTodosConvidados() {
+  const { error } = await supabase.from('convidados').update({ deleted_at: null }).not('deleted_at', 'is', null);
+  if (error) { showAlert('Erro: ' + error.message, 'error'); return; }
+  showAlert('✅ Todos os convidados restaurados', 'success');
+  await loadHistorico();
+  await loadConvidados();
+  await loadStats();
+}
+
+async function restaurarClientesSelecionados() {
+  const ids = [...document.querySelectorAll('.historico-cliente-check:checked')].map(el => parseInt(el.value));
+  if (!ids.length) { showAlert('Seleciona pelo menos um cliente', 'error'); return; }
+  const { error } = await supabase.from('clientes').update({ deleted_at: null }).in('id', ids);
+  if (error) { showAlert('Erro: ' + error.message, 'error'); return; }
+  showAlert(`✅ ${ids.length} clientes restaurados`, 'success');
+  await loadHistorico();
+  await loadClientes();
+  await loadStats();
+}
+
+async function restaurarTodosClientes() {
+  const { error } = await supabase.from('clientes').update({ deleted_at: null }).not('deleted_at', 'is', null);
+  if (error) { showAlert('Erro: ' + error.message, 'error'); return; }
+  showAlert('✅ Todos os clientes restaurados', 'success');
+  await loadHistorico();
+  await loadClientes();
+  await loadStats();
+}
+
+function selecionarTodosHistorico(val) {
+  document.querySelectorAll('.historico-check').forEach(el => el.checked = val);
+}
+
+// ============================================================
+//  EXPORTAR
+// ============================================================
+function exportarConvidados() {
+  const clienteFilter = document.getElementById('filterCliente')?.value || '';
+  let lista = allConvidados;
+  if (clienteFilter) lista = lista.filter(c => c.token_cliente === clienteFilter);
+  const txt = lista.map(c => `${c.codigo},${c.nome}`).join('\n');
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'convidados.txt';
+  a.click();
+}
+
+// ============================================================
+//  UI HELPERS
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'scans') loadRecentScans();
+  if (tab === 'historico') loadHistorico();
+}
+
+function switchHistoricoTab(tab) {
+  document.getElementById('historicoConvidadosPanel').style.display = tab === 'convidados' ? 'block' : 'none';
+  document.getElementById('historicoClientesPanel').style.display = tab === 'clientes' ? 'block' : 'none';
+}
+
+function fecharModais() {
+  document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('open'));
+}
+
+// Close modal on outside click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) fecharModais(); });
+});
+
+function copiarToken(token) {
+  navigator.clipboard.writeText(token).then(() => showAlert('Token copiado!', 'success'));
+}
+
+function showAlert(msg, type = 'info') {
+  const box = document.createElement('div');
+  box.className = `alert-box ${type}`;
+  box.textContent = msg;
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 4000);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+</script>
+</body>
+</html>
