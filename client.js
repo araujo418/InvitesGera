@@ -264,7 +264,9 @@ async function generateUniqueCode() {
   let code, exists;
   let attempts = 0;
   do {
-    code = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    code = Array.from(bytes, b => chars[b % chars.length]).join('');
     const { data } = await sb.from('convidados').select('codigo').eq('codigo', code).maybeSingle();
     exists = !!data;
     attempts++;
@@ -454,7 +456,9 @@ async function renderHistory() {
           <div class="invite-name">${esc(rec.nome)}</div>
           <div class="invite-meta">🔑 ${esc(rec.codigo)} &nbsp;·&nbsp; 📅 ${date}</div>
         </div>
-        <button class="dl-btn" onclick="reDownload('${rec.id}')">⬇️</button>`;
+        <button class="dl-btn" type="button">⬇️</button>`;
+      const dlBtn = div.querySelector('.dl-btn');
+      dlBtn.addEventListener('click', () => reDownload(rec.id));
       cont.appendChild(div);
     });
   } catch (e) {
