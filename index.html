@@ -35,58 +35,78 @@
       width: 100%;
       margin: 0 auto;
       box-shadow: 0 16px 48px rgba(0,0,0,0.25);
+      /* Necessário para o clip das animações */
+      overflow: hidden;
+      position: relative;
     }
 
     .logo { text-align: center; margin-bottom: 22px; }
     .logo h1 { font-size: 26px; font-weight: 800; color: #1a1a2e; }
     .logo p  { font-size: 13px; color: #6b7280; margin-top: 4px; }
 
-    .step { display: none; flex-direction: column; gap: 14px; }
-    .step.active { display: flex; }
+    /* ── Transições de ecrã ── */
+    .step {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      /* estado inicial antes de animar */
+      opacity: 0;
+      transform: translateX(30px);
+      transition: opacity .25s ease, transform .25s ease;
+      /* pointer-events off enquanto está hidden */
+      pointer-events: none;
+    }
+    .step.active {
+      display: flex;
+      pointer-events: auto;
+    }
+    /* classe que activa a animação (adicionada logo após display:flex) */
+    .step.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    /* saída para a esquerda */
+    .step.exit {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
 
     label { font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px; }
 
     input[type="text"] {
       width: 100%; padding: 15px 16px;
       border: 2px solid #e5e7eb; border-radius: 12px;
-      font-size: 16px; /* mínimo 16px para não fazer zoom no iOS */
+      font-size: 16px;
       font-family: inherit; transition: border-color .2s;
       -webkit-appearance: none;
     }
     input:focus { outline: none; border-color: #667eea; }
 
     button {
-      width: 100%;
-      padding: 16px;
-      border: none; border-radius: 14px;
+      width: 100%; padding: 16px; border: none; border-radius: 14px;
       font-size: 16px; font-weight: 700; cursor: pointer;
-      font-family: inherit; transition: all .15s;
-      /* área de toque mínima recomendada: 48px */
+      font-family: inherit; transition: transform .1s, opacity .1s;
       min-height: 52px;
       -webkit-appearance: none;
-      touch-action: manipulation; /* elimina delay de 300ms no mobile */
+      touch-action: manipulation;
     }
     .btn-main {
       background: linear-gradient(135deg,#667eea,#764ba2);
       color: white;
       box-shadow: 0 4px 14px rgba(102,126,234,.4);
     }
-    .btn-main:active { transform: scale(0.98); opacity: .9; }
+    .btn-main:active { transform: scale(0.97); opacity: .9; }
     .btn-main:disabled { opacity: .5; cursor: not-allowed; transform: none; }
     .btn-ghost { background: #f3f4f6; color: #374151; }
-    .btn-ghost:active { background: #e5e7eb; }
-    .btn-warning {
-      background: #fffbeb; color: #92400e;
-      border: 2px solid #fcd34d;
-    }
-    .btn-warning:active { background: #fef3c7; }
+    .btn-ghost:active { background: #e5e7eb; transform: scale(0.97); }
+    .btn-warning { background: #fffbeb; color: #92400e; border: 2px solid #fcd34d; }
+    .btn-warning:active { background: #fef3c7; transform: scale(0.97); }
     .btn-outline {
       background: white; color: #667eea;
       border: 2px solid #667eea;
-      min-height: 40px; padding: 8px 14px;
-      font-size: 13px;
+      min-height: 40px; padding: 8px 14px; font-size: 13px;
     }
-    .btn-outline:active { background: #f0f1ff; }
+    .btn-outline:active { background: #f0f1ff; transform: scale(0.97); }
 
     .info { border-radius: 12px; padding: 13px 15px; font-size: 14px; line-height: 1.5; }
     .info.blue   { background: #f0f1ff; color: #4338ca; }
@@ -108,10 +128,7 @@
 
     .divider { height: 1px; background: #e5e7eb; margin: 2px 0; }
 
-    .loading-box {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 14px; padding: 24px 0;
-    }
+    .loading-box { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 0; }
     .spinner {
       width: 40px; height: 40px;
       border: 4px solid #e5e7eb; border-top-color: #667eea;
@@ -132,14 +149,12 @@
     }
     .session-restore p { font-size: 15px; color: #6b7280; font-weight: 500; text-align: center; }
 
-    /* Lista de convites */
     .convites-header { display: flex; align-items: center; gap: 8px; }
     .convites-search {
       flex: 1; padding: 11px 14px;
       border: 1.5px solid #e5e7eb; border-radius: 10px;
       font-size: 16px; font-family: inherit;
-      transition: border-color .2s;
-      -webkit-appearance: none;
+      transition: border-color .2s; -webkit-appearance: none;
     }
     .convites-search:focus { outline: none; border-color: #667eea; }
     .convites-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
@@ -160,43 +175,37 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .btn-dl {
-      flex-shrink: 0; width: auto;
-      padding: 10px 16px;
+      flex-shrink: 0; width: auto; padding: 10px 16px;
       background: #667eea; color: white; border-radius: 10px;
       font-size: 13px; font-weight: 600; border: none; cursor: pointer;
-      min-height: 44px; /* toque mínimo */
-      touch-action: manipulation;
+      min-height: 44px; touch-action: manipulation;
     }
-    .btn-dl:active { background: #5568d3; }
+    .btn-dl:active { background: #5568d3; transform: scale(0.96); }
 
     .section-label {
       font-size: 11px; font-weight: 700; color: #6b7280;
       text-transform: uppercase; letter-spacing: .6px;
     }
 
-    /* Modal — ocupa mais ecrã no mobile, desliza de baixo */
+    /* ── Modal ── */
     .modal-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.5);
       display: flex; align-items: flex-end; justify-content: center;
-      z-index: 1000;
-      padding: 0;
+      z-index: 1000; padding: 0;
       animation: fadeIn .2s ease;
     }
     .modal-overlay.hidden { display: none; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 
     .modal-box {
-      background: white;
-      border-radius: 24px 24px 0 0;
+      background: white; border-radius: 24px 24px 0 0;
       padding: 28px 20px;
       padding-bottom: max(28px, env(safe-area-inset-bottom));
-      width: 100%;
-      max-width: 480px;
+      width: 100%; max-width: 480px;
       display: flex; flex-direction: column; gap: 16px;
       animation: slideUp .28s cubic-bezier(.32,1.01,.56,1);
     }
-    /* No tablet/desktop fica centralizado como card */
     @media (min-width: 540px) {
       .modal-overlay { align-items: center; padding: 20px; }
       .modal-box { border-radius: 24px; max-width: 420px; padding-bottom: 28px; }
@@ -205,12 +214,9 @@
       from { transform: translateY(60px); opacity: 0; }
       to   { transform: translateY(0);    opacity: 1; }
     }
-
-    /* Puxador visual do modal (mobile) */
     .modal-handle {
-      width: 44px; height: 5px;
-      background: #d1d5db; border-radius: 3px;
-      margin: 0 auto -4px;
+      width: 44px; height: 5px; background: #d1d5db;
+      border-radius: 3px; margin: 0 auto -4px;
     }
     @media (min-width: 540px) { .modal-handle { display: none; } }
 
@@ -219,15 +225,9 @@
     .modal-nome  {
       font-size: 20px; font-weight: 800; color: #667eea;
       text-align: center; padding: 14px;
-      background: #f0f1ff; border-radius: 12px;
-      word-break: break-word;
+      background: #f0f1ff; border-radius: 12px; word-break: break-word;
     }
-    /* Aviso de duplicado — destaque diferente */
-    .modal-nome.duplicado {
-      color: #92400e;
-      background: #fffbeb;
-      border: 2px solid #fcd34d;
-    }
+    .modal-nome.duplicado { color: #92400e; background: #fffbeb; border: 2px solid #fcd34d; }
     .modal-actions { display: flex; flex-direction: column; gap: 10px; }
 
     .ios-hint {
@@ -237,22 +237,21 @@
     }
 
     .toast {
-      position: fixed; bottom: 24px;
+      position: fixed;
       bottom: max(24px, env(safe-area-inset-bottom));
       left: 50%; transform: translateX(-50%);
       background: #10b981; color: white;
       padding: 14px 24px; border-radius: 14px;
       font-size: 15px; font-weight: 600;
       box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-      z-index: 9999;
-      white-space: nowrap;
+      z-index: 9999; white-space: nowrap;
       max-width: calc(100vw - 32px);
       overflow: hidden; text-overflow: ellipsis;
       animation: fadeInUp .3s ease;
     }
     @keyframes fadeInUp {
-      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+      from { opacity:0; transform:translateX(-50%) translateY(20px); }
+      to   { opacity:1; transform:translateX(-50%) translateY(0); }
     }
 
     ::-webkit-scrollbar { width: 4px; }
@@ -265,15 +264,14 @@
 <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
     <div class="modal-handle"></div>
-    <div class="modal-title" id="modalTitle"></div>
-    <div class="modal-body"  id="modalBody"></div>
-    <div class="modal-nome"  id="modalNome"></div>
+    <div class="modal-title"   id="modalTitle"></div>
+    <div class="modal-body"    id="modalBody"></div>
+    <div class="modal-nome"    id="modalNome"></div>
     <div class="modal-actions" id="modalActions"></div>
   </div>
 </div>
 
 <div class="card">
-
   <div class="logo">
     <h1>🎟️ AdKira</h1>
     <p>Gere o seu convite personalizado</p>
@@ -292,8 +290,8 @@
     <div>
       <label for="tokenInput">Código do Evento</label>
       <input type="text" id="tokenInput" placeholder="ex: evt-ab3x9k"
-             autocomplete="off" autocapitalize="none" autocorrect="off"
-             spellcheck="false">
+             autocomplete="off" autocapitalize="none"
+             autocorrect="off" spellcheck="false">
     </div>
     <div class="info blue" id="step1Info" style="display:none;"></div>
     <button class="btn-main" onclick="validarToken()">Continuar →</button>
@@ -369,11 +367,10 @@
     <button class="btn-ghost" onclick="voltarPainel()">← Tentar novamente</button>
     <button class="btn-ghost" onclick="voltarStep1()">← Mudar de evento</button>
   </div>
-
 </div>
 
 <script>
-/* ═════════���═════════════════════════════════
+/* ═══════════════════════════════════════════
    SUPABASE
 ═══════════════════════════════════════════ */
 const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
@@ -391,10 +388,96 @@ let validadeTimer   = null;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 /* ═══════════════════════════════════════════
+   HÁPTICO
+   — usa a Vibration API onde disponível
+   — no iOS usa AudioContext com duração 0 (silent trick)
+     para acionar feedback do sistema onde aplicável
+═══════════════════════════════════════════ */
+function haptic(tipo) {
+  // Android / Chrome — Vibration API
+  if (navigator.vibrate) {
+    if (tipo === 'success') navigator.vibrate([10, 50, 10]);
+    else if (tipo === 'error')   navigator.vibrate([80, 40, 80]);
+    else if (tipo === 'warning') navigator.vibrate(40);
+    else                         navigator.vibrate(10); // light
+    return;
+  }
+  // iOS — não tem Vibration API pública,
+  // mas podemos usar a Web Haptics via AudioContext (clique silencioso)
+  // Nota: no iOS 16+ com permissão de áudio, isto dá feedback leve.
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0, ctx.currentTime); // silencioso
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.01);
+    setTimeout(() => ctx.close(), 100);
+  } catch(e) { /* silencioso */ }
+}
+
+/* ═══════════════════════════════════════════
+   TRANSIÇÕES DE ECRÃ
+═══════════════════════════════════════════ */
+let stepAtual = null;
+
+function showStep(id) {
+  const novoStep = document.getElementById(id);
+  if (!novoStep) return;
+
+  // Anima a saída do step actual
+  if (stepAtual && stepAtual !== novoStep) {
+    stepAtual.classList.add('exit');
+    setTimeout(() => {
+      stepAtual.classList.remove('active', 'visible', 'exit');
+      stepAtual = null;
+    }, 220);
+  } else if (stepAtual) {
+    stepAtual.classList.remove('active', 'visible', 'exit');
+  }
+
+  // Prepara e mostra o novo step
+  novoStep.style.display = 'flex'; // force display antes de animar
+  novoStep.classList.add('active');
+  stepAtual = novoStep;
+
+  // Pequeno delay para o browser calcular o layout antes de animar
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      novoStep.classList.add('visible');
+
+      // Focus automático no campo de texto relevante
+      if (id === 'step1') {
+        // Delay maior no mobile para esperar o teclado
+        setTimeout(() => {
+          const el = document.getElementById('tokenInput');
+          if (el) el.focus();
+        }, 320);
+      }
+      if (id === 'step2') {
+        setTimeout(() => {
+          const el = document.getElementById('nomeInput');
+          // Só faz focus automático se não houver teclado virtual já aberto
+          // e se o utilizador não estiver a usar a lista de pesquisa
+          if (el && document.activeElement !== document.getElementById('convitesSearch')) {
+            el.focus();
+          }
+        }, 350);
+      }
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
-  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  // Esconde todos os steps sem animação no arranque
+  document.querySelectorAll('.step').forEach(s => {
+    s.classList.remove('active', 'visible', 'exit');
+  });
+
   const savedToken = localStorage.getItem('adkira_token');
   if (savedToken) {
     showStep('stepRestore');
@@ -445,15 +528,11 @@ function showToast(msg, cor) {
 }
 
 /* ═══════════════════════════════════════════
-   NAVEGAÇÃO
+   UTILITÁRIOS DE UI
 ═══════════════════════════════════════════ */
-function showStep(id) {
-  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
 function showInfo(elId, msg, type) {
   const el = document.getElementById(elId);
-  el.textContent = msg; el.className = 'info ' + (type||'blue'); el.style.display = 'block';
+  el.textContent = msg; el.className = 'info '+(type||'blue'); el.style.display = 'block';
 }
 function hideInfo(elId) { document.getElementById(elId).style.display = 'none'; }
 function setLoading(msg) { document.getElementById('loadingMsg').textContent = msg; }
@@ -485,7 +564,7 @@ function iniciarRealtime(token) {
   realtimeChannel = DB
     .channel('cliente-updates-' + token)
     .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'clientes', filter: `token=eq.${token}` },
+      { event:'UPDATE', schema:'public', table:'clientes', filter:`token=eq.${token}` },
       (payload) => {
         if (!payload.new) return;
         clienteData.scans_usados = payload.new.scans_usados;
@@ -495,11 +574,12 @@ function iniciarRealtime(token) {
         document.getElementById('eventoNomeBox').textContent = '🎉 ' + payload.new.nome;
         actualizarContador();
         iniciarTimerValidade();
+        haptic('light');
         showToast('🔄 Informações do evento actualizadas!', '#667eea');
       }
     )
     .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'convidados', filter: `token_cliente=eq.${token}` },
+      { event:'UPDATE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` },
       (payload) => {
         if (!payload.new) return;
         const idx = todosConvites.findIndex(c => c.id === payload.new.id);
@@ -527,6 +607,7 @@ function iniciarTimerValidade() {
       document.getElementById('expiradoBox').style.display = 'block';
       const btn = document.getElementById('btnGerar');
       btn.disabled = true; btn.textContent = '⏰ Evento expirado';
+      haptic('warning');
       showToast('⏰ Este evento expirou.', '#ef4444');
     }
   }
@@ -542,19 +623,24 @@ function pararTimerValidade() {
 ═══════════════════════════════════════════ */
 async function validarToken() {
   const token = document.getElementById('tokenInput').value.trim().toLowerCase();
-  if (!token) { showInfo('step1Info','Insira o código do evento.','yellow'); return; }
+  if (!token) { haptic('warning'); showInfo('step1Info','Insira o código do evento.','yellow'); return; }
   showInfo('step1Info','⏳ A verificar...','blue');
   try {
     const { data: cli, error: e1 } = await DB
       .from('clientes').select('*').eq('token', token).single();
-    if (e1 || !cli) { showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
+    if (e1 || !cli) {
+      haptic('error');
+      showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return;
+    }
     const agora = Math.floor(Date.now()/1000);
     if (cli.validade && cli.validade < agora) {
+      haptic('error');
       showInfo('step1Info','❌ Este evento já expirou.','red'); return;
     }
     const { data: cfg, error: e2 } = await DB
       .from('convite_config').select('*').eq('token_cliente', token).single();
     if (e2 || !cfg) {
+      haptic('warning');
       showInfo('step1Info','⚠️ O template do convite ainda não foi configurado. Contacte o organizador.','yellow');
       return;
     }
@@ -566,8 +652,12 @@ async function validarToken() {
     iniciarRealtime(token);
     iniciarTimerValidade();
     hideInfo('step1Info');
+    haptic('success');
     showStep('step2');
-  } catch(e) { showInfo('step1Info','❌ Erro de ligação: '+e.message,'red'); }
+  } catch(e) {
+    haptic('error');
+    showInfo('step1Info','❌ Erro de ligação: '+e.message,'red');
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -584,15 +674,13 @@ function actualizarContador() {
   document.getElementById('cntRestantes').textContent = limite ? restantes : '∞';
 
   const limiteProximo = limite && restantes <= 3 && restantes > 0;
-  document.getElementById('counterBox').className = 'counter-box' + (limiteProximo ? ' warning' : '');
+  document.getElementById('counterBox').className = 'counter-box'+(limiteProximo?' warning':'');
 
   const limProxBox = document.getElementById('limiteProximoBox');
   if (limite && restantes > 0 && restantes <= 3) {
     limProxBox.textContent = `⚠️ Atenção! Restam apenas ${restantes} convite${restantes===1?'':'s'}.`;
     limProxBox.style.display = 'block';
-  } else {
-    limProxBox.style.display = 'none';
-  }
+  } else { limProxBox.style.display = 'none'; }
 
   const btnGerar = document.getElementById('btnGerar');
   const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
@@ -632,6 +720,7 @@ async function carregarConvitesGerados() {
     }
 
     todosConvites = data || [];
+    document.getElementById('convitesSearch').value = '';
 
     if (todosConvites.length === 0) {
       document.getElementById('convitesSearch').style.display = 'none';
@@ -640,15 +729,13 @@ async function carregarConvitesGerados() {
       return;
     }
     document.getElementById('convitesSearch').style.display = 'block';
-    // Limpa pesquisa ao recarregar
-    document.getElementById('convitesSearch').value = '';
     renderizarConvites(todosConvites);
   } catch(e) {
     lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">Erro: ${e.message}</div>`;
   }
 }
 
-/* ════════════════════════════════════��══════
+/* ═══════════════════════════════════════════
    FILTRAR
 ═══════════════════════════════════════════ */
 function filtrarConvites() {
@@ -671,7 +758,6 @@ function renderizarConvites(lista, termoPesquisa) {
     el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado encontrado.</div>';
     return;
   }
-
   el.innerHTML = '';
   lista.forEach(conv => {
     const item = document.createElement('div');
@@ -689,108 +775,88 @@ function renderizarConvites(lista, termoPesquisa) {
 }
 
 /* ═══════════════════════════════════════════
-   VERIFICAR DUPLICADO (insensível a maiúsculas/espaços)
+   DUPLICADO
 ═══════════════════════════════════════════ */
 function normalizarNome(nome) {
-  return nome.trim().toLowerCase().replace(/\s+/g, ' ');
+  return nome.trim().toLowerCase().replace(/\s+/g,' ');
 }
 function encontrarDuplicado(nome) {
-  const normalizado = normalizarNome(nome);
-  return todosConvites.find(c => normalizarNome(c.nome) === normalizado) || null;
+  const n = normalizarNome(nome);
+  return todosConvites.find(c => normalizarNome(c.nome) === n) || null;
 }
 
 /* ═══════════════════════════════════════════
-   MODAL — genérico
-═══════════════════════════════════════════ */
+   MODAL
+═���═════════════════════════════════════════ */
 function abrirModal({ titulo, corpo, nome, nomeCls, acoes }) {
   document.getElementById('modalTitle').textContent = titulo;
   document.getElementById('modalBody').textContent  = corpo;
   const nomeEl = document.getElementById('modalNome');
   nomeEl.textContent = nome;
-  nomeEl.className   = 'modal-nome' + (nomeCls ? ' ' + nomeCls : '');
-
+  nomeEl.className   = 'modal-nome' + (nomeCls ? ' '+nomeCls : '');
   const actionsEl = document.getElementById('modalActions');
   actionsEl.innerHTML = '';
   acoes.forEach(({ label, cls, fn }) => {
     const btn = document.createElement('button');
-    btn.className   = cls;
-    btn.textContent = label;
-    btn.onclick     = () => { fecharModal(); fn(); };
+    btn.className = cls; btn.textContent = label;
+    btn.onclick = () => { haptic('light'); fecharModal(); fn(); };
     actionsEl.appendChild(btn);
   });
-
   document.getElementById('modalOverlay').classList.remove('hidden');
 }
 function fecharModal() {
   document.getElementById('modalOverlay').classList.add('hidden');
 }
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
-  if (e.target === this) fecharModal();
+  if (e.target === this) { haptic('light'); fecharModal(); }
 });
 
 /* ═══════════════════════════════════════════
-   CONFIRMAÇÃO GERAR — com detecção de duplicado
+   CONFIRMAÇÃO GERAR
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
   const nome = document.getElementById('nomeInput').value.trim();
   if (!nome || nome.length < 2) {
+    haptic('warning');
     showInfo('step2Info','Insira o nome completo do convidado.','yellow'); return;
   }
   if (!clienteData || !configData) {
+    haptic('error');
     showInfo('step2Info','Sessão expirada. Volte ao início.','red'); return;
   }
   const limite  = clienteData.limite_scans || 0;
   const gerados = clienteData.scans_usados || 0;
   if (limite && gerados >= limite) {
+    haptic('error');
     showInfo('step2Info',`Limite de ${limite} convites atingido.`,'red');
     actualizarContador(); return;
   }
 
+  haptic('light');
   const duplicado = encontrarDuplicado(nome);
 
   if (duplicado) {
-    // ── Caso duplicado: modal de aviso com 3 opções ──
     abrirModal({
       titulo:  '⚠️ Nome já existe',
-      corpo:   'Já existe um convite gerado com este nome. Tem a certeza que quer gerar outro?',
-      nome:    nome,
-      nomeCls: 'duplicado',
+      corpo:   'Já existe um convite com este nome. Quer gerar outro ou re-descarregar o existente?',
+      nome, nomeCls: 'duplicado',
       acoes: [
-        {
-          label: '✅ Sim, gerar mesmo assim',
-          cls:   'btn-warning',
-          fn:    () => gerarConvite(nome)
-        },
-        {
-          label: '📥 Re-download do existente',
-          cls:   'btn-outline',
-          fn:    () => baixarConviteExistente(duplicado.nome, duplicado.codigo, { textContent:'📥', disabled:false })
-        },
-        {
-          label: '✕ Cancelar',
-          cls:   'btn-ghost',
-          fn:    () => {}
-        }
+        { label:'✅ Sim, gerar mesmo assim', cls:'btn-warning',
+          fn: () => gerarConvite(nome) },
+        { label:'📥 Re-download do existente', cls:'btn-outline',
+          fn: () => baixarConviteExistente(duplicado.nome, duplicado.codigo,
+                      { textContent:'📥', disabled:false }) },
+        { label:'✕ Cancelar', cls:'btn-ghost', fn: () => {} }
       ]
     });
   } else {
-    // ── Caso normal: confirmação simples ──
     abrirModal({
-      titulo:  '✅ Confirmar Convite',
-      corpo:   'Vai gerar um convite para:',
-      nome:    nome,
-      nomeCls: '',
+      titulo: '✅ Confirmar Convite',
+      corpo:  'Vai gerar um convite para:',
+      nome, nomeCls: '',
       acoes: [
-        {
-          label: '🎉 Sim, gerar convite',
-          cls:   'btn-main',
-          fn:    () => gerarConvite(nome)
-        },
-        {
-          label: '✕ Cancelar',
-          cls:   'btn-ghost',
-          fn:    () => {}
-        }
+        { label:'🎉 Sim, gerar convite', cls:'btn-main', fn: () => gerarConvite(nome) },
+        { label:'✕ Cancelar',           cls:'btn-ghost', fn: () => {} }
       ]
     });
   }
@@ -800,22 +866,15 @@ function pedirConfirmacaoGerar() {
    CONFIRMAÇÃO RE-DOWNLOAD
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoDownload(nome, codigo, btn) {
+  haptic('light');
   abrirModal({
-    titulo:  '📥 Re-download de Convite',
-    corpo:   'Vai descarregar novamente o convite de:',
-    nome:    nome,
-    nomeCls: '',
+    titulo: '📥 Re-download de Convite',
+    corpo:  'Vai descarregar novamente o convite de:',
+    nome, nomeCls: '',
     acoes: [
-      {
-        label: '📥 Sim, descarregar',
-        cls:   'btn-main',
-        fn:    () => baixarConviteExistente(nome, codigo, btn)
-      },
-      {
-        label: '✕ Cancelar',
-        cls:   'btn-ghost',
-        fn:    () => {}
-      }
+      { label:'📥 Sim, descarregar', cls:'btn-main',
+        fn: () => baixarConviteExistente(nome, codigo, btn) },
+      { label:'✕ Cancelar', cls:'btn-ghost', fn: () => {} }
     ]
   });
 }
@@ -830,7 +889,7 @@ function gerarQRDataURL(codigo, tamanho) {
     div.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
     document.body.appendChild(div);
     try {
-      new QRCode(div, { text: codigo, width: tamanho||300, height: tamanho||300, correctLevel: QRCode.CorrectLevel.M });
+      new QRCode(div, { text:codigo, width:tamanho||300, height:tamanho||300, correctLevel:QRCode.CorrectLevel.M });
       setTimeout(() => {
         try {
           const canvas = div.querySelector('canvas');
@@ -873,6 +932,8 @@ async function gerarConvite(nome) {
     document.getElementById('nomeInput').value = '';
     await carregarConvitesGerados();
     actualizarContador();
+
+    haptic('success'); // pulso de sucesso ao gerar
     showStep('step2');
 
     if (isIOS) {
@@ -883,6 +944,7 @@ async function gerarConvite(nome) {
     }
   } catch(e) {
     console.error(e);
+    haptic('error');
     document.getElementById('erroMsg').textContent = '❌ ' + e.message;
     showStep('stepErro');
   }
@@ -899,6 +961,7 @@ async function baixarConviteExistente(nome, codigo, btn) {
     if (configData && configData.qr_ativo !== false) qrDataUrl = await gerarQRDataURL(codigo, 300);
     const blob = await gerarPDF(nome, codigo, qrDataUrl, configData);
     triggerDownload(blob, `${nome}.pdf`);
+    haptic('success');
     if (isIOS) {
       document.getElementById('iosHint').style.display = 'block';
       showToast('📥 Convite aberto! Guarde na janela que apareceu.', '#667eea');
@@ -906,6 +969,7 @@ async function baixarConviteExistente(nome, codigo, btn) {
       showToast('📥 Download iniciado!');
     }
   } catch(e) {
+    haptic('error');
     alert('Erro ao gerar PDF: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = original;
@@ -919,7 +983,7 @@ async function gerarCodigoUnico(tokenCliente) {
   const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
   for (let t = 0; t < 30; t++) {
     let codigo = '';
-    for (let i = 0; i < 8; i++) codigo += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 8; i++) codigo += chars[Math.floor(Math.random()*chars.length)];
     const { data } = await DB.from('convidados').select('id').eq('codigo', codigo).maybeSingle();
     if (!data) return codigo;
   }
@@ -949,23 +1013,21 @@ async function gerarPDF(nome, codigo, qrDataUrl, config) {
     const pageNum = pi + 1;
     const { width: pW, height: pH } = page.getSize();
     const CANVAS_W = 794;
-    const scaleX   = pW / CANVAS_W;
-    const canvasH  = CANVAS_W * (pH / pW);
-    const scaleY   = pH / canvasH;
+    const scaleX = pW / CANVAS_W;
+    const scaleY = pH / (CANVAS_W * (pH / pW));
     const els = elementos[pageNum] || elementos[String(pageNum)] || [];
 
     for (const el of els) {
       if (el.type === 'text') {
         let text = el.content || '';
         if (text.includes('{NOME}')) {
-          const n = config.maiusculas ? nome.toUpperCase() : nome;
-          text = text.replace('{NOME}', n);
+          text = text.replace('{NOME}', config.maiusculas ? nome.toUpperCase() : nome);
         }
         const fontSize = (parseFloat(el.fontSize) || config.tamanho_nome || 16) * scaleX;
         const corHex = normalizarCor(
-          el.elementType === 'table'
-            ? (el.color || config.cor_mesa || '#1a1a2e')
-            : (el.color || config.cor_nome || '#1a1a2e')
+          el.elementType==='table'
+            ? (el.color||config.cor_mesa||'#1a1a2e')
+            : (el.color||config.cor_nome||'#1a1a2e')
         );
         const cor = hexToRgb(corHex);
         let font;
@@ -985,7 +1047,7 @@ async function gerarPDF(nome, codigo, qrDataUrl, config) {
           let xPos;
           if (el.transform && el.transform.includes('translateX(-50%)')) {
             xPos = (pW/2) - (font.widthOfTextAtSize(line,fontSize)/2);
-          } else { xPos = (parseFloat(el.left)||0) * scaleX; }
+          } else { xPos = (parseFloat(el.left)||0)*scaleX; }
           const yPos = pH - (topPx*scaleY) - fontSize*0.85 - (li*lineH);
           page.drawText(line, { x:xPos, y:yPos, size:fontSize, font, color:rgb(cor.r,cor.g,cor.b) });
         });
@@ -993,19 +1055,18 @@ async function gerarPDF(nome, codigo, qrDataUrl, config) {
       else if (el.type==='qr' && qrDataUrl) {
         try {
           const qrImg = await pdfDoc.embedPng(qrDataUrl);
-          const qrW   = (parseFloat(el.width) ||config.tamanho_qr||100) * scaleX;
-          const qrH   = (parseFloat(el.height)||config.tamanho_qr||100) * scaleY;
+          const qrW = (parseFloat(el.width) ||config.tamanho_qr||100)*scaleX;
+          const qrH = (parseFloat(el.height)||config.tamanho_qr||100)*scaleY;
           let xPos;
-          if (el.transform && el.transform.includes('translateX(-50%)')) xPos = (pW/2)-(qrW/2);
-          else xPos = (parseFloat(el.left)||0)*scaleX;
-          const yPos = pH - (parseFloat(el.top)||0)*scaleY - qrH;
-          page.drawImage(qrImg, { x:xPos, y:yPos, width:qrW, height:qrH });
-        } catch(e) { console.warn('QR no PDF falhou:',e); }
+          if (el.transform && el.transform.includes('translateX(-50%)')) xPos=(pW/2)-(qrW/2);
+          else xPos=(parseFloat(el.left)||0)*scaleX;
+          const yPos = pH-(parseFloat(el.top)||0)*scaleY-qrH;
+          page.drawImage(qrImg,{x:xPos,y:yPos,width:qrW,height:qrH});
+        } catch(e){console.warn('QR no PDF falhou:',e);}
       }
     }
   }
-  const bytes = await pdfDoc.save();
-  return new Blob([bytes], { type:'application/pdf' });
+  return new Blob([await pdfDoc.save()], { type:'application/pdf' });
 }
 
 /* ═══════════════════════════════════════════
@@ -1020,16 +1081,16 @@ async function registarConvite(nome, codigo, tokenCliente) {
       if (cliData) { clienteData.scans_usados=cliData.scans_usados; clienteData.limite_scans=cliData.limite_scans; }
       throw new Error('Limite de convites atingido. Não é possível gerar mais convites.');
     }
-    const novoTotal = (clienteData.scans_usados||0) + 1;
-    await DB.from('clientes').update({ scans_usados: novoTotal }).eq('token', tokenCliente);
+    const novoTotal = (clienteData.scans_usados||0)+1;
+    await DB.from('clientes').update({ scans_usados:novoTotal }).eq('token',tokenCliente);
     clienteData.scans_usados = novoTotal;
   } else {
-    clienteData.scans_usados = (clienteData.scans_usados||0) + 1;
+    clienteData.scans_usados = (clienteData.scans_usados||0)+1;
   }
   const { error: eIns } = await DB.from('convidados').insert([{
-    token_cliente: tokenCliente, codigo, nome, status:'convite_gerado'
+    token_cliente:tokenCliente, codigo, nome, status:'convite_gerado'
   }]);
-  if (eIns) throw new Error('Erro ao registar convite: ' + eIns.message);
+  if (eIns) throw new Error('Erro ao registar convite: '+eIns.message);
 }
 
 /* ═══════════════════════════════════════════
@@ -1047,19 +1108,19 @@ function normalizarCor(cor) {
   return '#1a1a2e';
 }
 function hexToRgb(hex) {
-  hex = (hex||'#000000').replace('#','');
-  if (hex.length===3) hex = hex.split('').map(c=>c+c).join('');
-  const n = parseInt(hex,16);
-  if (isNaN(n)) return {r:0,g:0,b:0};
-  return { r:((n>>16)&255)/255, g:((n>>8)&255)/255, b:(n&255)/255 };
+  hex=(hex||'#000000').replace('#','');
+  if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  const n=parseInt(hex,16);
+  if(isNaN(n)) return{r:0,g:0,b:0};
+  return{r:((n>>16)&255)/255,g:((n>>8)&255)/255,b:(n&255)/255};
 }
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   if (isIOS) {
     window.open(url,'_blank');
-    setTimeout(()=>URL.revokeObjectURL(url), 10_000);
+    setTimeout(()=>URL.revokeObjectURL(url),10_000);
   } else {
-    const a = document.createElement('a');
+    const a=document.createElement('a');
     a.href=url; a.download=filename;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
