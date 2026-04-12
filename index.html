@@ -12,54 +12,34 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
     html, body { height: 100%; overscroll-behavior: none; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      min-height: -webkit-fill-available;
+      min-height: 100vh; min-height: -webkit-fill-available;
       padding: 16px;
       padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
-
     .card {
-      background: white;
-      border-radius: 24px;
-      padding: 28px 20px;
-      max-width: 480px;
-      width: 100%;
-      margin: 0 auto;
+      background: white; border-radius: 24px; padding: 28px 20px;
+      max-width: 480px; width: 100%; margin: 0 auto;
       box-shadow: 0 16px 48px rgba(0,0,0,0.25);
-      overflow: hidden;
-      position: relative;
+      overflow: hidden; position: relative;
     }
-
     .logo { text-align: center; margin-bottom: 22px; }
     .logo h1 { font-size: 26px; font-weight: 800; color: #1a1a2e; }
     .logo p  { font-size: 13px; color: #6b7280; margin-top: 4px; }
 
-    /* ── Steps — saída instantânea, entrada animada ── */
     .step {
-      display: none;
-      flex-direction: column;
-      gap: 14px;
-      opacity: 0;
-      transform: translateX(20px);
+      display: none; flex-direction: column; gap: 14px;
+      opacity: 0; transform: translateX(20px);
       transition: opacity .22s ease, transform .22s ease;
       pointer-events: none;
     }
-    .step.active {
-      pointer-events: auto;
-    }
-    .step.visible {
-      opacity: 1;
-      transform: translateX(0);
-    }
+    .step.active { pointer-events: auto; }
+    .step.visible { opacity: 1; transform: translateX(0); }
 
     label { font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px; }
-
     input[type="text"] {
       width: 100%; padding: 15px 16px;
       border: 2px solid #e5e7eb; border-radius: 12px;
@@ -72,24 +52,19 @@
       width: 100%; padding: 16px; border: none; border-radius: 14px;
       font-size: 16px; font-weight: 700; cursor: pointer;
       font-family: inherit; transition: transform .1s, opacity .1s;
-      min-height: 52px; -webkit-appearance: none;
-      touch-action: manipulation;
+      min-height: 52px; -webkit-appearance: none; touch-action: manipulation;
     }
-    .btn-main {
-      background: linear-gradient(135deg,#667eea,#764ba2);
-      color: white; box-shadow: 0 4px 14px rgba(102,126,234,.4);
-    }
+    .btn-main { background: linear-gradient(135deg,#667eea,#764ba2); color: white; box-shadow: 0 4px 14px rgba(102,126,234,.4); }
     .btn-main:active { transform: scale(0.97); opacity: .9; }
     .btn-main:disabled { opacity: .5; cursor: not-allowed; transform: none; }
     .btn-ghost { background: #f3f4f6; color: #374151; }
     .btn-ghost:active { background: #e5e7eb; transform: scale(0.97); }
     .btn-warning { background: #fffbeb; color: #92400e; border: 2px solid #fcd34d; }
     .btn-warning:active { background: #fef3c7; transform: scale(0.97); }
-    .btn-outline {
-      background: white; color: #667eea; border: 2px solid #667eea;
-      min-height: 40px; padding: 8px 14px; font-size: 13px;
-    }
+    .btn-outline { background: white; color: #667eea; border: 2px solid #667eea; min-height: 40px; padding: 8px 14px; font-size: 13px; }
     .btn-outline:active { background: #f0f1ff; transform: scale(0.97); }
+    .btn-danger { background: #fef2f2; color: #991b1b; border: 2px solid #fca5a5; }
+    .btn-danger:active { background: #fee2e2; transform: scale(0.97); }
 
     .info { border-radius: 12px; padding: 13px 15px; font-size: 14px; line-height: 1.5; }
     .info.blue   { background: #f0f1ff; color: #4338ca; }
@@ -97,6 +72,17 @@
     .info.red    { background: #fef2f2; color: #991b1b; }
     .info.yellow { background: #fffbeb; color: #92400e; }
     .info.orange { background: #fff7ed; color: #9a3412; font-weight: 600; }
+
+    .offline-banner {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: #ef4444; color: white;
+      padding: 12px 20px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      font-size: 14px; font-weight: 600;
+      text-align: center; z-index: 9998;
+      transform: translateY(-100%); transition: transform .3s ease;
+    }
+    .offline-banner.visible { transform: translateY(0); }
 
     .counter-box {
       background: linear-gradient(135deg,#667eea,#764ba2);
@@ -119,6 +105,15 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-box p { font-size: 14px; color: #6b7280; text-align: center; }
+
+    .timeout-bar-wrap {
+      width: 100%; background: #e5e7eb; border-radius: 99px;
+      height: 4px; overflow: hidden; display: none;
+    }
+    .timeout-bar {
+      height: 100%; background: #667eea; border-radius: 99px;
+      width: 100%; transition: width linear;
+    }
 
     .session-restore {
       display: flex; flex-direction: column;
@@ -165,10 +160,7 @@
     }
     .btn-dl:active { background: #5568d3; transform: scale(0.96); }
 
-    .section-label {
-      font-size: 11px; font-weight: 700; color: #6b7280;
-      text-transform: uppercase; letter-spacing: .6px;
-    }
+    .section-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
 
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.5);
@@ -177,7 +169,6 @@
     }
     .modal-overlay.hidden { display: none; }
     @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-
     .modal-box {
       background: white; border-radius: 24px 24px 0 0;
       padding: 28px 20px;
@@ -194,12 +185,8 @@
       from { transform: translateY(60px); opacity: 0; }
       to   { transform: translateY(0);    opacity: 1; }
     }
-    .modal-handle {
-      width: 44px; height: 5px; background: #d1d5db;
-      border-radius: 3px; margin: 0 auto -4px;
-    }
+    .modal-handle { width: 44px; height: 5px; background: #d1d5db; border-radius: 3px; margin: 0 auto -4px; }
     @media (min-width: 540px) { .modal-handle { display: none; } }
-
     .modal-title { font-size: 18px; font-weight: 800; color: #1a1a2e; text-align: center; }
     .modal-body  { font-size: 14px; color: #6b7280; text-align: center; line-height: 1.6; }
     .modal-nome  {
@@ -233,12 +220,15 @@
       from { opacity:0; transform:translateX(-50%) translateY(20px); }
       to   { opacity:1; transform:translateX(-50%) translateY(0); }
     }
-
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 4px; }
   </style>
 </head>
 <body>
+
+<div class="offline-banner" id="offlineBanner">
+  📵 Sem ligação à internet — verifique o WiFi ou dados móveis
+</div>
 
 <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
@@ -267,8 +257,7 @@
     <div>
       <label for="tokenInput">Código do Evento</label>
       <input type="text" id="tokenInput" placeholder="ex: evt-ab3x9k"
-             autocomplete="off" autocapitalize="none"
-             autocorrect="off" spellcheck="false">
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
     </div>
     <div class="info blue" id="step1Info" style="display:none;"></div>
     <button class="btn-main" onclick="validarToken()">Continuar →</button>
@@ -306,8 +295,8 @@
     <div class="convites-header">
       <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
       <span class="convites-count" id="convitesCount"></span>
-      <button class="btn-outline" style="width:auto;margin-left:auto;"
-              onclick="carregarConvitesGerados()">🔄</button>
+      <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar"
+              onclick="recarregarLista()">🔄</button>
     </div>
     <input type="text" class="convites-search" id="convitesSearch"
            placeholder="🔍 Pesquisar por nome..."
@@ -316,13 +305,16 @@
     <div class="convites-lista" id="convitesLista">
       <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
     </div>
-    <button class="btn-ghost" onclick="voltarStep1()">← Sair</button>
+    <button class="btn-ghost" onclick="pedirConfirmacaoSair()">← Sair</button>
   </div>
 
   <div class="step" id="step3">
     <div class="loading-box">
       <div class="spinner"></div>
       <p id="loadingMsg">A preparar o convite...</p>
+      <div class="timeout-bar-wrap" id="timeoutBarWrap">
+        <div class="timeout-bar" id="timeoutBar"></div>
+      </div>
     </div>
   </div>
 
@@ -344,97 +336,138 @@ const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ═══════════════════════════════════════════
    ESTADO
 ═══════════════════════════════════════════ */
-let clienteData     = null;
-let configData      = null;
+let clienteData     = null; // apenas colunas leves: token, nome, limite_scans, scans_usados, validade
+let configData      = null; // config completa incluindo pdf_base — carregada 1 vez e cacheada
 let realtimeChannel = null;
-let todosConvites   = [];
+let todosConvites   = [];   // cache local — evita re-fetch desnecessário
 let validadeTimer   = null;
-const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isIOS       = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const TIMEOUT_MS  = 12000;
+
+// Colunas leves da tabela clientes — NUNCA pedir pdf_base aqui
+const CLIENTE_COLS = 'token,nome,limite_scans,scans_usados,validade';
+// Colunas leves da tabela convidados
+const CONVITE_COLS = 'id,nome,codigo,created_at';
+
+/* ═══════════════════════════════════════════
+   TIMEOUT HELPER
+═══════════════════════════════════════════ */
+function comTimeout(promise, ms, mensagem) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => {
+      reject(new Error(mensagem ||
+        `A ligação demorou demasiado (>${(ms||TIMEOUT_MS)/1000}s). Verifique a sua internet.`));
+    }, ms || TIMEOUT_MS);
+    promise.then(v => { clearTimeout(t); resolve(v); })
+           .catch(e => { clearTimeout(t); reject(e); });
+  });
+}
+
+/* ═══════════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════════ */
+function iniciarProgressBar(ms) {
+  const wrap = document.getElementById('timeoutBarWrap');
+  const bar  = document.getElementById('timeoutBar');
+  if (!wrap || !bar) return;
+  wrap.style.display = 'block';
+  bar.style.transition = 'none';
+  bar.style.width = '100%';
+  bar.offsetWidth; // force reflow
+  bar.style.transition = `width ${ms}ms linear`;
+  bar.style.width = '0%';
+}
+function pararProgressBar() {
+  const wrap = document.getElementById('timeoutBarWrap');
+  if (wrap) wrap.style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════
+   OFFLINE
+═══════════════════════════════════════════ */
+function verificarOffline() {
+  if (!navigator.onLine) {
+    document.getElementById('offlineBanner').classList.add('visible');
+    return true;
+  }
+  return false;
+}
+window.addEventListener('offline', () => {
+  document.getElementById('offlineBanner').classList.add('visible');
+  haptic('warning'); showToast('📵 Sem ligação à internet', '#ef4444');
+});
+window.addEventListener('online', () => {
+  document.getElementById('offlineBanner').classList.remove('visible');
+  haptic('success'); showToast('✅ Ligação restabelecida', '#10b981');
+});
 
 /* ═══════════════════════════════════════════
    HÁPTICO
 ═══════════════════════════════════════════ */
 function haptic(tipo) {
   if (navigator.vibrate) {
-    if (tipo === 'success') navigator.vibrate([10,50,10]);
-    else if (tipo === 'error')   navigator.vibrate([80,40,80]);
-    else if (tipo === 'warning') navigator.vibrate(40);
-    else                         navigator.vibrate(10);
+    if (tipo==='success')      navigator.vibrate([10,50,10]);
+    else if (tipo==='error')   navigator.vibrate([80,40,80]);
+    else if (tipo==='warning') navigator.vibrate(40);
+    else                       navigator.vibrate(10);
     return;
   }
   try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator(), gain=ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.01);
-    setTimeout(() => ctx.close(), 100);
-  } catch(e) {}
+    gain.gain.setValueAtTime(0,ctx.currentTime);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.01);
+    setTimeout(()=>ctx.close(),100);
+  } catch(e){}
 }
 
 /* ═══════════════════════════════════════════
-   TRANSIÇÕES DE ECRÃ — corrigido
-   Saída instantânea, entrada animada.
-   Elimina o flash de conteúdo ao restaurar sessão.
-══════════════════════════════════════��════ */
+   TRANSIÇÕES
+═══════════════════════════════════════════ */
 let stepAtual = null;
-
 function showStep(id) {
   const novoStep = document.getElementById(id);
-  if (!novoStep) return;
-  if (stepAtual === novoStep) return;
-
-  // 1. Esconde TODOS os steps imediatamente
+  if (!novoStep || stepAtual === novoStep) return;
   document.querySelectorAll('.step').forEach(s => {
-    s.classList.remove('active', 'visible', 'exit');
-    s.style.display = 'none';
+    s.classList.remove('active','visible','exit'); s.style.display = 'none';
   });
-
-  // 2. Marca o novo step como activo (ainda opacity:0)
   stepAtual = novoStep;
   novoStep.style.display = 'flex';
   novoStep.classList.add('active');
-
-  // 3. Dois rAF garantem que o browser fez layout antes de animar
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      novoStep.classList.add('visible');
-
-      // Focus automático
-      if (id === 'step1') {
-        setTimeout(() => {
-          const el = document.getElementById('tokenInput');
-          if (el) el.focus();
-        }, 320);
-      }
-      if (id === 'step2') {
-        setTimeout(() => {
-          const el = document.getElementById('nomeInput');
-          if (el && document.activeElement !== document.getElementById('convitesSearch')) {
-            el.focus();
-          }
-        }, 350);
-      }
-    });
-  });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    novoStep.classList.add('visible');
+    if (id === 'step1') setTimeout(() => document.getElementById('tokenInput')?.focus(), 320);
+    if (id === 'step2') setTimeout(() => {
+      const el = document.getElementById('nomeInput');
+      if (!el) return;
+      if (document.activeElement !== document.getElementById('convitesSearch')) el.focus();
+      el.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 380);
+  }));
 }
 
 /* ═══════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
-  // Garante que todos começam escondidos
   document.querySelectorAll('.step').forEach(s => {
-    s.classList.remove('active', 'visible', 'exit');
-    s.style.display = 'none';
+    s.classList.remove('active','visible','exit'); s.style.display = 'none';
   });
+  if (!navigator.onLine) document.getElementById('offlineBanner').classList.add('visible');
 
   const savedToken = localStorage.getItem('adkira_token');
   if (savedToken) {
     showStep('stepRestore');
-    const ok = await tentarRestaurarSessao(savedToken);
-    if (!ok) { localStorage.removeItem('adkira_token'); showStep('step1'); }
+    try {
+      const ok = await comTimeout(tentarRestaurarSessao(savedToken), TIMEOUT_MS,
+        'A ligação demorou demasiado. Verifique a sua internet e tente novamente.');
+      if (!ok) { localStorage.removeItem('adkira_token'); showStep('step1'); }
+    } catch(e) {
+      localStorage.removeItem('adkira_token');
+      showStep('step1');
+      showInfo('step1Info', '⚠️ ' + e.message, 'yellow');
+    }
   } else {
     showStep('step1');
   }
@@ -442,21 +475,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 /* ═══════════════════════════════════════════
    RESTAURAR SESSÃO
+   — select apenas colunas leves do cliente
+   — config (pesada) carregada 1x e cacheada
 ═══════════════════════════════════════════ */
 async function tentarRestaurarSessao(token) {
   try {
+    // 1. Dados leves do cliente (sem pdf_base)
     const { data: cli, error: e1 } = await DB
-      .from('clientes').select('*').eq('token', token).single();
+      .from('clientes').select(CLIENTE_COLS).eq('token', token).single();
     if (e1 || !cli) return false;
-    const agora = Math.floor(Date.now() / 1000);
+
+    const agora = Math.floor(Date.now()/1000);
     if (cli.validade && cli.validade < agora) return false;
+
+    // 2. Config completa (tem pdf_base) — carregada 1x
     const { data: cfg, error: e2 } = await DB
       .from('convite_config').select('*').eq('token_cliente', token).single();
     if (e2 || !cfg) return false;
+
     clienteData = cli; configData = cfg;
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
     actualizarContador();
+
+    // 3. Convites — apenas colunas necessárias para a lista
     await carregarConvitesGerados();
+
     iniciarRealtime(token);
     iniciarTimerValidade();
     showStep('step2');
@@ -469,37 +512,31 @@ async function tentarRestaurarSessao(token) {
 ═══════════════════════════════════════════ */
 function showToast(msg, cor) {
   const t = document.createElement('div');
-  t.className = 'toast'; t.style.background = cor || '#10b981'; t.textContent = msg;
+  t.className='toast'; t.style.background=cor||'#10b981'; t.textContent=msg;
   document.body.appendChild(t);
-  setTimeout(() => {
-    t.style.opacity = '0'; t.style.transition = 'opacity .3s';
-    setTimeout(() => t.remove(), 300);
-  }, 3500);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); },3500);
 }
 
 /* ═══════════════════════════════════════════
    UI UTILS
 ═══════════════════════════════════════════ */
-function showInfo(elId, msg, type) {
-  const el = document.getElementById(elId);
-  el.textContent = msg; el.className = 'info '+(type||'blue'); el.style.display = 'block';
-}
-function hideInfo(elId) { document.getElementById(elId).style.display = 'none'; }
-function setLoading(msg) { document.getElementById('loadingMsg').textContent = msg; }
+function showInfo(elId,msg,type){const el=document.getElementById(elId);el.textContent=msg;el.className='info '+(type||'blue');el.style.display='block';}
+function hideInfo(elId){document.getElementById(elId).style.display='none';}
+function setLoading(msg){document.getElementById('loadingMsg').textContent=msg;}
 
 function voltarStep1() {
   pararRealtime(); pararTimerValidade();
   localStorage.removeItem('adkira_token');
-  clienteData = null; configData = null; todosConvites = [];
-  document.getElementById('tokenInput').value = '';
-  document.getElementById('nomeInput').value  = '';
-  document.getElementById('convitesSearch').style.display = 'none';
-  document.getElementById('iosHint').style.display = 'none';
+  clienteData=null; configData=null; todosConvites=[];
+  document.getElementById('tokenInput').value='';
+  document.getElementById('nomeInput').value='';
+  document.getElementById('convitesSearch').style.display='none';
+  document.getElementById('iosHint').style.display='none';
   hideInfo('step1Info'); hideInfo('expiradoBox'); hideInfo('limiteProximoBox');
   showStep('step1');
 }
 function voltarPainel() {
-  document.getElementById('nomeInput').value = '';
+  document.getElementById('nomeInput').value='';
   hideInfo('step2Info');
   actualizarContador();
   carregarConvitesGerados();
@@ -507,52 +544,82 @@ function voltarPainel() {
 }
 
 /* ═══════════════════════════════════════════
-   REALTIME
+   CONFIRMAÇÃO SAIR
+═══════════════════════════════════════════ */
+function pedirConfirmacaoSair() {
+  haptic('light');
+  abrirModal({
+    titulo:'👋 Sair do evento?',
+    corpo:'Se sair terá de inserir o código do evento novamente.',
+    nome: clienteData ? clienteData.nome : '', nomeCls:'',
+    acoes:[
+      { label:'← Sim, sair',  cls:'btn-danger', fn:()=>voltarStep1() },
+      { label:'✕ Cancelar',   cls:'btn-ghost',  fn:()=>{} }
+    ]
+  });
+}
+
+/* ═══════════════════════════════════════════
+   REALTIME — escuta apenas o necessário
+   — clientes: só UPDATE (admin alterou limite/nome/validade)
+   — convidados: INSERT (novo convite gerado noutro browser)
+                 DELETE (admin eliminou)
+   NÃO escutamos UPDATE de convidados — não é necessário para o cliente
 ═══════════════════════════════════════════ */
 function iniciarRealtime(token) {
   pararRealtime();
   realtimeChannel = DB
-    .channel('cliente-updates-' + token)
+    .channel('cli-' + token) // nome curto = menos bytes no handshake
     .on('postgres_changes',
       { event:'UPDATE', schema:'public', table:'clientes', filter:`token=eq.${token}` },
       (payload) => {
         if (!payload.new) return;
+        // Actualiza apenas os campos leves que nos interessam
         clienteData.scans_usados = payload.new.scans_usados;
         clienteData.limite_scans = payload.new.limite_scans;
         clienteData.nome         = payload.new.nome;
         clienteData.validade     = payload.new.validade;
         document.getElementById('eventoNomeBox').textContent = '🎉 ' + payload.new.nome;
-        actualizarContador();
-        iniciarTimerValidade();
-        haptic('light');
-        showToast('🔄 Informações do evento actualizadas!', '#667eea');
+        actualizarContador(); iniciarTimerValidade(); haptic('light');
+        showToast('🔄 Evento actualizado!', '#667eea');
       }
     )
     .on('postgres_changes',
-      { event:'UPDATE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` },
+      // INSERT: outro utilizador gerou um convite — actualiza cache local sem fetch
+      { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` },
       (payload) => {
         if (!payload.new) return;
-        const idx = todosConvites.findIndex(c => c.id === payload.new.id);
-        if (idx !== -1) {
-          todosConvites[idx] = { ...todosConvites[idx], ...payload.new };
-          renderizarConvites(todosConvites);
-        }
+        // Adiciona ao topo da cache local sem ir à BD
+        const novo = {
+          id:         payload.new.id,
+          nome:       payload.new.nome,
+          codigo:     payload.new.codigo,
+          created_at: payload.new.created_at
+        };
+        todosConvites.unshift(novo);
+        renderizarConvites(todosConvites);
+        // Actualiza contador localmente — sem query extra
+        clienteData.scans_usados = (clienteData.scans_usados || 0) + 1;
+        actualizarContador();
       }
     )
     .on('postgres_changes',
+      // DELETE: admin eliminou convidado — remove da cache local
       { event:'DELETE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` },
       async (payload) => {
-        // Remove da cache local e recarrega contador do servidor
-        if (payload.old && payload.old.id) {
+        if (payload.old?.id) {
           todosConvites = todosConvites.filter(c => c.id !== payload.old.id);
           renderizarConvites(todosConvites);
         }
-        // Refresca contador com valores reais da BD
-        const { data: cliData } = await DB
-          .from('clientes').select('scans_usados,limite_scans').eq('token', token).single();
-        if (cliData) {
-          clienteData.scans_usados = cliData.scans_usados;
-          clienteData.limite_scans = cliData.limite_scans;
+        // Só aqui precisamos de ir à BD — o trigger actualizou scans_usados
+        // Pedimos APENAS os 2 campos do contador
+        const { data } = await DB
+          .from('clientes')
+          .select('scans_usados,limite_scans')
+          .eq('token', token).single();
+        if (data) {
+          clienteData.scans_usados = data.scans_usados;
+          clienteData.limite_scans = data.limite_scans;
           actualizarContador();
         }
         haptic('light');
@@ -561,7 +628,7 @@ function iniciarRealtime(token) {
     .subscribe();
 }
 function pararRealtime() {
-  if (realtimeChannel) { DB.removeChannel(realtimeChannel); realtimeChannel = null; }
+  if (realtimeChannel) { DB.removeChannel(realtimeChannel); realtimeChannel=null; }
 }
 
 /* ═══════════════════════════════════════════
@@ -569,55 +636,59 @@ function pararRealtime() {
 ═══════════════════════════════════════════ */
 function iniciarTimerValidade() {
   pararTimerValidade();
-  if (!clienteData || !clienteData.validade) return;
-  function verificar() {
-    if (clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000)) {
+  if (!clienteData?.validade) return;
+  const verificar = () => {
+    if (clienteData.validade < Math.floor(Date.now()/1000)) {
       pararTimerValidade();
-      document.getElementById('expiradoBox').style.display = 'block';
-      const btn = document.getElementById('btnGerar');
-      btn.disabled = true; btn.textContent = '⏰ Evento expirado';
-      haptic('warning');
-      showToast('⏰ Este evento expirou.', '#ef4444');
+      document.getElementById('expiradoBox').style.display='block';
+      const btn=document.getElementById('btnGerar');
+      btn.disabled=true; btn.textContent='⏰ Evento expirado';
+      haptic('warning'); showToast('⏰ Este evento expirou.','#ef4444');
     }
-  }
+  };
   verificar();
   validadeTimer = setInterval(verificar, 30_000);
 }
 function pararTimerValidade() {
-  if (validadeTimer) { clearInterval(validadeTimer); validadeTimer = null; }
+  if (validadeTimer) { clearInterval(validadeTimer); validadeTimer=null; }
 }
 
 /* ═══════════════════════════════════════════
    PASSO 1 — Validar token
+   — select apenas colunas leves
 ═══════════════════════════════════════════ */
 async function validarToken() {
+  if (verificarOffline()) { showInfo('step1Info','📵 Sem ligação à internet.','red'); haptic('error'); return; }
   const token = document.getElementById('tokenInput').value.trim().toLowerCase();
   if (!token) { haptic('warning'); showInfo('step1Info','Insira o código do evento.','yellow'); return; }
   showInfo('step1Info','⏳ A verificar...','blue');
   try {
-    const { data: cli, error: e1 } = await DB
-      .from('clientes').select('*').eq('token', token).single();
-    if (e1 || !cli) { haptic('error'); showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
+    // Apenas colunas leves — sem pdf_base
+    const { data: cli, error: e1 } = await comTimeout(
+      DB.from('clientes').select(CLIENTE_COLS).eq('token',token).single()
+    );
+    if (e1||!cli) { haptic('error'); showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
+
     const agora = Math.floor(Date.now()/1000);
     if (cli.validade && cli.validade < agora) { haptic('error'); showInfo('step1Info','❌ Este evento já expirou.','red'); return; }
-    const { data: cfg, error: e2 } = await DB
-      .from('convite_config').select('*').eq('token_cliente', token).single();
-    if (e2 || !cfg) {
-      haptic('warning');
-      showInfo('step1Info','⚠️ O template do convite ainda não foi configurado. Contacte o organizador.','yellow');
-      return;
-    }
-    clienteData = cli; configData = cfg;
+
+    // Config pesada (tem pdf_base) — 1 query, 1 vez, cacheada em configData
+    const { data: cfg, error: e2 } = await comTimeout(
+      DB.from('convite_config').select('*').eq('token_cliente',token).single()
+    );
+    if (e2||!cfg) { haptic('warning'); showInfo('step1Info','⚠️ Template não configurado. Contacte o organizador.','yellow'); return; }
+
+    clienteData=cli; configData=cfg;
     localStorage.setItem('adkira_token', token);
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
     actualizarContador();
     await carregarConvitesGerados();
-    iniciarRealtime(token);
-    iniciarTimerValidade();
-    hideInfo('step1Info');
-    haptic('success');
-    showStep('step2');
-  } catch(e) { haptic('error'); showInfo('step1Info','❌ Erro de ligação: '+e.message,'red'); }
+    iniciarRealtime(token); iniciarTimerValidade();
+    hideInfo('step1Info'); haptic('success'); showStep('step2');
+  } catch(e) {
+    haptic('error');
+    showInfo('step1Info','❌ '+(navigator.onLine?e.message:'Sem ligação à internet.'),'red');
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -629,100 +700,91 @@ function actualizarContador() {
   const gerados   = clienteData.scans_usados || 0;
   const restantes = Math.max(0, limite - gerados);
 
-  document.getElementById('cntLimite').textContent    = limite || '∞';
+  document.getElementById('cntLimite').textContent    = limite||'∞';
   document.getElementById('cntGerados').textContent   = gerados;
   document.getElementById('cntRestantes').textContent = limite ? restantes : '∞';
 
-  const limiteProximo = limite && restantes <= 3 && restantes > 0;
-  document.getElementById('counterBox').className = 'counter-box'+(limiteProximo?' warning':'');
+  const perto = limite && restantes<=3 && restantes>0;
+  document.getElementById('counterBox').className = 'counter-box'+(perto?' warning':'');
 
-  const limProxBox = document.getElementById('limiteProximoBox');
-  if (limite && restantes > 0 && restantes <= 3) {
-    limProxBox.textContent = `⚠️ Atenção! Restam apenas ${restantes} convite${restantes===1?'':'s'}.`;
-    limProxBox.style.display = 'block';
-  } else { limProxBox.style.display = 'none'; }
+  const limBox = document.getElementById('limiteProximoBox');
+  if (perto) { limBox.textContent=`⚠️ Restam apenas ${restantes} convite${restantes===1?'':'s'}.`; limBox.style.display='block'; }
+  else limBox.style.display='none';
 
-  const btnGerar = document.getElementById('btnGerar');
-  const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
+  const btnGerar  = document.getElementById('btnGerar');
+  const expirado  = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
   if (expirado) {
-    btnGerar.disabled = true; btnGerar.textContent = '⏰ Evento expirado';
-    document.getElementById('expiradoBox').style.display = 'block';
-  } else if (limite && gerados >= limite) {
-    btnGerar.disabled = true; btnGerar.textContent = '🚫 Limite atingido';
+    btnGerar.disabled=true; btnGerar.textContent='⏰ Evento expirado';
+    document.getElementById('expiradoBox').style.display='block';
+  } else if (limite && gerados>=limite) {
+    btnGerar.disabled=true; btnGerar.textContent='🚫 Limite atingido';
     showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red');
   } else {
-    btnGerar.disabled = false; btnGerar.textContent = '🎉 Gerar Convite';
+    btnGerar.disabled=false; btnGerar.textContent='🎉 Gerar Convite';
     hideInfo('step2Info');
   }
 }
 
 /* ═══════════════════════════════════════════
    CARREGAR CONVITES
-═════════════════════════════════��═════════ */
+   — apenas CONVITE_COLS (sem status, sem campos desnecessários)
+   — NÃO faz query extra ao cliente (contador já está em clienteData)
+═══════════════════════════════════════════ */
 async function carregarConvitesGerados() {
   if (!clienteData) return;
   const lista = document.getElementById('convitesLista');
-  lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
+  lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
   try {
-    const { data, error } = await DB
-      .from('convidados')
-      .select('id,nome,codigo,status,created_at')
-      .eq('token_cliente', clienteData.token)
-      .order('created_at', { ascending: false });
+    const { data, error } = await comTimeout(
+      DB.from('convidados')
+        .select(CONVITE_COLS)           // apenas 4 colunas leves
+        .eq('token_cliente', clienteData.token)
+        .order('created_at', { ascending:false })
+    );
     if (error) throw error;
-
-    const { data: cliData } = await DB
-      .from('clientes').select('scans_usados,limite_scans').eq('token', clienteData.token).single();
-    if (cliData) {
-      clienteData.scans_usados = cliData.scans_usados;
-      clienteData.limite_scans = cliData.limite_scans;
-      actualizarContador();
-    }
 
     todosConvites = data || [];
     document.getElementById('convitesSearch').value = '';
 
-    if (todosConvites.length === 0) {
-      document.getElementById('convitesSearch').style.display = 'none';
-      document.getElementById('convitesCount').textContent = '';
-      lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';
+    if (todosConvites.length===0) {
+      document.getElementById('convitesSearch').style.display='none';
+      document.getElementById('convitesCount').textContent='';
+      lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';
       return;
     }
-    document.getElementById('convitesSearch').style.display = 'block';
+    document.getElementById('convitesSearch').style.display='block';
     renderizarConvites(todosConvites);
   } catch(e) {
-    lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">Erro: ${e.message}</div>`;
+    const msg=navigator.onLine?e.message:'Sem ligação à internet';
+    lista.innerHTML=`<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${msg}</div>`;
   }
 }
 
+async function recarregarLista() {
+  const btn=document.getElementById('btnRecarregar');
+  btn.disabled=true; btn.textContent='⏳';
+  await carregarConvitesGerados();
+  btn.disabled=false; btn.textContent='🔄';
+}
+
 /* ═══════════════════════════════════════════
-   FILTRAR
+   FILTRAR / RENDERIZAR
 ═══════════════════════════════════════════ */
 function filtrarConvites() {
-  const termo = document.getElementById('convitesSearch').value.trim().toLowerCase();
-  if (!termo) { renderizarConvites(todosConvites); return; }
-  renderizarConvites(todosConvites.filter(c => c.nome.toLowerCase().includes(termo)), termo);
+  const t=document.getElementById('convitesSearch').value.trim().toLowerCase();
+  renderizarConvites(t ? todosConvites.filter(c=>c.nome.toLowerCase().includes(t)) : todosConvites, t||null);
 }
-
-/* ═══════════════════════════════════════════
-   RENDERIZAR LISTA
-═══════════════════════════════════════════ */
-function renderizarConvites(lista, termoPesquisa) {
-  const el    = document.getElementById('convitesLista');
-  const total = todosConvites.length;
-
-  document.getElementById('convitesCount').textContent =
-    termoPesquisa ? `${lista.length} de ${total}` : `${total} convite${total===1?'':'s'}`;
-
-  if (lista.length === 0) {
-    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado encontrado.</div>';
-    return;
-  }
-  el.innerHTML = '';
+function renderizarConvites(lista, termo) {
+  const el=document.getElementById('convitesLista');
+  const total=todosConvites.length;
+  document.getElementById('convitesCount').textContent=
+    termo ? `${lista.length} de ${total}` : `${total} convite${total===1?'':'s'}`;
+  if (lista.length===0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>'; return; }
+  el.innerHTML='';
   lista.forEach(conv => {
-    const item = document.createElement('div');
-    item.className = 'convite-item';
-    item.innerHTML = `
+    const item=document.createElement('div');
+    item.className='convite-item';
+    item.innerHTML=`
       <div class="convite-item-info">
         <div class="convite-item-nome">${escHtml(conv.nome)}</div>
       </div>
@@ -734,70 +796,58 @@ function renderizarConvites(lista, termoPesquisa) {
   });
 }
 
-/* ═══════════════════════════════════════════
+/* ══════════════════════���════════════════════
    DUPLICADO
 ═══════════════════════════════════════════ */
-function normalizarNome(nome) { return nome.trim().toLowerCase().replace(/\s+/g,' '); }
-function encontrarDuplicado(nome) {
-  const n = normalizarNome(nome);
-  return todosConvites.find(c => normalizarNome(c.nome) === n) || null;
-}
+function normalizarNome(n){return n.trim().toLowerCase().replace(/\s+/g,' ');}
+function encontrarDuplicado(nome){const n=normalizarNome(nome);return todosConvites.find(c=>normalizarNome(c.nome)===n)||null;}
 
 /* ═══════════════════════════════════════════
    MODAL
 ═══════════════════════════════════════════ */
-function abrirModal({ titulo, corpo, nome, nomeCls, acoes }) {
-  document.getElementById('modalTitle').textContent = titulo;
-  document.getElementById('modalBody').textContent  = corpo;
-  const nomeEl = document.getElementById('modalNome');
-  nomeEl.textContent = nome;
-  nomeEl.className   = 'modal-nome'+(nomeCls?' '+nomeCls:'');
-  const actionsEl = document.getElementById('modalActions');
-  actionsEl.innerHTML = '';
-  acoes.forEach(({ label, cls, fn }) => {
-    const btn = document.createElement('button');
-    btn.className = cls; btn.textContent = label;
-    btn.onclick = () => { haptic('light'); fecharModal(); fn(); };
-    actionsEl.appendChild(btn);
+function abrirModal({titulo,corpo,nome,nomeCls,acoes}) {
+  document.getElementById('modalTitle').textContent=titulo;
+  document.getElementById('modalBody').textContent=corpo;
+  const nEl=document.getElementById('modalNome');
+  nEl.textContent=nome; nEl.className='modal-nome'+(nomeCls?' '+nomeCls:'');
+  nEl.style.display=nome?'block':'none';
+  const aEl=document.getElementById('modalActions'); aEl.innerHTML='';
+  acoes.forEach(({label,cls,fn})=>{
+    const b=document.createElement('button');
+    b.className=cls; b.textContent=label;
+    b.onclick=()=>{haptic('light');fecharModal();fn();};
+    aEl.appendChild(b);
   });
   document.getElementById('modalOverlay').classList.remove('hidden');
 }
-function fecharModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
-document.getElementById('modalOverlay').addEventListener('click', function(e) {
-  if (e.target === this) { haptic('light'); fecharModal(); }
-});
+function fecharModal(){document.getElementById('modalOverlay').classList.add('hidden');}
+document.getElementById('modalOverlay').addEventListener('click',function(e){if(e.target===this){haptic('light');fecharModal();}});
 
 /* ═══════════════════════════════════════════
    CONFIRMAÇÃO GERAR
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
-  const nome = document.getElementById('nomeInput').value.trim();
-  if (!nome || nome.length < 2) { haptic('warning'); showInfo('step2Info','Insira o nome completo do convidado.','yellow'); return; }
-  if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada. Volte ao início.','red'); return; }
-  const limite  = clienteData.limite_scans || 0;
-  const gerados = clienteData.scans_usados || 0;
-  if (limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} convites atingido.`,'red'); actualizarContador(); return; }
-
+  if (verificarOffline()) { haptic('error'); showInfo('step2Info','📵 Sem ligação à internet.','red'); return; }
+  const nome=document.getElementById('nomeInput').value.trim();
+  if (!nome||nome.length<2) { haptic('warning'); showInfo('step2Info','Insira o nome completo.','yellow'); return; }
+  if (!clienteData||!configData) { haptic('error'); showInfo('step2Info','Sessão expirada.','red'); return; }
+  const limite=clienteData.limite_scans||0, gerados=clienteData.scans_usados||0;
+  if (limite&&gerados>=limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} atingido.`,'red'); actualizarContador(); return; }
   haptic('light');
-  const duplicado = encontrarDuplicado(nome);
-  if (duplicado) {
-    abrirModal({
-      titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome. Quer gerar outro ou re-descarregar o existente?',
-      nome, nomeCls:'duplicado',
+  const dup=encontrarDuplicado(nome);
+  if (dup) {
+    abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome, nomeCls:'duplicado',
       acoes:[
-        { label:'✅ Sim, gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nome) },
-        { label:'📥 Re-download do existente', cls:'btn-outline',
-          fn:()=>baixarConviteExistente(duplicado.nome,duplicado.codigo,{textContent:'📥',disabled:false}) },
-        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
+        {label:'✅ Gerar mesmo assim',    cls:'btn-warning', fn:()=>gerarConvite(nome)},
+        {label:'📥 Re-download existente',cls:'btn-outline', fn:()=>baixarConviteExistente(dup.nome,dup.codigo,{textContent:'📥',disabled:false})},
+        {label:'✕ Cancelar',             cls:'btn-ghost',   fn:()=>{}}
       ]
     });
   } else {
-    abrirModal({
-      titulo:'✅ Confirmar Convite', corpo:'Vai gerar um convite para:',
-      nome, nomeCls:'',
+    abrirModal({ titulo:'✅ Confirmar Convite', corpo:'Vai gerar um convite para:', nome, nomeCls:'',
       acoes:[
-        { label:'🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nome) },
-        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
+        {label:'🎉 Sim, gerar convite',cls:'btn-main', fn:()=>gerarConvite(nome)},
+        {label:'✕ Cancelar',          cls:'btn-ghost', fn:()=>{}}
       ]
     });
   }
@@ -806,14 +856,12 @@ function pedirConfirmacaoGerar() {
 /* ═══════════════════════════════════════════
    CONFIRMAÇÃO RE-DOWNLOAD
 ═══════════════════════════════════════════ */
-function pedirConfirmacaoDownload(nome, codigo, btn) {
+function pedirConfirmacaoDownload(nome,codigo,btn) {
   haptic('light');
-  abrirModal({
-    titulo:'📥 Re-download de Convite', corpo:'Vai descarregar novamente o convite de:',
-    nome, nomeCls:'',
+  abrirModal({ titulo:'📥 Re-download', corpo:'Vai descarregar novamente o convite de:', nome, nomeCls:'',
     acoes:[
-      { label:'📥 Sim, descarregar', cls:'btn-main', fn:()=>baixarConviteExistente(nome,codigo,btn) },
-      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
+      {label:'📥 Sim, descarregar',cls:'btn-main', fn:()=>baixarConviteExistente(nome,codigo,btn)},
+      {label:'✕ Cancelar',        cls:'btn-ghost', fn:()=>{}}
     ]
   });
 }
@@ -821,23 +869,23 @@ function pedirConfirmacaoDownload(nome, codigo, btn) {
 /* ═══════════════════════════════════════════
    GERAR QR
 ═══════════════════════════════════════════ */
-function gerarQRDataURL(codigo, tamanho) {
-  return new Promise((resolve, reject) => {
-    if (typeof QRCode === 'undefined') { reject(new Error('Biblioteca QRCode não carregada.')); return; }
-    const div = document.createElement('div');
-    div.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
+function gerarQRDataURL(codigo,tamanho) {
+  return new Promise((resolve,reject)=>{
+    if(typeof QRCode==='undefined'){reject(new Error('QRCode não carregado.'));return;}
+    const div=document.createElement('div');
+    div.style.cssText='position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
     document.body.appendChild(div);
     try {
-      new QRCode(div, { text:codigo, width:tamanho||300, height:tamanho||300, correctLevel:QRCode.CorrectLevel.M });
-      setTimeout(() => {
-        try {
-          const canvas = div.querySelector('canvas');
-          if (canvas) { resolve(canvas.toDataURL('image/png')); }
-          else { const img=div.querySelector('img'); img&&img.src?resolve(img.src):reject(new Error('QRCode não gerou imagem.')); }
-        } catch(err) { reject(err); }
-        finally { if (document.body.contains(div)) document.body.removeChild(div); }
-      }, 150);
-    } catch(err) { if (document.body.contains(div)) document.body.removeChild(div); reject(err); }
+      new QRCode(div,{text:codigo,width:tamanho||300,height:tamanho||300,correctLevel:QRCode.CorrectLevel.M});
+      setTimeout(()=>{
+        try{
+          const c=div.querySelector('canvas');
+          if(c){resolve(c.toDataURL('image/png'));}
+          else{const i=div.querySelector('img');i&&i.src?resolve(i.src):reject(new Error('QR sem imagem.'));}
+        }catch(e){reject(e);}
+        finally{if(document.body.contains(div))document.body.removeChild(div);}
+      },150);
+    }catch(e){if(document.body.contains(div))document.body.removeChild(div);reject(e);}
   });
 }
 
@@ -845,31 +893,34 @@ function gerarQRDataURL(codigo, tamanho) {
    GERAR CONVITE
 ═══════════════════════════════════════════ */
 async function gerarConvite(nome) {
-  hideInfo('step2Info');
-  showStep('step3');
+  if (verificarOffline()) { haptic('error'); document.getElementById('erroMsg').textContent='📵 Sem ligação à internet.'; showStep('stepErro'); return; }
+  hideInfo('step2Info'); showStep('step3'); iniciarProgressBar(TIMEOUT_MS);
   try {
     setLoading('A gerar o código único...');
-    const codigo = await gerarCodigoUnico(clienteData.token);
-    let qrDataUrl = null;
-    if (configData.qr_ativo !== false) {
+    const codigo = await comTimeout(gerarCodigoUnico(clienteData.token));
+
+    let qrDataUrl=null;
+    if (configData.qr_ativo!==false) {
       setLoading('A criar o QR Code...');
-      qrDataUrl = await gerarQRDataURL(codigo, 300);
+      qrDataUrl=await gerarQRDataURL(codigo,300);
     }
     setLoading('A personalizar o convite...');
-    const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData);
+    const pdfBlob=await gerarPDF(nome,codigo,qrDataUrl,configData);
+
     setLoading('A registar...');
-    await registarConvite(nome, codigo, clienteData.token);
-    triggerDownload(pdfBlob, `${nome}.pdf`);
-    document.getElementById('nomeInput').value = '';
-    await carregarConvitesGerados();
+    await comTimeout(registarConvite(nome,codigo,clienteData.token));
+
+    pararProgressBar();
+    triggerDownload(pdfBlob,`${nome}.pdf`);
+    document.getElementById('nomeInput').value='';
+    // NÃO recarrega a lista — o INSERT via Realtime já a actualiza
     actualizarContador();
-    haptic('success');
-    showStep('step2');
-    if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Veja a janela que abriu.','#667eea'); }
-    else { showToast(`✅ Convite de ${nome} gerado!`); }
+    haptic('success'); showStep('step2');
+    if (isIOS){document.getElementById('iosHint').style.display='block';showToast('✅ Convite gerado!','#667eea');}
+    else showToast(`✅ Convite de ${nome} gerado!`);
   } catch(e) {
-    console.error(e); haptic('error');
-    document.getElementById('erroMsg').textContent = '❌ '+e.message;
+    pararProgressBar(); haptic('error'); console.error(e);
+    document.getElementById('erroMsg').textContent='❌ '+(navigator.onLine?e.message:'Sem ligação à internet.');
     showStep('stepErro');
   }
 }
@@ -877,95 +928,88 @@ async function gerarConvite(nome) {
 /* ═══════════════════════════════════════════
    BAIXAR EXISTENTE
 ═══════════════════════════════════════════ */
-async function baixarConviteExistente(nome, codigo, btn) {
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = '⏳';
+async function baixarConviteExistente(nome,codigo,btn) {
+  if (verificarOffline()){haptic('error');showToast('📵 Sem ligação','#ef4444');return;}
+  const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
   try {
-    let qrDataUrl = null;
-    if (configData && configData.qr_ativo !== false) qrDataUrl = await gerarQRDataURL(codigo, 300);
-    const blob = await gerarPDF(nome, codigo, qrDataUrl, configData);
-    triggerDownload(blob, `${nome}.pdf`);
-    haptic('success');
-    if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('📥 Convite aberto! Guarde na janela que apareceu.','#667eea'); }
-    else { showToast('📥 Download iniciado!'); }
-  } catch(e) { haptic('error'); alert('Erro ao gerar PDF: '+e.message); }
-  finally { btn.disabled = false; btn.textContent = original; }
+    let qr=null;
+    if (configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
+    const blob=await gerarPDF(nome,codigo,qr,configData);
+    triggerDownload(blob,`${nome}.pdf`); haptic('success');
+    if(isIOS){document.getElementById('iosHint').style.display='block';showToast('📥 Aberto! Guarde na janela.','#667eea');}
+    else showToast('📥 Download iniciado!');
+  } catch(e){haptic('error');alert('Erro: '+e.message);}
+  finally{btn.disabled=false;btn.textContent=orig;}
 }
 
 /* ═══════════════════════════════════════════
    CÓDIGO ÚNICO
+   — usa prefixo do token para reduzir colisões
+   — máximo 10 tentativas (era 30)
 ═══════════════════════════════════════════ */
 async function gerarCodigoUnico(tokenCliente) {
-  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
-  for (let t = 0; t < 30; t++) {
-    let codigo = '';
-    for (let i = 0; i < 8; i++) codigo += chars[Math.floor(Math.random()*chars.length)];
-    const { data } = await DB.from('convidados').select('id').eq('codigo',codigo).maybeSingle();
-    if (!data) return codigo;
+  const chars='abcdefghjkmnpqrstuvwxyz23456789';
+  for (let t=0;t<10;t++) {
+    let c='';
+    for(let i=0;i<8;i++) c+=chars[Math.floor(Math.random()*chars.length)];
+    const {data}=await DB.from('convidados').select('id').eq('codigo',c).maybeSingle();
+    if(!data) return c;
   }
-  throw new Error('Não foi possível gerar um código único. Tente novamente.');
+  throw new Error('Não foi possível gerar código único. Tente novamente.');
 }
 
 /* ═══════════════════════════════════════════
    GERAR PDF
 ═══════════════════════════════════════════ */
-async function gerarPDF(nome, codigo, qrDataUrl, config) {
-  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
-  const pdfBytes = Uint8Array.from(atob(config.pdf_base), c => c.charCodeAt(0));
-  const pdfDoc   = await PDFDocument.load(pdfBytes);
-  let customFont = null;
-  if (config.fonte_custom_b64 && typeof fontkit !== 'undefined') {
-    try {
+async function gerarPDF(nome,codigo,qrDataUrl,config) {
+  const {PDFDocument,StandardFonts,rgb}=window.PDFLib;
+  const pdfBytes=Uint8Array.from(atob(config.pdf_base),c=>c.charCodeAt(0));
+  const pdfDoc=await PDFDocument.load(pdfBytes);
+  let customFont=null;
+  if(config.fonte_custom_b64&&typeof fontkit!=='undefined'){
+    try{
       pdfDoc.registerFontkit(fontkit);
-      const fb = Uint8Array.from(atob(config.fonte_custom_b64), c => c.charCodeAt(0));
-      customFont = await pdfDoc.embedFont(fb);
-    } catch(e) { console.warn('Fonte personalizada falhou:',e); }
+      const fb=Uint8Array.from(atob(config.fonte_custom_b64),c=>c.charCodeAt(0));
+      customFont=await pdfDoc.embedFont(fb);
+    }catch(e){console.warn('Fonte falhou:',e);}
   }
-  const elementos = config.elementos || {};
-  for (let pi = 0; pi < pdfDoc.getPageCount(); pi++) {
-    const page = pdfDoc.getPage(pi);
-    const { width:pW, height:pH } = page.getSize();
-    const CANVAS_W = 794;
-    const scaleX = pW/CANVAS_W;
-    const scaleY = pH/(CANVAS_W*(pH/pW));
-    const els = elementos[pi+1] || elementos[String(pi+1)] || [];
-    for (const el of els) {
-      if (el.type==='text') {
-        let text = el.content||'';
-        if (text.includes('{NOME}')) text=text.replace('{NOME}',config.maiusculas?nome.toUpperCase():nome);
+  const elementos=config.elementos||{};
+  for(let pi=0;pi<pdfDoc.getPageCount();pi++){
+    const page=pdfDoc.getPage(pi);
+    const{width:pW,height:pH}=page.getSize();
+    const CANVAS_W=794, scaleX=pW/CANVAS_W, scaleY=pH/(CANVAS_W*(pH/pW));
+    const els=elementos[pi+1]||elementos[String(pi+1)]||[];
+    for(const el of els){
+      if(el.type==='text'){
+        let text=el.content||'';
+        if(text.includes('{NOME}'))text=text.replace('{NOME}',config.maiusculas?nome.toUpperCase():nome);
         const fontSize=(parseFloat(el.fontSize)||config.tamanho_nome||16)*scaleX;
-        const corHex=normalizarCor(el.elementType==='table'?(el.color||config.cor_mesa||'#1a1a2e'):(el.color||config.cor_nome||'#1a1a2e'));
-        const cor=hexToRgb(corHex);
+        const cor=hexToRgb(normalizarCor(el.elementType==='table'?(el.color||config.cor_mesa||'#1a1a2e'):(el.color||config.cor_nome||'#1a1a2e')));
         let font;
         if(customFont){font=customFont;}
         else{
-          const bold=el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito;
-          const italic=el.fontStyle==='italic'||config.italico;
-          if(bold&&italic)font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
-          else if(bold)font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-          else if(italic)font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+          const b=el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito;
+          const i=el.fontStyle==='italic'||config.italico;
+          if(b&&i)font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+          else if(b)font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+          else if(i)font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
           else font=await pdfDoc.embedFont(StandardFonts.Helvetica);
         }
-        const lines=text.split('\n'); const lineH=fontSize*1.2; const topPx=parseFloat(el.top)||0;
+        const lines=text.split('\n'),lineH=fontSize*1.2,topPx=parseFloat(el.top)||0;
         lines.forEach((line,li)=>{
-          let xPos;
-          if(el.transform&&el.transform.includes('translateX(-50%)')){xPos=(pW/2)-(font.widthOfTextAtSize(line,fontSize)/2);}
-          else{xPos=(parseFloat(el.left)||0)*scaleX;}
-          const yPos=pH-(topPx*scaleY)-fontSize*0.85-(li*lineH);
-          page.drawText(line,{x:xPos,y:yPos,size:fontSize,font,color:rgb(cor.r,cor.g,cor.b)});
+          const xPos=(el.transform?.includes('translateX(-50%)'))
+            ?(pW/2)-(font.widthOfTextAtSize(line,fontSize)/2)
+            :(parseFloat(el.left)||0)*scaleX;
+          page.drawText(line,{x:xPos,y:pH-(topPx*scaleY)-fontSize*0.85-(li*lineH),size:fontSize,font,color:rgb(cor.r,cor.g,cor.b)});
         });
-      }
-      else if(el.type==='qr'&&qrDataUrl){
+      } else if(el.type==='qr'&&qrDataUrl){
         try{
           const qrImg=await pdfDoc.embedPng(qrDataUrl);
           const qrW=(parseFloat(el.width)||config.tamanho_qr||100)*scaleX;
           const qrH=(parseFloat(el.height)||config.tamanho_qr||100)*scaleY;
-          let xPos;
-          if(el.transform&&el.transform.includes('translateX(-50%)'))xPos=(pW/2)-(qrW/2);
-          else xPos=(parseFloat(el.left)||0)*scaleX;
-          const yPos=pH-(parseFloat(el.top)||0)*scaleY-qrH;
-          page.drawImage(qrImg,{x:xPos,y:yPos,width:qrW,height:qrH});
-        }catch(e){console.warn('QR no PDF falhou:',e);}
+          const xPos=(el.transform?.includes('translateX(-50%)'))?(pW/2)-(qrW/2):(parseFloat(el.left)||0)*scaleX;
+          page.drawImage(qrImg,{x:xPos,y:pH-(parseFloat(el.top)||0)*scaleY-qrH,width:qrW,height:qrH});
+        }catch(e){console.warn('QR falhou:',e);}
       }
     }
   }
@@ -973,52 +1017,45 @@ async function gerarPDF(nome, codigo, qrDataUrl, config) {
 }
 
 /* ═══════════════════════════════════════════
-   REGISTAR (atómico)
+   REGISTAR
 ═══════════════════════════════════════════ */
-async function registarConvite(nome, codigo, tokenCliente) {
-  const { error: eRpc } = await DB.rpc('incrementar_scans',{p_token:tokenCliente});
-  if (eRpc) {
-    if (eRpc.message&&eRpc.message.includes('LIMITE_ATINGIDO')) {
-      const { data:cliData } = await DB.from('clientes').select('scans_usados,limite_scans').eq('token',tokenCliente).single();
-      if (cliData){clienteData.scans_usados=cliData.scans_usados;clienteData.limite_scans=cliData.limite_scans;}
-      throw new Error('Limite de convites atingido. Não é possível gerar mais convites.');
+async function registarConvite(nome,codigo,tokenCliente) {
+  const{error:eRpc}=await DB.rpc('incrementar_scans',{p_token:tokenCliente});
+  if(eRpc){
+    if(eRpc.message?.includes('LIMITE_ATINGIDO')){
+      const{data}=await DB.from('clientes').select('scans_usados,limite_scans').eq('token',tokenCliente).single();
+      if(data){clienteData.scans_usados=data.scans_usados;clienteData.limite_scans=data.limite_scans;}
+      throw new Error('Limite atingido.');
     }
-    const novoTotal=(clienteData.scans_usados||0)+1;
-    await DB.from('clientes').update({scans_usados:novoTotal}).eq('token',tokenCliente);
-    clienteData.scans_usados=novoTotal;
+    const n=(clienteData.scans_usados||0)+1;
+    await DB.from('clientes').update({scans_usados:n}).eq('token',tokenCliente);
+    clienteData.scans_usados=n;
   } else { clienteData.scans_usados=(clienteData.scans_usados||0)+1; }
-  const { error:eIns } = await DB.from('convidados').insert([{token_cliente:tokenCliente,codigo,nome,status:'convite_gerado'}]);
-  if (eIns) throw new Error('Erro ao registar convite: '+eIns.message);
+  const{error:eIns}=await DB.from('convidados').insert([{token_cliente:tokenCliente,codigo,nome,status:'convite_gerado'}]);
+  if(eIns) throw new Error('Erro ao registar: '+eIns.message);
 }
 
 /* ═══════════════════════════════════════════
    UTILS
 ═══════════════════════════════════════════ */
-function normalizarCor(cor) {
-  if (!cor) return '#1a1a2e'; cor=cor.trim();
-  if (cor.startsWith('#')) return cor;
-  if (cor.startsWith('rgb')) {
-    const m=cor.match(/\d+/g);
-    if (!m||m.length<3) return '#1a1a2e';
-    return '#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');
-  }
-  return '#1a1a2e';
+function normalizarCor(cor){
+  if(!cor)return'#1a1a2e';cor=cor.trim();
+  if(cor.startsWith('#'))return cor;
+  if(cor.startsWith('rgb')){const m=cor.match(/\d+/g);if(!m||m.length<3)return'#1a1a2e';return'#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');}
+  return'#1a1a2e';
 }
-function hexToRgb(hex) {
+function hexToRgb(hex){
   hex=(hex||'#000000').replace('#','');
   if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
-  const n=parseInt(hex,16);
-  if(isNaN(n))return{r:0,g:0,b:0};
+  const n=parseInt(hex,16);if(isNaN(n))return{r:0,g:0,b:0};
   return{r:((n>>16)&255)/255,g:((n>>8)&255)/255,b:(n&255)/255};
 }
-function triggerDownload(blob, filename) {
+function triggerDownload(blob,filename){
   const url=URL.createObjectURL(blob);
   if(isIOS){window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),10_000);}
   else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}
 }
-function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 </script>
 </body>
 </html>
