@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InvitesGera – Configuração Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --brand: #5ba189;
+      --brand-dk: #3d7a63;
+      --brand-lt: #e8f5f0;
+      --dark: #1a1a2e;
+      --grey: #6b7280;
+      --light: #f3f4f6;
+      --red: #ef4444;
+      --radius: 10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f0fdf8;
+      color: var(--dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--dark);
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.3);
+      flex-shrink: 0;
+    }
+
+    .header .logo { font-size: 20px; font-weight: 800; }
+    .header .logo span { color: var(--brand); }
+    .header .subtitle { font-size: 13px; opacity: .7; }
+
+    /* ── Layout ── */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100vh - 52px);
+    }
+
+    /* ── Left panel ── */
+    .panel-left {
+      width: 300px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* ── Right canvas area ── */
+    .panel-right {
+      flex: 1;
+      overflow: auto;
+      background: #e5e7eb;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* ── Section boxes ── */
+    .section {
+      background: #fafafa;
+      border: 1px solid #e5e7eb;
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--grey);
+      margin-bottom: 10px;
+    }
+
+    /* ── Controls ── */
+    label.ctrl-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--grey);
+      margin-bottom: 4px;
+    }
+
+    select, input[type="text"], input[type="number"], input[type="date"] {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 7px;
+      background: #fff;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    select:focus, input:focus { border-color: var(--brand); }
+
+    .ctrl-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .ctrl-row label { flex-shrink: 0; font-size: 12px; color: var(--grey); }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--brand-dk); }
+
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1.5px solid var(--brand);
+      color: var(--brand);
+    }
+    .btn-outline:hover { background: var(--brand-lt); }
+
+    .btn-danger { background: #fee2e2; color: var(--red); }
+    .btn-danger:hover { background: #fecaca; }
+
+    .btn-secondary { background: var(--light); color: var(--dark); }
+    .btn-secondary:hover { background: #e5e7eb; }
+
+    .btn-full { width: 100%; }
+
+    .btn-toggle {
+      padding: 5px 10px;
+      background: var(--light);
+      border: 1.5px solid #e5e7eb;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      color: var(--dark);
+    }
+    .btn-toggle.active {
+      background: var(--dark);
+      border-color: var(--dark);
+      color: #fff;
+    }
+
+    /* ── Client info badge ── */
+    .client-badge {
+      background: var(--brand-lt);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      margin-top: 8px;
+      display: none;
+    }
+    .client-badge .b-name { font-size: 15px; font-weight: 700; color: var(--brand-dk); margin-bottom: 4px; }
+    .client-badge .b-row { color: var(--grey); margin-bottom: 2px; }
+    .client-badge .b-row span { color: var(--dark); font-weight: 600; }
+
+    /* ── Upload area ── */
+    .upload-area {
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      font-size: 13px;
+      color: var(--grey);
+      position: relative;
+    }
+    .upload-area:hover { border-color: var(--brand); background: var(--brand-lt); }
+    .upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 0;
+    }
+    .upload-area .up-icon { font-size: 24px; margin-bottom: 4px; }
+    .upload-area p { pointer-events: none; }
+
+    /* ── Sliders ── */
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--brand);
+      cursor: pointer;
+    }
+
+    /* ── Canvas wrapper ── */
+    #canvasWrapper {
+      position: relative;
+      width: 794px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 24px rgba(0,0,0,.2);
+      background: #fff;
+    }
+
+    #pdfCanvas {
+      display: block;
+      width: 100%;
+    }
+
+    /* ── Draggable elements ── */
+    .drag-el {
+      position: absolute;
+      cursor: move;
+      user-select: none;
+      padding: 4px 8px;
+      border: 2px dashed transparent;
+      border-radius: 4px;
+      transition: border-color .15s;
+      white-space: nowrap;
+    }
+
+    .drag-el.selected {
+      border-color: var(--brand);
+      outline: none;
+    }
+
+    .drag-el .del-btn {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 20px;
+      height: 20px;
+      background: var(--red);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 11px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      z-index: 10;
+    }
+
+    .drag-el.selected .del-btn { display: flex; }
+
+    .qr-placeholder {
+      background: repeating-linear-gradient(
+        45deg,
+        #e5e7eb,
+        #e5e7eb 4px,
+        #f3f4f6 4px,
+        #f3f4f6 12px
+      );
+      border: 2px solid #9ca3af;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--grey);
+      font-weight: 700;
+    }
+
+    /* ── Color row ── */
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-row input[type="color"] {
+      width: 40px;
+      height: 34px;
+      padding: 2px;
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .color-hex {
+      flex: 1;
+    }
+
+    /* ── Size row ── */
+    .size-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .size-row input[type="range"] { flex: 1; }
+    .size-row .size-val {
+      min-width: 36px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-backdrop.show { display: flex; }
+
+    .modal-box {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 380px;
+      max-width: 95vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+
+    .modal-box h3 { font-size: 18px; margin-bottom: 18px; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--grey);
+      margin-bottom: 5px;
+    }
+    .modal-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .modal-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--brand); }
+    .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--dark);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 99px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 9999;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      animation: toastIn .3s ease;
+      white-space: nowrap;
+    }
+    .toast.err { background: var(--red); }
+    .toast.ok { background: var(--brand-dk); }
+
+    @keyframes toastIn {
+      from { opacity:0; transform: translateX(-50%) translateY(20px); }
+      to { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* ── Misc ── */
+    .no-pdf-msg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      color: var(--grey);
+      pointer-events: none;
+    }
+
+    hr { border: none; border-top: 1px solid #e5e7eb; }
+
+    .font-file-note {
+      font-size: 11px;
+      color: var(--grey);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<div class="header">
+  <div class="logo">Invites<span>Gera</span></div>
+  <div class="subtitle">Configuração Admin</div>
+</div>
+
+<!-- ══ MAIN LAYOUT ══ -->
+<div class="main-layout">
+
+  <!-- ══ LEFT PANEL ══ -->
+  <div class="panel-left">
+
+    <!-- 1. CLIENTE -->
+    <div class="section">
+      <div class="section-title">1. Cliente</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="clientSelect" style="flex:1" onchange="onClientSelect()">
+          <option value="">– Seleccionar cliente –</option>
+        </select>
+        <button class="btn btn-sm btn-outline" onclick="openNewClientModal()">➕</button>
+      </div>
+      <div class="client-badge" id="clientBadge">
+        <div class="b-name" id="badgeName">–</div>
+        <div class="b-row">Token: <span id="badgeToken">–</span></div>
+        <div class="b-row">Validade: <span id="badgeValidade">–</span></div>
+        <div class="b-row">Limite: <span id="badgeLimite">–</span></div>
+        <div class="b-row">QR Code: <span id="badgeQr">–</span></div>
+      </div>
+    </div>
+
+    <!-- 2. UPLOAD PDF -->
+    <div class="section">
+      <div class="section-title">2. PDF Base</div>
+      <div class="upload-area" id="uploadArea">
+        <div class="up-icon">📄</div>
+        <p id="uploadLabel">Clique para seleccionar PDF</p>
+        <input type="file" id="pdfFileInput" accept=".pdf" onchange="onPdfUpload(event)">
+      </div>
+    </div>
+
+    <!-- 3. ELEMENTOS -->
+    <div class="section">
+      <div class="section-title">3. Elementos</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-outline btn-full" id="btnAddName" onclick="addNameElement()" disabled>
+          + Nome
+        </button>
+        <button class="btn btn-sm btn-outline btn-full" id="btnAddQr" onclick="addQrElement()" disabled>
+          + QR Code
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--grey);margin-top:6px;text-align:center">
+        Arraste os elementos no canvas
+      </div>
+    </div>
+
+    <!-- 4. ESTILO NOME -->
+    <div class="section" id="styleSection" style="display:none">
+      <div class="section-title">4. Estilo do Nome</div>
+
+      <label class="ctrl-label">Cor do texto</label>
+      <div class="color-row" style="margin-bottom:10px">
+        <input type="color" id="nameColor" value="#1a1a2e" oninput="applyNameStyle()">
+        <input type="text" id="nameColorHex" class="color-hex" value="#1a1a2e"
+          oninput="syncColorFromHex()" maxlength="7" placeholder="#000000">
+      </div>
+
+      <label class="ctrl-label">Tamanho do texto</label>
+      <div class="size-row" style="margin-bottom:10px">
+        <button class="btn btn-sm btn-secondary" onclick="changeFontSize(-2)">A−</button>
+        <input type="range" id="fontSize" min="8" max="72" value="24" oninput="applyNameStyle()">
+        <span class="size-val" id="fontSizeVal">24</span>
+        <button class="btn btn-sm btn-secondary" onclick="changeFontSize(2)">A+</button>
+      </div>
+
+      <label class="ctrl-label">Família de fonte</label>
+      <select id="fontFamily" onchange="applyNameStyle()" style="margin-bottom:10px">
+        <option value="Inter, sans-serif">Inter</option>
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="'Courier New', monospace">Courier New</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+      </select>
+
+      <label class="ctrl-label">Fonte personalizada (.ttf / .otf)</label>
+      <input type="file" id="customFontInput" accept=".ttf,.otf" style="margin-bottom:4px;padding:4px 8px;font-size:12px" onchange="loadCustomFont(event)">
+      <div class="font-file-note" id="customFontNote">Nenhuma fonte carregada</div>
+
+      <div style="margin:10px 0;display:flex;gap:8px;align-items:center">
+        <button class="btn-toggle" id="btnBold" onclick="toggleBold()">B</button>
+        <button class="btn-toggle" id="btnItalic" onclick="toggleItalic()"><i>I</i></button>
+        <div style="flex:1"></div>
+        <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+          <input type="checkbox" id="centerName" onchange="applyNameStyle()"> Centralizar
+        </label>
+      </div>
+
+      <label class="ctrl-label">Ajuste vertical</label>
+      <div class="size-row" style="margin-bottom:0">
+        <input type="range" id="vOffset" min="-50" max="50" value="0" oninput="applyVOffset()">
+        <span class="size-val" id="vOffsetVal">0</span>
+      </div>
+    </div>
+
+    <!-- 5. ESTILO QR -->
+    <div class="section" id="qrStyleSection" style="display:none">
+      <div class="section-title">5. Estilo do QR Code</div>
+
+      <label class="ctrl-label">Tamanho do QR</label>
+      <div class="size-row" style="margin-bottom:8px">
+        <button class="btn btn-sm btn-secondary" onclick="changeQrSize(-10)">QR−</button>
+        <input type="range" id="qrSize" min="50" max="300" value="100" oninput="applyQrStyle()">
+        <span class="size-val" id="qrSizeVal">100</span>
+        <button class="btn btn-sm btn-secondary" onclick="changeQrSize(10)">QR+</button>
+      </div>
+
+      <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="centerQr" onchange="applyQrStyle()"> Centralizar QR
+      </label>
+    </div>
+
+    <!-- 6. GUARDAR -->
+    <div class="section">
+      <div class="section-title">6. Guardar</div>
+      <button class="btn btn-primary btn-full" onclick="saveConfig()">💾 Guardar Configuração</button>
+    </div>
+
+  </div>
+  <!-- END LEFT PANEL -->
+
+  <!-- ══ RIGHT PANEL ══ -->
+  <div class="panel-right">
+    <div id="canvasWrapper">
+      <canvas id="pdfCanvas"></canvas>
+      <div class="no-pdf-msg" id="noPdfMsg">
+        📄 Seleccione um cliente e faça upload do PDF base
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- END MAIN LAYOUT -->
+
+<!-- ══ NOVO CLIENTE MODAL ══ -->
+<div class="modal-backdrop" id="newClientModal">
+  <div class="modal-box">
+    <h3>➕ Novo Cliente</h3>
+    <div class="modal-field">
+      <label>Nome do Evento / Cliente</label>
+      <input type="text" id="ncNome" placeholder="Ex: Casamento Maria & João">
+    </div>
+    <div class="modal-field">
+      <label>Validade</label>
+      <input type="date" id="ncValidade">
+    </div>
+    <div class="modal-field">
+      <label>Limite de Convites</label>
+      <input type="number" id="ncLimite" min="1" value="100" placeholder="100">
+    </div>
+    <div class="modal-field modal-check">
+      <input type="checkbox" id="ncQr" checked>
+      <label for="ncQr">QR Code activado</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="createClient()">Criar Cliente</button>
+      <button class="btn btn-secondary" onclick="closeNewClientModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ══════════════════════════════════════════
+  //  SUPABASE INIT
+  // ══════════════════════════════════════════
+  const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // ══════════════════════════════════════════
+  //  STATE
+  // ══════════════════════════════════════════
+  let currentClient = null;
+  let selectedEl = null;
+  let nameElRef = null;
+  let qrElRef = null;
+  let dragState = null;
+  let customFontFamily = null;
+
+  // ══════════════════════════════════════════
+  //  INIT
+  // ══════════════════════════════════════════
+  window.addEventListener('DOMContentLoaded', () => {
+    loadClients();
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.getElementById('newClientModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('newClientModal')) closeNewClientModal();
+    });
+  });
+
+  // ══════════════════════════════════════════
+  //  LOAD CLIENTS
+  // ══════════════════════════════════════════
+  async function loadClients() {
+    try {
+      const { data, error } = await sb.from('clientes').select('*').order('nome');
+      if (error) throw error;
+      const sel = document.getElementById('clientSelect');
+      sel.innerHTML = '<option value="">– Seleccionar cliente –</option>';
+      (data || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nome + ' (' + c.token + ')';
+        opt.dataset.json = JSON.stringify(c);
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      showToast('Erro ao carregar clientes: ' + e.message, 'err');
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  SELECT CLIENT
+  // ══════════════════════════════════════════
+  function onClientSelect() {
+    const sel = document.getElementById('clientSelect');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.dataset.json) {
+      currentClient = null;
+      document.getElementById('clientBadge').style.display = 'none';
+      clearCanvas();
+      return;
+    }
+    currentClient = JSON.parse(opt.dataset.json);
+    showClientBadge(currentClient);
+    clearCanvas();
+    // If client has a pdf_path, load it
+    if (currentClient.pdf_path) {
+      const pdfUrl = SUPABASE_URL + '/storage/v1/object/public/convites-pdf/' + currentClient.pdf_path;
+      renderPdfFromUrl(pdfUrl);
+    }
+    // If client has existing config, restore elements
+    if (currentClient.convite_config && currentClient.convite_config.elements) {
+      scheduleRestoreConfig(currentClient.convite_config);
+    }
+  }
+
+  function showClientBadge(c) {
+    const badge = document.getElementById('clientBadge');
+    badge.style.display = 'block';
+    document.getElementById('badgeName').textContent = c.nome;
+    document.getElementById('badgeToken').textContent = c.token;
+    const val = c.validade
+      ? new Date(c.validade * 1000).toLocaleDateString('pt-PT')
+      : '–';
+    document.getElementById('badgeValidade').textContent = val;
+    document.getElementById('badgeLimite').textContent = c.limite_scans || '–';
+    document.getElementById('badgeQr').textContent = c.qr_enabled ? '✅ Sim' : '❌ Não';
+  }
+
+  // ══════════════════════════════════════════
+  //  NEW CLIENT MODAL
+  // ══════════════════════════════════════════
+  function openNewClientModal() {
+    document.getElementById('newClientModal').classList.add('show');
+  }
+
+  function closeNewClientModal() {
+    document.getElementById('newClientModal').classList.remove('show');
+  }
+
+  async function createClient() {
+    const nome = document.getElementById('ncNome').value.trim();
+    const validadeDate = document.getElementById('ncValidade').value;
+    const limite = parseInt(document.getElementById('ncLimite').value) || 100;
+    const qrEnabled = document.getElementById('ncQr').checked;
+
+    if (!nome) { showToast('Introduza o nome do cliente.', 'err'); return; }
+
+    const token = generateToken();
+    const validade = validadeDate
+      ? Math.floor(new Date(validadeDate).getTime() / 1000)
+      : null;
+
+    try {
+      const { data, error } = await sb.from('clientes').insert([{
+        nome,
+        token,
+        validade,
+        limite_scans: limite,
+        scans_usados: 0,
+        qr_enabled: qrEnabled
+      }]).select().single();
+
+      if (error) throw error;
+
+      showToast('Cliente criado! Token: ' + token, 'ok');
+      closeNewClientModal();
+      await loadClients();
+
+      // Auto-select new client
+      const sel = document.getElementById('clientSelect');
+      for (let i = 0; i < sel.options.length; i++) {
+        const opt = sel.options[i];
+        if (opt.dataset.json) {
+          const c = JSON.parse(opt.dataset.json);
+          if (c.id === data.id) {
+            sel.selectedIndex = i;
+            onClientSelect();
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      showToast('Erro ao criar cliente: ' + e.message, 'err');
+    }
+  }
+
+  function generateToken() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  }
+
+  // ══════════════════════════════════════════
+  //  PDF UPLOAD
+  // ══════════════════════════════════════════
+  async function onPdfUpload(event) {
+    if (!currentClient) { showToast('Seleccione um cliente primeiro.', 'err'); return; }
+    const file = event.target.files[0];
+    if (!file) return;
+
+    document.getElementById('uploadLabel').textContent = '⏳ A fazer upload...';
+
+    try {
+      const path = currentClient.token + '/' + Date.now() + '.pdf';
+      const { error: upErr } = await sb.storage
+        .from('convites-pdf')
+        .upload(path, file, { contentType: 'application/pdf', upsert: true });
+
+      if (upErr) throw upErr;
+
+      // Update client pdf_path
+      const { error: updErr } = await sb.from('clientes')
+        .update({ pdf_path: path })
+        .eq('id', currentClient.id);
+      if (updErr) throw updErr;
+
+      currentClient.pdf_path = path;
+      // Update option in select
+      const sel = document.getElementById('clientSelect');
+      const opt = sel.options[sel.selectedIndex];
+      if (opt && opt.dataset.json) {
+        const c = JSON.parse(opt.dataset.json);
+        c.pdf_path = path;
+        opt.dataset.json = JSON.stringify(c);
+      }
+
+      document.getElementById('uploadLabel').textContent = '✅ ' + file.name;
+      showToast('PDF carregado com sucesso!', 'ok');
+
+      // Render PDF
+      const pdfUrl = SUPABASE_URL + '/storage/v1/object/public/convites-pdf/' + path;
+      await renderPdfFromUrl(pdfUrl);
+
+    } catch (e) {
+      document.getElementById('uploadLabel').textContent = 'Clique para seleccionar PDF';
+      showToast('Erro no upload: ' + e.message, 'err');
+    }
+  }
+
+  async function renderPdfFromUrl(url) {
+    try {
+      document.getElementById('noPdfMsg').style.display = 'none';
+      const loadingTask = pdfjsLib.getDocument(url);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1 });
+
+      const canvas = document.getElementById('pdfCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const CANVAS_W = 794;
+      const scale = CANVAS_W / viewport.width;
+      const scaledViewport = page.getViewport({ scale });
+
+      canvas.width = CANVAS_W;
+      canvas.height = scaledViewport.height;
+      document.getElementById('canvasWrapper').style.width = CANVAS_W + 'px';
+
+      await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+      // Enable element buttons
+      document.getElementById('btnAddName').disabled = false;
+      if (currentClient && currentClient.qr_enabled) {
+        document.getElementById('btnAddQr').disabled = false;
+      }
+
+    } catch (e) {
+      showToast('Erro ao renderizar PDF: ' + e.message, 'err');
+      document.getElementById('noPdfMsg').style.display = 'flex';
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  CANVAS CLEAR
+  // ══════════════════════════════════════════
+  function clearCanvas() {
+    if (nameElRef) { nameElRef.remove(); nameElRef = null; }
+    if (qrElRef) { qrElRef.remove(); qrElRef = null; }
+    selectedEl = null;
+    document.getElementById('styleSection').style.display = 'none';
+    document.getElementById('qrStyleSection').style.display = 'none';
+    document.getElementById('btnAddName').disabled = true;
+    document.getElementById('btnAddQr').disabled = true;
+    document.getElementById('noPdfMsg').style.display = 'flex';
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+
+  // ══════════════════════════════════════════
+  //  ADD ELEMENTS
+  // ══════════════════════════════════════════
+  function addNameElement() {
+    if (nameElRef) { showToast('Já existe um elemento Nome.', 'err'); return; }
+    const wrapper = document.getElementById('canvasWrapper');
+    const el = document.createElement('div');
+    el.className = 'drag-el';
+    el.dataset.type = 'text';
+    el.style.cssText = 'left:50%;top:200px;transform:translateX(-50%);font-size:24px;color:#1a1a2e;font-family:Arial,sans-serif;font-weight:normal;font-style:normal;';
+    el.textContent = '{NOME}';
+
+    const del = document.createElement('button');
+    del.className = 'del-btn';
+    del.textContent = '✕';
+    del.addEventListener('click', e => { e.stopPropagation(); removeNameElement(); });
+    el.appendChild(del);
+
+    el.addEventListener('mousedown', e => onDragStart(e, el));
+    el.addEventListener('click', e => { e.stopPropagation(); selectElement(el); });
+    wrapper.appendChild(el);
+    nameElRef = el;
+    selectElement(el);
+    document.getElementById('styleSection').style.display = 'block';
+  }
+
+  function addQrElement() {
+    if (!currentClient || !currentClient.qr_enabled) {
+      showToast('QR Code não está activado para este cliente.', 'err'); return;
+    }
+    if (qrElRef) { showToast('Já existe um elemento QR Code.', 'err'); return; }
+    const wrapper = document.getElementById('canvasWrapper');
+    const el = document.createElement('div');
+    el.className = 'drag-el';
+    el.dataset.type = 'qr';
+    el.style.cssText = 'left:347px;top:350px;width:100px;height:100px;';
+
+    const inner = document.createElement('div');
+    inner.className = 'qr-placeholder';
+    inner.style.cssText = 'width:100%;height:100%;';
+    inner.textContent = 'QR';
+    el.appendChild(inner);
+
+    const del = document.createElement('button');
+    del.className = 'del-btn';
+    del.textContent = '✕';
+    del.addEventListener('click', e => { e.stopPropagation(); removeQrElement(); });
+    el.appendChild(del);
+
+    el.addEventListener('mousedown', e => onDragStart(e, el));
+    el.addEventListener('click', e => { e.stopPropagation(); selectElement(el); });
+    wrapper.appendChild(el);
+    qrElRef = el;
+    selectElement(el);
+    document.getElementById('qrStyleSection').style.display = 'block';
+  }
+
+  function removeNameElement() {
+    if (nameElRef) { nameElRef.remove(); nameElRef = null; }
+    if (selectedEl && selectedEl.dataset.type === 'text') {
+      selectedEl = null;
+      document.getElementById('styleSection').style.display = 'none';
+    }
+  }
+
+  function removeQrElement() {
+    if (qrElRef) { qrElRef.remove(); qrElRef = null; }
+    if (selectedEl && selectedEl.dataset.type === 'qr') {
+      selectedEl = null;
+      document.getElementById('qrStyleSection').style.display = 'none';
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  DRAG & DROP
+  // ══════════════════════════════════════════
+  function onDragStart(e, el) {
+    e.preventDefault();
+    selectElement(el);
+    const rect = el.getBoundingClientRect();
+    const wRect = document.getElementById('canvasWrapper').getBoundingClientRect();
+    dragState = {
+      el,
+      startX: e.clientX,
+      startY: e.clientY,
+      origLeft: el.offsetLeft,
+      origTop: el.offsetTop,
+      centered: el.style.transform.includes('translateX(-50%)')
+    };
+  }
+
+  function onMouseMove(e) {
+    if (!dragState) return;
+    const el = dragState.el;
+    const isCentered = (el.dataset.type === 'text' && document.getElementById('centerName').checked) ||
+                       (el.dataset.type === 'qr' && document.getElementById('centerQr').checked);
+    const dx = e.clientX - dragState.startX;
+    const dy = e.clientY - dragState.startY;
+
+    if (isCentered) {
+      el.style.top = Math.max(0, dragState.origTop + dy) + 'px';
+    } else {
+      el.style.left = Math.max(0, dragState.origLeft + dx) + 'px';
+      el.style.top = Math.max(0, dragState.origTop + dy) + 'px';
+    }
+  }
+
+  function onMouseUp() {
+    dragState = null;
+  }
+
+  // ══════════════════════════════════════════
+  //  SELECT ELEMENT
+  // ══════════════════════════════════════════
+  function selectElement(el) {
+    if (selectedEl) selectedEl.classList.remove('selected');
+    selectedEl = el;
+    if (el) {
+      el.classList.add('selected');
+      if (el.dataset.type === 'text') {
+        document.getElementById('styleSection').style.display = 'block';
+        syncStylePanelFromEl(el);
+      }
+      if (el.dataset.type === 'qr') {
+        document.getElementById('qrStyleSection').style.display = 'block';
+        syncQrPanelFromEl(el);
+      }
+    }
+  }
+
+  document.addEventListener('click', e => {
+    const wrapper = document.getElementById('canvasWrapper');
+    if (wrapper && wrapper.contains(e.target) && !e.target.closest('.drag-el')) {
+      if (selectedEl) { selectedEl.classList.remove('selected'); selectedEl = null; }
+    }
+  });
+
+  // ══════════════════════════════════════════
+  //  SYNC STYLE PANELS
+  // ══════════════════════════════════════════
+  function syncStylePanelFromEl(el) {
+    const color = el.style.color || '#1a1a2e';
+    document.getElementById('nameColor').value = rgbToHex(color);
+    document.getElementById('nameColorHex').value = rgbToHex(color);
+    const fs = parseFloat(el.style.fontSize) || 24;
+    document.getElementById('fontSize').value = fs;
+    document.getElementById('fontSizeVal').textContent = fs;
+    document.getElementById('fontFamily').value = el.style.fontFamily || 'Arial, sans-serif';
+    document.getElementById('btnBold').classList.toggle('active', el.style.fontWeight === 'bold');
+    document.getElementById('btnItalic').classList.toggle('active', el.style.fontStyle === 'italic');
+    document.getElementById('centerName').checked = el.style.transform.includes('translateX(-50%)');
+  }
+
+  function syncQrPanelFromEl(el) {
+    const w = parseFloat(el.style.width) || 100;
+    document.getElementById('qrSize').value = w;
+    document.getElementById('qrSizeVal').textContent = w;
+    document.getElementById('centerQr').checked = el.style.transform.includes('translateX(-50%)');
+  }
+
+  // ══════════════════════════════════════════
+  //  APPLY STYLES
+  // ══════════════════════════════════════════
+  function applyNameStyle() {
+    if (!nameElRef) return;
+    const el = nameElRef;
+    const color = document.getElementById('nameColor').value;
+    const fs = document.getElementById('fontSize').value;
+    const ff = customFontFamily || document.getElementById('fontFamily').value;
+    const centered = document.getElementById('centerName').checked;
+
+    document.getElementById('fontSizeVal').textContent = fs;
+    document.getElementById('nameColorHex').value = color;
+
+    el.style.color = color;
+    el.style.fontSize = fs + 'px';
+    el.style.fontFamily = ff;
+    el.style.fontWeight = document.getElementById('btnBold').classList.contains('active') ? 'bold' : 'normal';
+    el.style.fontStyle = document.getElementById('btnItalic').classList.contains('active') ? 'italic' : 'normal';
+
+    if (centered) {
+      el.style.left = '50%';
+      el.style.transform = 'translateX(-50%)';
+    } else {
+      if (el.style.transform.includes('translateX(-50%)')) {
+        el.style.left = (document.getElementById('canvasWrapper').offsetWidth / 2 - el.offsetWidth / 2) + 'px';
+        el.style.transform = 'none';
+      }
+    }
+  }
+
+  function applyQrStyle() {
+    if (!qrElRef) return;
+    const el = qrElRef;
+    const size = document.getElementById('qrSize').value;
+    const centered = document.getElementById('centerQr').checked;
+
+    document.getElementById('qrSizeVal').textContent = size;
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+
+    if (centered) {
+      el.style.left = '50%';
+      el.style.transform = 'translateX(-50%)';
+    } else {
+      if (el.style.transform.includes('translateX(-50%)')) {
+        el.style.left = (document.getElementById('canvasWrapper').offsetWidth / 2 - parseFloat(size) / 2) + 'px';
+        el.style.transform = 'none';
+      }
+    }
+  }
+
+  function applyVOffset() {
+    const val = document.getElementById('vOffset').value;
+    document.getElementById('vOffsetVal').textContent = val;
+  }
+
+  function syncColorFromHex() {
+    const hex = document.getElementById('nameColorHex').value;
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      document.getElementById('nameColor').value = hex;
+      if (nameElRef) nameElRef.style.color = hex;
+    }
+  }
+
+  function changeFontSize(delta) {
+    const slider = document.getElementById('fontSize');
+    const newVal = Math.min(72, Math.max(8, parseInt(slider.value) + delta));
+    slider.value = newVal;
+    applyNameStyle();
+  }
+
+  function changeQrSize(delta) {
+    const slider = document.getElementById('qrSize');
+    const newVal = Math.min(300, Math.max(50, parseInt(slider.value) + delta));
+    slider.value = newVal;
+    applyQrStyle();
+  }
+
+  function toggleBold() {
+    document.getElementById('btnBold').classList.toggle('active');
+    applyNameStyle();
+  }
+
+  function toggleItalic() {
+    document.getElementById('btnItalic').classList.toggle('active');
+    applyNameStyle();
+  }
+
+  // ══════════════════════════════════════════
+  //  CUSTOM FONT
+  // ══════════════════════════════════════════
+  function loadCustomFont(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const fontName = 'CustomFont_' + Date.now();
+      const style = document.createElement('style');
+      style.textContent = `@font-face { font-family: '${fontName}'; src: url('${e.target.result}'); }`;
+      document.head.appendChild(style);
+      customFontFamily = "'" + fontName + "', sans-serif";
+      document.getElementById('customFontNote').textContent = '✅ ' + file.name;
+      applyNameStyle();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ══════════════════════════════════════════
+  //  RESTORE CONFIG
+  // ══════════════════════════════════════════
+  let restoreTimer = null;
+  function scheduleRestoreConfig(config) {
+    clearTimeout(restoreTimer);
+    restoreTimer = setTimeout(() => restoreConfig(config), 600);
+  }
+
+  function restoreConfig(config) {
+    if (!config || !config.elements) return;
+    const canvas = document.getElementById('pdfCanvas');
+    if (!canvas.width) return;
+
+    (config.elements || []).forEach(el => {
+      if (el.type === 'text') {
+        addNameElement();
+        if (nameElRef) {
+          nameElRef.style.left = el.left || '50%';
+          nameElRef.style.top = el.top || '200px';
+          nameElRef.style.transform = el.transform || 'none';
+          nameElRef.style.fontSize = (el.fontSize || '24') + 'px';
+          nameElRef.style.color = el.color || '#1a1a2e';
+          nameElRef.style.fontFamily = el.fontFamily || 'Arial, sans-serif';
+          nameElRef.style.fontWeight = el.fontWeight || 'normal';
+          nameElRef.style.fontStyle = el.fontStyle || 'normal';
+          syncStylePanelFromEl(nameElRef);
+        }
+      }
+      if (el.type === 'qr') {
+        addQrElement();
+        if (qrElRef) {
+          qrElRef.style.left = el.left || '347px';
+          qrElRef.style.top = el.top || '350px';
+          qrElRef.style.transform = el.transform || 'none';
+          qrElRef.style.width = (el.width || '100') + 'px';
+          qrElRef.style.height = (el.height || '100') + 'px';
+          syncQrPanelFromEl(qrElRef);
+        }
+      }
+    });
+
+    if (config.vOffset !== undefined) {
+      document.getElementById('vOffset').value = config.vOffset;
+      document.getElementById('vOffsetVal').textContent = config.vOffset;
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  SAVE CONFIG
+  // ══════════════════════════════════════════
+  async function saveConfig() {
+    if (!currentClient) { showToast('Seleccione um cliente primeiro.', 'err'); return; }
+
+    const canvas = document.getElementById('pdfCanvas');
+    const canvasW = canvas.width || 794;
+    const canvasH = canvas.height || 1123;
+    const vOffset = parseInt(document.getElementById('vOffset').value) || 0;
+
+    const elements = [];
+
+    if (nameElRef) {
+      const el = nameElRef;
+      const left = el.style.left;
+      const top = el.style.top;
+      const transform = el.style.transform || 'none';
+
+      elements.push({
+        type: 'text',
+        original: '{NOME}',
+        left: left,
+        top: top,
+        transform: transform,
+        fontSize: parseFloat(el.style.fontSize) + '',
+        color: el.style.color ? rgbToHex(el.style.color) : '#1a1a2e',
+        fontFamily: el.style.fontFamily || 'Arial, sans-serif',
+        fontWeight: el.style.fontWeight || 'normal',
+        fontStyle: el.style.fontStyle || 'normal'
+      });
+    }
+
+    if (qrElRef) {
+      const el = qrElRef;
+      elements.push({
+        type: 'qr',
+        left: el.style.left,
+        top: el.style.top,
+        transform: el.style.transform || 'none',
+        width: parseFloat(el.style.width) + '',
+        height: parseFloat(el.style.height) + ''
+      });
+    }
+
+    const config = { canvasW, canvasH, vOffset, elements };
+
+    try {
+      const { error } = await sb.from('clientes')
+        .update({ convite_config: config })
+        .eq('id', currentClient.id);
+      if (error) throw error;
+
+      currentClient.convite_config = config;
+      // Update in dropdown
+      const sel = document.getElementById('clientSelect');
+      const opt = sel.options[sel.selectedIndex];
+      if (opt && opt.dataset.json) {
+        const c = JSON.parse(opt.dataset.json);
+        c.convite_config = config;
+        opt.dataset.json = JSON.stringify(c);
+      }
+
+      showToast('Configuração guardada! Token: ' + currentClient.token, 'ok');
+    } catch (e) {
+      showToast('Erro ao guardar: ' + e.message, 'err');
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  UTILITIES
+  // ══════════════════════════════════════════
+  function rgbToHex(color) {
+    if (!color) return '#000000';
+    if (color.startsWith('#')) return color;
+    const m = color.match(/\d+/g);
+    if (!m || m.length < 3) return '#000000';
+    return '#' + [m[0], m[1], m[2]].map(x => {
+      const h = parseInt(x).toString(16);
+      return h.length === 1 ? '0' + h : h;
+    }).join('');
+  }
+
+  function showToast(msg, type) {
+    const t = document.createElement('div');
+    t.className = 'toast' + (type ? ' ' + type : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+  }
+</script>
+</body>
+</html>
