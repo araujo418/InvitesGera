@@ -20,9 +20,29 @@ document.addEventListener('DOMContentLoaded', () => {
   const t = new URLSearchParams(location.search).get('token');
   if (t) document.getElementById('tokenInput').value = t.toUpperCase();
 
+  // Token input: uppercase filter
+  document.getElementById('tokenInput').addEventListener('input', function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+
   document.getElementById('tokenInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') validateToken();
   });
+
+  document.getElementById('accessBtn').addEventListener('click', validateToken);
+
+  document.getElementById('tabGen').addEventListener('click', () => switchTab('generate'));
+  document.getElementById('tabHist').addEventListener('click', () => switchTab('history'));
+
+  document.getElementById('guestNameInput').addEventListener('input', onNameInput);
+  document.getElementById('guestNameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('generateBtn').disabled) requestConfirm();
+  });
+
+  document.getElementById('generateBtn').addEventListener('click', requestConfirm);
+
+  document.getElementById('confirmBtn').addEventListener('click', confirmAndGenerate);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
 
   document.getElementById('confirmModal').addEventListener('click', e => {
     if (e.target.id === 'confirmModal') closeModal();
@@ -270,7 +290,7 @@ async function generateUniqueCode() {
     const { data } = await sb.from('convidados').select('codigo').eq('codigo', code).maybeSingle();
     exists = !!data;
     attempts++;
-    if (attempts > 20) break;
+    if (attempts > 20) throw new Error('Não foi possível gerar um código único. Tente novamente.');
   } while (exists);
   return code;
 }

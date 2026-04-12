@@ -460,10 +460,10 @@
     <div id="tokenSection">
       <div class="field">
         <label>Token de Acesso</label>
-        <input type="text" id="tokenInput" class="token-input" maxlength="8" placeholder="XXXXXXXX" autocomplete="off" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+        <input type="text" id="tokenInput" class="token-input" maxlength="8" placeholder="XXXXXXXX" autocomplete="off">
       </div>
       <div id="tokenError" class="alert alert-err" style="display:none"></div>
-      <button class="btn btn-primary" id="accessBtn" onclick="validateToken()">Acessar →</button>
+      <button class="btn btn-primary" id="accessBtn">Acessar →</button>
     </div>
 
     <!-- Main Section -->
@@ -471,8 +471,8 @@
       <div id="eventNameBanner" class="event-name"></div>
 
       <div class="tab-bar">
-        <button class="tab-btn active" id="tabGen" onclick="switchTab('generate')">✨ Gerar</button>
-        <button class="tab-btn" id="tabHist" onclick="switchTab('history')">📋 Histórico</button>
+        <button class="tab-btn active" id="tabGen">✨ Gerar</button>
+        <button class="tab-btn" id="tabHist">📋 Histórico</button>
       </div>
 
       <!-- Generate Tab -->
@@ -492,9 +492,7 @@
         <div class="field">
           <label>Nome do Convidado</label>
           <input type="text" id="guestNameInput" placeholder="Ex: Maria Silva"
-            autocomplete="name" autocapitalize="words" maxlength="80"
-            oninput="onNameInput()"
-            onkeydown="if(event.key==='Enter'&&!document.getElementById('generateBtn').disabled)requestConfirm()">
+            autocomplete="name" autocapitalize="words" maxlength="80">
           <div class="hint" id="nameHint"></div>
           <div class="char-counter" id="charCounter">0 / 80</div>
         </div>
@@ -504,7 +502,7 @@
           <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
         </div>
 
-        <button class="btn btn-primary" id="generateBtn" onclick="requestConfirm()" disabled>
+        <button class="btn btn-primary" id="generateBtn" disabled>
           🎉 Gerar Convite
         </button>
       </div>
@@ -532,8 +530,8 @@
         O nome está correcto?
       </p>
       <div class="modal-actions">
-        <button class="btn btn-primary" onclick="confirmAndGenerate()">✅ Confirmar</button>
-        <button class="btn btn-secondary" onclick="closeModal()">✕ Cancelar</button>
+        <button class="btn btn-primary" id="confirmBtn">✅ Confirmar</button>
+        <button class="btn btn-secondary" id="cancelBtn">✕ Cancelar</button>
       </div>
     </div>
   </div>
