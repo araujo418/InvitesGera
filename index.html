@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AdKira – Gerar Convite</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 28px 24px;
+      max-width: 440px;
+      width: 100%;
+      margin: 0 auto;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.25);
+    }
+
+    .logo { text-align: center; margin-bottom: 22px; }
+    .logo h1 { font-size: 24px; font-weight: 800; color: #1a1a2e; }
+    .logo p  { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+    .step { display: none; flex-direction: column; gap: 14px; }
+    .step.active { display: flex; }
+
+    label { font-size: 12px; font-weight: 600; color: #374151; display: block; margin-bottom: 5px; }
+    input[type="text"] {
+      width: 100%; padding: 13px 15px;
+      border: 2px solid #e5e7eb; border-radius: 10px;
+      font-size: 16px; font-family: inherit; transition: border-color .2s;
+    }
+    input:focus { outline: none; border-color: #667eea; }
+
+    button {
+      width: 100%; padding: 14px; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: all .2s;
+    }
+    .btn-main { background: linear-gradient(135deg,#667eea,#764ba2); color: white; box-shadow: 0 4px 14px rgba(102,126,234,.4); }
+    .btn-main:hover { transform: translateY(-1px); }
+    .btn-main:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-ghost { background: #f3f4f6; color: #374151; }
+    .btn-ghost:hover { background: #e5e7eb; }
+    .btn-outline {
+      background: white; color: #667eea;
+      border: 2px solid #667eea; padding: 10px; font-size: 13px;
+    }
+    .btn-outline:hover { background: #f0f1ff; }
+
+    .info { border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; }
+    .info.blue   { background: #f0f1ff; color: #4338ca; }
+    .info.green  { background: #f0fdf4; color: #065f46; font-weight: 600; }
+    .info.red    { background: #fef2f2; color: #991b1b; }
+    .info.yellow { background: #fffbeb; color: #92400e; }
+    .info.orange { background: #fff7ed; color: #9a3412; font-weight: 600; }
+
+    .counter-box {
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      border-radius: 12px; padding: 16px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px; text-align: center;
+    }
+    .counter-box.warning { background: linear-gradient(135deg,#f59e0b,#d97706); }
+    .counter-item { color: white; }
+    .counter-item .val { font-size: 26px; font-weight: 800; line-height: 1; }
+    .counter-item .lbl { font-size: 10px; opacity: .8; margin-top: 3px; }
+
+    .divider { height: 1px; background: #e5e7eb; }
+
+    .loading-box { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 4px solid #e5e7eb; border-top-color: #667eea;
+      border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-box p { font-size: 13px; color: #6b7280; text-align: center; }
+
+    .session-restore {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px; padding: 32px 0 16px;
+    }
+    .session-restore .spinner-lg {
+      width: 48px; height: 48px;
+      border: 5px solid #e5e7eb; border-top-color: #667eea;
+      border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    .session-restore p { font-size: 14px; color: #6b7280; font-weight: 500; text-align: center; }
+
+    .convites-header { display: flex; align-items: center; gap: 8px; }
+    .convites-search {
+      flex: 1; padding: 8px 12px;
+      border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-size: 13px; font-family: inherit; transition: border-color .2s;
+    }
+    .convites-search:focus { outline: none; border-color: #667eea; }
+    .convites-count { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+
+    .convites-lista { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+    .convite-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px;
+      background: #fafafa; gap: 8px;
+    }
+    .convite-item-info { flex: 1; min-width: 0; }
+    .convite-item-nome {
+      font-size: 13px; font-weight: 600; color: #1a1a2e;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .btn-dl {
+      flex-shrink: 0; width: auto; padding: 7px 12px;
+      background: #667eea; color: white; border-radius: 8px;
+      font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+    }
+    .btn-dl:hover { background: #5568d3; }
+
+    .section-label {
+      font-size: 11px; font-weight: 700; color: #6b7280;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 1000; padding: 20px;
+      animation: fadeIn .2s ease;
+    }
+    .modal-overlay.hidden { display: none; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .modal-box {
+      background: white; border-radius: 20px;
+      padding: 24px; width: 100%; max-width: 400px;
+      display: flex; flex-direction: column; gap: 16px;
+      animation: slideUp .25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(40px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .modal-title { font-size: 17px; font-weight: 800; color: #1a1a2e; text-align: center; }
+    .modal-body  { font-size: 14px; color: #374151; text-align: center; line-height: 1.6; }
+    .modal-nome  {
+      font-size: 20px; font-weight: 800; color: #667eea;
+      text-align: center; padding: 12px;
+      background: #f0f1ff; border-radius: 10px;
+    }
+    .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+
+    .ios-hint {
+      background: #f0f1ff; border-radius: 10px;
+      padding: 14px; font-size: 13px; color: #4338ca;
+      line-height: 1.6; text-align: center; display: none;
+    }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #10b981; color: white;
+      padding: 14px 24px; border-radius: 12px;
+      font-size: 14px; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      z-index: 9999; white-space: nowrap;
+      animation: fadeInUp .3s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body"  id="modalBody"></div>
+    <div class="modal-nome"  id="modalNome"></div>
+    <div class="modal-actions">
+      <button class="btn-main"  id="modalBtnConfirm"></button>
+      <button class="btn-ghost" onclick="fecharModal()">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+
+  <div class="logo">
+    <h1>🎟️ AdKira</h1>
+    <p>Gere o seu convite personalizado</p>
+  </div>
+
+  <!-- RESTAURAÇÃO DE SESSÃO -->
+  <div class="step" id="stepRestore">
+    <div class="session-restore">
+      <div class="spinner-lg"></div>
+      <p>A retomar a sua sessão...</p>
+    </div>
+  </div>
+
+  <!-- PASSO 1: Token -->
+  <div class="step" id="step1">
+    <div>
+      <label for="tokenInput">Código do Evento</label>
+      <input type="text" id="tokenInput" placeholder="ex: evt-ab3x9k"
+             autocomplete="off" autocapitalize="none" autocorrect="off">
+    </div>
+    <div class="info blue" id="step1Info" style="display:none;"></div>
+    <button class="btn-main" onclick="validarToken()">Continuar →</button>
+  </div>
+
+  <!-- PASSO 2: Painel principal -->
+  <div class="step" id="step2">
+    <div class="info green" id="eventoNomeBox" style="text-align:center;"></div>
+    <div class="info red"   id="expiradoBox"   style="display:none;">
+      ⏰ Este evento expirou. Já não é possível gerar convites.
+    </div>
+    <div class="info orange" id="limiteProximoBox" style="display:none;"></div>
+
+    <div class="counter-box" id="counterBox">
+      <div class="counter-item">
+        <div class="val" id="cntLimite">—</div>
+        <div class="lbl">Disponíveis</div>
+      </div>
+      <div class="counter-item">
+        <div class="val" id="cntGerados">0</div>
+        <div class="lbl">Já gerados</div>
+      </div>
+      <div class="counter-item">
+        <div class="val" id="cntRestantes">—</div>
+        <div class="lbl">Restantes</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-label">✨ Gerar Novo Convite</div>
+    <div>
+      <label for="nomeInput">Nome completo do convidado</label>
+      <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
+             autocapitalize="words"
+             onkeydown="if(event.key==='Enter') pedirConfirmacaoGerar()">
+    </div>
+    <div class="info yellow" id="step2Info" style="display:none;"></div>
+    <div class="ios-hint" id="iosHint">
+      📱 No seu dispositivo, o convite abre numa nova janela.<br>
+      Toque em <strong>Partilhar → Guardar em Ficheiros</strong> para o guardar.
+    </div>
+    <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()">🎉 Gerar Convite</button>
+
+    <div class="divider"></div>
+    <div class="convites-header">
+      <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
+      <span class="convites-count" id="convitesCount"></span>
+      <button class="btn-outline" style="width:auto;padding:5px 10px;font-size:11px;margin-left:auto;"
+              onclick="carregarConvitesGerados()">🔄</button>
+    </div>
+    <input type="text" class="convites-search" id="convitesSearch"
+           placeholder="🔍 Pesquisar por nome..."
+           oninput="filtrarConvites()"
+           style="display:none;">
+    <div class="convites-lista" id="convitesLista">
+      <div style="text-align:center;color:#9ca3af;font-size:12px;padding:16px;">A carregar...</div>
+    </div>
+    <button class="btn-ghost" onclick="voltarStep1()">← Sair</button>
+  </div>
+
+  <!-- PASSO 3: Loading -->
+  <div class="step" id="step3">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <p id="loadingMsg">A preparar o convite...</p>
+    </div>
+  </div>
+
+  <!-- ERRO -->
+  <div class="step" id="stepErro">
+    <div class="info red" id="erroMsg"></div>
+    <button class="btn-ghost" onclick="voltarPainel()">← Tentar novamente</button>
+    <button class="btn-ghost" onclick="voltarStep1()">← Mudar de evento</button>
+  </div>
+
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   SUPABASE
+══════════════════════════════════════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
+const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ESTADO
+══════════════════════════════════════════════════════════════════════════════ */
+let clienteData     = null;
+let configData      = null;
+let realtimeChannel = null;
+let todosConvites   = [];
+let validadeTimer   = null;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async () => {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  const savedToken = localStorage.getItem('adkira_token');
+  if (savedToken) {
+    showStep('stepRestore');
+    const ok = await tentarRestaurarSessao(savedToken);
+    if (!ok) { localStorage.removeItem('adkira_token'); showStep('step1'); }
+  } else {
+    showStep('step1');
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RESTAURAR SESSÃO
+══════════════════════════════════════════════════════════════════════════════ */
+async function tentarRestaurarSessao(token) {
+  try {
+    const { data: cli, error: e1 } = await DB
+      .from('clientes').select('*').eq('token', token).single();
+    if (e1 || !cli) return false;
+
+    const agora = Math.floor(Date.now() / 1000);
+    if (cli.validade && cli.validade < agora) return false;
+
+    const { data: cfg, error: e2 } = await DB
+      .from('convite_config').select('*').eq('token_cliente', token).single();
+    if (e2 || !cfg) return false;
+
+    clienteData = cli;
+    configData  = cfg;
+
+    document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    actualizarContador();
+    await carregarConvitesGerados();
+    iniciarRealtime(token);
+    iniciarTimerValidade();
+    showStep('step2');
+    return true;
+  } catch(e) { return false; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════════════════════════════ */
+function showToast(msg, cor) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.style.background = cor || '#10b981';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0'; t.style.transition = 'opacity .3s';
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   NAVEGAÇÃO
+══════════════════════════════════════════════════════════════════════════════ */
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showInfo(elId, msg, type) {
+  const el = document.getElementById(elId);
+  el.textContent = msg; el.className = 'info ' + (type || 'blue'); el.style.display = 'block';
+}
+function hideInfo(elId) { document.getElementById(elId).style.display = 'none'; }
+function setLoading(msg) { document.getElementById('loadingMsg').textContent = msg; }
+
+function voltarStep1() {
+  pararRealtime(); pararTimerValidade();
+  localStorage.removeItem('adkira_token');
+  clienteData = null; configData = null; todosConvites = [];
+  document.getElementById('tokenInput').value = '';
+  document.getElementById('nomeInput').value  = '';
+  document.getElementById('convitesSearch').style.display = 'none';
+  document.getElementById('iosHint').style.display = 'none';
+  hideInfo('step1Info'); hideInfo('expiradoBox'); hideInfo('limiteProximoBox');
+  showStep('step1');
+}
+function voltarPainel() {
+  document.getElementById('nomeInput').value = '';
+  hideInfo('step2Info');
+  actualizarContador();
+  carregarConvitesGerados();
+  showStep('step2');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   REALTIME
+══════════════════════════════════════════════════════════════════════════════ */
+function iniciarRealtime(token) {
+  pararRealtime();
+  realtimeChannel = DB
+    .channel('cliente-updates-' + token)
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'clientes', filter: `token=eq.${token}` },
+      (payload) => {
+        if (!payload.new) return;
+        clienteData.scans_usados = payload.new.scans_usados;
+        clienteData.limite_scans = payload.new.limite_scans;
+        clienteData.nome         = payload.new.nome;
+        clienteData.validade     = payload.new.validade;
+        document.getElementById('eventoNomeBox').textContent = '🎉 ' + payload.new.nome;
+        actualizarContador();
+        iniciarTimerValidade();
+        showToast('🔄 Informações do evento actualizadas!', '#667eea');
+      }
+    )
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'convidados', filter: `token_cliente=eq.${token}` },
+      (payload) => {
+        if (!payload.new) return;
+        const idx = todosConvites.findIndex(c => c.id === payload.new.id);
+        if (idx !== -1) {
+          todosConvites[idx] = { ...todosConvites[idx], ...payload.new };
+          renderizarConvites(todosConvites);
+        }
+      }
+    )
+    .subscribe();
+}
+
+function pararRealtime() {
+  if (realtimeChannel) { DB.removeChannel(realtimeChannel); realtimeChannel = null; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TIMER DE VALIDADE
+══════════════════════════════════════════════════════════════════════════════ */
+function iniciarTimerValidade() {
+  pararTimerValidade();
+  if (!clienteData || !clienteData.validade) return;
+  function verificar() {
+    const agora = Math.floor(Date.now() / 1000);
+    if (clienteData.validade && clienteData.validade < agora) {
+      pararTimerValidade();
+      document.getElementById('expiradoBox').style.display = 'block';
+      const btn = document.getElementById('btnGerar');
+      btn.disabled = true; btn.textContent = '⏰ Evento expirado';
+      showToast('⏰ Este evento expirou.', '#ef4444');
+    }
+  }
+  verificar();
+  validadeTimer = setInterval(verificar, 30_000);
+}
+function pararTimerValidade() {
+  if (validadeTimer) { clearInterval(validadeTimer); validadeTimer = null; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   PASSO 1 — Validar token
+══════════════════════════════════════════════════════════════════════════════ */
+async function validarToken() {
+  const token = document.getElementById('tokenInput').value.trim().toLowerCase();
+  if (!token) { showInfo('step1Info', 'Insira o código do evento.', 'yellow'); return; }
+  showInfo('step1Info', '⏳ A verificar...', 'blue');
+  try {
+    const { data: cli, error: e1 } = await DB
+      .from('clientes').select('*').eq('token', token).single();
+    if (e1 || !cli) { showInfo('step1Info', '❌ Código inválido ou não encontrado.', 'red'); return; }
+
+    const agora = Math.floor(Date.now() / 1000);
+    if (cli.validade && cli.validade < agora) {
+      showInfo('step1Info', '❌ Este evento já expirou.', 'red'); return;
+    }
+
+    const { data: cfg, error: e2 } = await DB
+      .from('convite_config').select('*').eq('token_cliente', token).single();
+    if (e2 || !cfg) {
+      showInfo('step1Info', '⚠️ O template do convite ainda não foi configurado. Contacte o organizador.', 'yellow');
+      return;
+    }
+
+    clienteData = cli; configData = cfg;
+    localStorage.setItem('adkira_token', token);
+    document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    actualizarContador();
+    await carregarConvitesGerados();
+    iniciarRealtime(token);
+    iniciarTimerValidade();
+    hideInfo('step1Info');
+    showStep('step2');
+  } catch(e) { showInfo('step1Info', '❌ Erro de ligação: ' + e.message, 'red'); }
+}
+
+/* ═══════════════���══════════════════════════════════════════════════════════════
+   CONTADOR
+══════════════════════════════════════════════════════════════════════════════ */
+function actualizarContador() {
+  if (!clienteData) return;
+  const limite    = clienteData.limite_scans || 0;
+  const gerados   = clienteData.scans_usados || 0;
+  const restantes = Math.max(0, limite - gerados);
+
+  document.getElementById('cntLimite').textContent    = limite || '∞';
+  document.getElementById('cntGerados').textContent   = gerados;
+  document.getElementById('cntRestantes').textContent = limite ? restantes : '∞';
+
+  const limiteProximo = limite && restantes <= 3 && restantes > 0;
+  document.getElementById('counterBox').className = 'counter-box' + (limiteProximo ? ' warning' : '');
+
+  const limProxBox = document.getElementById('limiteProximoBox');
+  if (limite && restantes > 0 && restantes <= 3) {
+    limProxBox.textContent = `⚠️ Atenção! Restam apenas ${restantes} convite${restantes === 1 ? '' : 's'}.`;
+    limProxBox.style.display = 'block';
+  } else {
+    limProxBox.style.display = 'none';
+  }
+
+  const btnGerar = document.getElementById('btnGerar');
+  const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now() / 1000);
+  if (expirado) {
+    btnGerar.disabled = true; btnGerar.textContent = '⏰ Evento expirado';
+    document.getElementById('expiradoBox').style.display = 'block';
+  } else if (limite && gerados >= limite) {
+    btnGerar.disabled = true; btnGerar.textContent = '🚫 Limite atingido';
+    showInfo('step2Info', `Atingiu o limite de ${limite} convites.`, 'red');
+  } else {
+    btnGerar.disabled = false; btnGerar.textContent = '🎉 Gerar Convite';
+    hideInfo('step2Info');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CARREGAR CONVITES
+══════════════════════════════════════════════════════════════════════════════ */
+async function carregarConvitesGerados() {
+  if (!clienteData) return;
+  const lista = document.getElementById('convitesLista');
+  lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:12px;padding:12px;">A carregar...</div>';
+  try {
+    const { data, error } = await DB
+      .from('convidados')
+      .select('id,nome,codigo,status,created_at')
+      .eq('token_cliente', clienteData.token)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    const { data: cliData } = await DB
+      .from('clientes').select('scans_usados,limite_scans').eq('token', clienteData.token).single();
+    if (cliData) {
+      clienteData.scans_usados = cliData.scans_usados;
+      clienteData.limite_scans = cliData.limite_scans;
+      actualizarContador();
+    }
+
+    todosConvites = data || [];
+
+    if (todosConvites.length === 0) {
+      document.getElementById('convitesSearch').style.display = 'none';
+      document.getElementById('convitesCount').textContent = '';
+      lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:12px;padding:16px;">Nenhum convite gerado ainda.</div>';
+      return;
+    }
+
+    document.getElementById('convitesSearch').style.display = 'block';
+    renderizarConvites(todosConvites);
+  } catch(e) {
+    lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:12px;padding:12px;">Erro: ${e.message}</div>`;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   FILTRAR CONVITES
+══════════════════════════════════════════════════════════════════════════════ */
+function filtrarConvites() {
+  const termo = document.getElementById('convitesSearch').value.trim().toLowerCase();
+  if (!termo) { renderizarConvites(todosConvites); return; }
+  renderizarConvites(todosConvites.filter(c => c.nome.toLowerCase().includes(termo)), termo);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RENDERIZAR LISTA — apenas nome, sem badge nem data/hora
+══════════════════════════════════════════════════════════════════════════════ */
+function renderizarConvites(lista, termoPesquisa) {
+  const el    = document.getElementById('convitesLista');
+  const total = todosConvites.length;
+
+  document.getElementById('convitesCount').textContent =
+    termoPesquisa
+      ? `${lista.length} de ${total}`
+      : `${total} convite${total === 1 ? '' : 's'}`;
+
+  if (lista.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:12px;padding:12px;">Nenhum resultado encontrado.</div>';
+    return;
+  }
+
+  el.innerHTML = '';
+  lista.forEach(conv => {
+    const item = document.createElement('div');
+    item.className = 'convite-item';
+    item.innerHTML = `
+      <div class="convite-item-info">
+        <div class="convite-item-nome">${escHtml(conv.nome)}</div>
+      </div>
+      <button class="btn-dl"
+        onclick="pedirConfirmacaoDownload('${escHtml(conv.nome)}','${escHtml(conv.codigo)}',this)">
+        📥
+      </button>
+    `;
+    el.appendChild(item);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   MODAL
+══════════════════════════════════════════════════════════════════════════════ */
+function abrirModal({ titulo, corpo, nome, labelConfirmar, onConfirmar }) {
+  document.getElementById('modalTitle').textContent      = titulo;
+  document.getElementById('modalBody').textContent       = corpo;
+  document.getElementById('modalNome').textContent       = nome;
+  document.getElementById('modalBtnConfirm').textContent = labelConfirmar;
+  document.getElementById('modalBtnConfirm').onclick     = () => { fecharModal(); onConfirmar(); };
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function fecharModal() {
+  document.getElementById('modalOverlay').classList.add('hidden');
+}
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CONFIRMAÇÃO GERAR
+══════════════════════════════════════════════════════════════════════════════ */
+function pedirConfirmacaoGerar() {
+  const nome = document.getElementById('nomeInput').value.trim();
+  if (!nome || nome.length < 2) {
+    showInfo('step2Info', 'Insira o nome completo do convidado.', 'yellow'); return;
+  }
+  if (!clienteData || !configData) {
+    showInfo('step2Info', 'Sessão expirada. Volte ao início.', 'red'); return;
+  }
+  const limite  = clienteData.limite_scans || 0;
+  const gerados = clienteData.scans_usados || 0;
+  if (limite && gerados >= limite) {
+    showInfo('step2Info', `Limite de ${limite} convites atingido.`, 'red');
+    actualizarContador(); return;
+  }
+  abrirModal({
+    titulo:        '✅ Confirmar Convite',
+    corpo:         'Vai gerar um convite para:',
+    nome:          nome,
+    labelConfirmar:'🎉 Sim, gerar convite',
+    onConfirmar:   () => gerarConvite(nome)
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CONFIRMAÇÃO RE-DOWNLOAD
+══════════════════════════════════════════════════════════════════════════════ */
+function pedirConfirmacaoDownload(nome, codigo, btn) {
+  abrirModal({
+    titulo:        '📥 Re-download de Convite',
+    corpo:         'Vai descarregar novamente o convite de:',
+    nome:          nome,
+    labelConfirmar:'📥 Sim, descarregar',
+    onConfirmar:   () => baixarConviteExistente(nome, codigo, btn)
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   GERAR QR DATA URL
+══════════════════════════════════════════════════════════════════════════════ */
+function gerarQRDataURL(codigo, tamanho) {
+  return new Promise((resolve, reject) => {
+    if (typeof QRCode === 'undefined') { reject(new Error('Biblioteca QRCode não carregada.')); return; }
+    const div = document.createElement('div');
+    div.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
+    document.body.appendChild(div);
+    try {
+      new QRCode(div, { text: codigo, width: tamanho||300, height: tamanho||300, correctLevel: QRCode.CorrectLevel.M });
+      setTimeout(() => {
+        try {
+          const canvas = div.querySelector('canvas');
+          if (canvas) { resolve(canvas.toDataURL('image/png')); }
+          else {
+            const img = div.querySelector('img');
+            img && img.src ? resolve(img.src) : reject(new Error('QRCode não gerou imagem.'));
+          }
+        } catch(err) { reject(err); }
+        finally { if (document.body.contains(div)) document.body.removeChild(div); }
+      }, 150);
+    } catch(err) { if (document.body.contains(div)) document.body.removeChild(div); reject(err); }
+  });
+}
+
+/* ═════════════���════════════════════════════════════════════════════════════════
+   GERAR CONVITE
+══════════════════════════════════════════════════════════════════════════════ */
+async function gerarConvite(nome) {
+  hideInfo('step2Info');
+  showStep('step3');
+  try {
+    setLoading('A gerar o código único...');
+    const codigo = await gerarCodigoUnico(clienteData.token);
+
+    let qrDataUrl = null;
+    if (configData.qr_ativo !== false) {
+      setLoading('A criar o QR Code...');
+      qrDataUrl = await gerarQRDataURL(codigo, 300);
+    }
+
+    setLoading('A personalizar o convite...');
+    const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData);
+
+    setLoading('A registar...');
+    await registarConvite(nome, codigo, clienteData.token);
+
+    triggerDownload(pdfBlob, `${nome}.pdf`);
+
+    document.getElementById('nomeInput').value = '';
+    await carregarConvitesGerados();
+    actualizarContador();
+    showStep('step2');
+
+    if (isIOS) {
+      document.getElementById('iosHint').style.display = 'block';
+      showToast('✅ Convite gerado! Veja a janela que abriu.', '#667eea');
+    } else {
+      showToast(`✅ Convite de ${nome} gerado e descarregado!`);
+    }
+  } catch(e) {
+    console.error(e);
+    document.getElementById('erroMsg').textContent = '❌ ' + e.message;
+    showStep('stepErro');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BAIXAR CONVITE EXISTENTE
+══════════════════════════════════════════════════════════════════════════════ */
+async function baixarConviteExistente(nome, codigo, btn) {
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳';
+  try {
+    let qrDataUrl = null;
+    if (configData && configData.qr_ativo !== false) qrDataUrl = await gerarQRDataURL(codigo, 300);
+    const blob = await gerarPDF(nome, codigo, qrDataUrl, configData);
+    triggerDownload(blob, `${nome}.pdf`);
+    if (isIOS) {
+      document.getElementById('iosHint').style.display = 'block';
+      showToast('📥 Convite aberto! Guarde na janela que apareceu.', '#667eea');
+    } else {
+      showToast('📥 Download iniciado!');
+    }
+  } catch(e) {
+    alert('Erro ao gerar PDF: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CÓDIGO ÚNICO
+══════════════════════════════════════════════════════════════════════════════ */
+async function gerarCodigoUnico(tokenCliente) {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  for (let t = 0; t < 30; t++) {
+    let codigo = '';
+    for (let i = 0; i < 8; i++) codigo += chars[Math.floor(Math.random() * chars.length)];
+    const { data } = await DB.from('convidados').select('id').eq('codigo', codigo).maybeSingle();
+    if (!data) return codigo;
+  }
+  throw new Error('Não foi possível gerar um código único. Tente novamente.');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   GERAR PDF
+══════════════════════════════════════════════════════════════════════════════ */
+async function gerarPDF(nome, codigo, qrDataUrl, config) {
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+  const pdfBytes = Uint8Array.from(atob(config.pdf_base), c => c.charCodeAt(0));
+  const pdfDoc   = await PDFDocument.load(pdfBytes);
+
+  let customFont = null;
+  if (config.fonte_custom_b64 && typeof fontkit !== 'undefined') {
+    try {
+      pdfDoc.registerFontkit(fontkit);
+      const fb = Uint8Array.from(atob(config.fonte_custom_b64), c => c.charCodeAt(0));
+      customFont = await pdfDoc.embedFont(fb);
+    } catch(e) { console.warn('Fonte personalizada falhou:', e); }
+  }
+
+  const elementos = config.elementos || {};
+  for (let pi = 0; pi < pdfDoc.getPageCount(); pi++) {
+    const page    = pdfDoc.getPage(pi);
+    const pageNum = pi + 1;
+    const { width: pW, height: pH } = page.getSize();
+    const CANVAS_W = 794;
+    const scaleX   = pW / CANVAS_W;
+    const canvasH  = CANVAS_W * (pH / pW);
+    const scaleY   = pH / canvasH;
+    const els = elementos[pageNum] || elementos[String(pageNum)] || [];
+
+    for (const el of els) {
+      if (el.type === 'text') {
+        let text = el.content || '';
+        if (text.includes('{NOME}')) {
+          const n = config.maiusculas ? nome.toUpperCase() : nome;
+          text = text.replace('{NOME}', n);
+        }
+        const fontSize = (parseFloat(el.fontSize) || config.tamanho_nome || 16) * scaleX;
+        const corHex = normalizarCor(
+          el.elementType === 'table'
+            ? (el.color || config.cor_mesa || '#1a1a2e')
+            : (el.color || config.cor_nome || '#1a1a2e')
+        );
+        const cor = hexToRgb(corHex);
+        let font;
+        if (customFont) { font = customFont; }
+        else {
+          const bold   = el.fontWeight === 'bold' || el.fontWeight === '700' || config.negrito;
+          const italic = el.fontStyle  === 'italic' || config.italico;
+          if (bold && italic) font = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+          else if (bold)      font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+          else if (italic)    font = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+          else                font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        }
+        const lines = text.split('\n');
+        const lineH = fontSize * 1.2;
+        const topPx = parseFloat(el.top) || 0;
+        lines.forEach((line, li) => {
+          let xPos;
+          if (el.transform && el.transform.includes('translateX(-50%)')) {
+            xPos = (pW / 2) - (font.widthOfTextAtSize(line, fontSize) / 2);
+          } else { xPos = (parseFloat(el.left) || 0) * scaleX; }
+          const yPos = pH - (topPx * scaleY) - fontSize * 0.85 - (li * lineH);
+          page.drawText(line, { x: xPos, y: yPos, size: fontSize, font, color: rgb(cor.r, cor.g, cor.b) });
+        });
+      }
+      else if (el.type === 'qr' && qrDataUrl) {
+        try {
+          const qrImg = await pdfDoc.embedPng(qrDataUrl);
+          const qrW   = (parseFloat(el.width)  || config.tamanho_qr || 100) * scaleX;
+          const qrH   = (parseFloat(el.height) || config.tamanho_qr || 100) * scaleY;
+          let xPos;
+          if (el.transform && el.transform.includes('translateX(-50%)')) xPos = (pW/2) - (qrW/2);
+          else xPos = (parseFloat(el.left) || 0) * scaleX;
+          const yPos = pH - (parseFloat(el.top) || 0) * scaleY - qrH;
+          page.drawImage(qrImg, { x: xPos, y: yPos, width: qrW, height: qrH });
+        } catch(e) { console.warn('QR no PDF falhou:', e); }
+      }
+    }
+  }
+  const bytes = await pdfDoc.save();
+  return new Blob([bytes], { type: 'application/pdf' });
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   REGISTAR (atómico)
+══════════════════════════════════════════════════════════════════════════════ */
+async function registarConvite(nome, codigo, tokenCliente) {
+  const { error: eRpc } = await DB.rpc('incrementar_scans', { p_token: tokenCliente });
+  if (eRpc) {
+    if (eRpc.message && eRpc.message.includes('LIMITE_ATINGIDO')) {
+      const { data: cliData } = await DB
+        .from('clientes').select('scans_usados,limite_scans').eq('token', tokenCliente).single();
+      if (cliData) { clienteData.scans_usados = cliData.scans_usados; clienteData.limite_scans = cliData.limite_scans; }
+      throw new Error('Limite de convites atingido. Não é possível gerar mais convites.');
+    }
+    const novoTotal = (clienteData.scans_usados || 0) + 1;
+    await DB.from('clientes').update({ scans_usados: novoTotal }).eq('token', tokenCliente);
+    clienteData.scans_usados = novoTotal;
+  } else {
+    clienteData.scans_usados = (clienteData.scans_usados || 0) + 1;
+  }
+  const { error: eIns } = await DB.from('convidados').insert([{
+    token_cliente: tokenCliente, codigo, nome, status: 'convite_gerado'
+  }]);
+  if (eIns) throw new Error('Erro ao registar convite: ' + eIns.message);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════════════════════════════════════ */
+function normalizarCor(cor) {
+  if (!cor) return '#1a1a2e';
+  cor = cor.trim();
+  if (cor.startsWith('#')) return cor;
+  if (cor.startsWith('rgb')) {
+    const m = cor.match(/\d+/g);
+    if (!m || m.length < 3) return '#1a1a2e';
+    return '#' + [m[0],m[1],m[2]].map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
+  }
+  return '#1a1a2e';
+}
+function hexToRgb(hex) {
+  hex = (hex||'#000000').replace('#','');
+  if (hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+  const n = parseInt(hex,16);
+  if (isNaN(n)) return {r:0,g:0,b:0};
+  return { r:((n>>16)&255)/255, g:((n>>8)&255)/255, b:(n&255)/255 };
+}
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  if (isIOS) {
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  } else {
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+}
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
