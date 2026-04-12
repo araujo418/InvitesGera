@@ -11,57 +11,84 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      overscroll-behavior: none;
+    }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
-      padding: 20px;
+      min-height: -webkit-fill-available;
+      padding: 16px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
 
     .card {
       background: white;
-      border-radius: 20px;
-      padding: 28px 24px;
-      max-width: 440px;
+      border-radius: 24px;
+      padding: 28px 20px;
+      max-width: 480px;
       width: 100%;
       margin: 0 auto;
       box-shadow: 0 16px 48px rgba(0,0,0,0.25);
     }
 
     .logo { text-align: center; margin-bottom: 22px; }
-    .logo h1 { font-size: 24px; font-weight: 800; color: #1a1a2e; }
-    .logo p  { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .logo h1 { font-size: 26px; font-weight: 800; color: #1a1a2e; }
+    .logo p  { font-size: 13px; color: #6b7280; margin-top: 4px; }
 
     .step { display: none; flex-direction: column; gap: 14px; }
     .step.active { display: flex; }
 
-    label { font-size: 12px; font-weight: 600; color: #374151; display: block; margin-bottom: 5px; }
+    label { font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px; }
+
     input[type="text"] {
-      width: 100%; padding: 13px 15px;
-      border: 2px solid #e5e7eb; border-radius: 10px;
-      font-size: 16px; font-family: inherit; transition: border-color .2s;
+      width: 100%; padding: 15px 16px;
+      border: 2px solid #e5e7eb; border-radius: 12px;
+      font-size: 16px; /* mínimo 16px para não fazer zoom no iOS */
+      font-family: inherit; transition: border-color .2s;
+      -webkit-appearance: none;
     }
     input:focus { outline: none; border-color: #667eea; }
 
     button {
-      width: 100%; padding: 14px; border: none; border-radius: 10px;
-      font-size: 15px; font-weight: 700; cursor: pointer;
-      font-family: inherit; transition: all .2s;
+      width: 100%;
+      padding: 16px;
+      border: none; border-radius: 14px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: all .15s;
+      /* área de toque mínima recomendada: 48px */
+      min-height: 52px;
+      -webkit-appearance: none;
+      touch-action: manipulation; /* elimina delay de 300ms no mobile */
     }
-    .btn-main { background: linear-gradient(135deg,#667eea,#764ba2); color: white; box-shadow: 0 4px 14px rgba(102,126,234,.4); }
-    .btn-main:hover { transform: translateY(-1px); }
+    .btn-main {
+      background: linear-gradient(135deg,#667eea,#764ba2);
+      color: white;
+      box-shadow: 0 4px 14px rgba(102,126,234,.4);
+    }
+    .btn-main:active { transform: scale(0.98); opacity: .9; }
     .btn-main:disabled { opacity: .5; cursor: not-allowed; transform: none; }
     .btn-ghost { background: #f3f4f6; color: #374151; }
-    .btn-ghost:hover { background: #e5e7eb; }
+    .btn-ghost:active { background: #e5e7eb; }
+    .btn-warning {
+      background: #fffbeb; color: #92400e;
+      border: 2px solid #fcd34d;
+    }
+    .btn-warning:active { background: #fef3c7; }
     .btn-outline {
       background: white; color: #667eea;
-      border: 2px solid #667eea; padding: 10px; font-size: 13px;
+      border: 2px solid #667eea;
+      min-height: 40px; padding: 8px 14px;
+      font-size: 13px;
     }
-    .btn-outline:hover { background: #f0f1ff; }
+    .btn-outline:active { background: #f0f1ff; }
 
-    .info { border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; }
+    .info { border-radius: 12px; padding: 13px 15px; font-size: 14px; line-height: 1.5; }
     .info.blue   { background: #f0f1ff; color: #4338ca; }
     .info.green  { background: #f0fdf4; color: #065f46; font-weight: 600; }
     .info.red    { background: #fef2f2; color: #991b1b; }
@@ -70,112 +97,157 @@
 
     .counter-box {
       background: linear-gradient(135deg,#667eea,#764ba2);
-      border-radius: 12px; padding: 16px;
+      border-radius: 16px; padding: 18px 12px;
       display: grid; grid-template-columns: 1fr 1fr 1fr;
       gap: 8px; text-align: center;
     }
     .counter-box.warning { background: linear-gradient(135deg,#f59e0b,#d97706); }
     .counter-item { color: white; }
-    .counter-item .val { font-size: 26px; font-weight: 800; line-height: 1; }
-    .counter-item .lbl { font-size: 10px; opacity: .8; margin-top: 3px; }
+    .counter-item .val { font-size: 28px; font-weight: 800; line-height: 1; }
+    .counter-item .lbl { font-size: 11px; opacity: .85; margin-top: 4px; }
 
-    .divider { height: 1px; background: #e5e7eb; }
+    .divider { height: 1px; background: #e5e7eb; margin: 2px 0; }
 
-    .loading-box { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; }
+    .loading-box {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 14px; padding: 24px 0;
+    }
     .spinner {
-      width: 36px; height: 36px;
+      width: 40px; height: 40px;
       border: 4px solid #e5e7eb; border-top-color: #667eea;
       border-radius: 50%; animation: spin .8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-box p { font-size: 13px; color: #6b7280; text-align: center; }
+    .loading-box p { font-size: 14px; color: #6b7280; text-align: center; }
 
     .session-restore {
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 14px; padding: 32px 0 16px;
+      gap: 16px; padding: 36px 0 20px;
     }
     .session-restore .spinner-lg {
-      width: 48px; height: 48px;
+      width: 52px; height: 52px;
       border: 5px solid #e5e7eb; border-top-color: #667eea;
       border-radius: 50%; animation: spin .8s linear infinite;
     }
-    .session-restore p { font-size: 14px; color: #6b7280; font-weight: 500; text-align: center; }
+    .session-restore p { font-size: 15px; color: #6b7280; font-weight: 500; text-align: center; }
 
+    /* Lista de convites */
     .convites-header { display: flex; align-items: center; gap: 8px; }
     .convites-search {
-      flex: 1; padding: 8px 12px;
-      border: 1.5px solid #e5e7eb; border-radius: 8px;
-      font-size: 13px; font-family: inherit; transition: border-color .2s;
+      flex: 1; padding: 11px 14px;
+      border: 1.5px solid #e5e7eb; border-radius: 10px;
+      font-size: 16px; font-family: inherit;
+      transition: border-color .2s;
+      -webkit-appearance: none;
     }
     .convites-search:focus { outline: none; border-color: #667eea; }
-    .convites-count { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+    .convites-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
 
-    .convites-lista { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+    .convites-lista {
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 300px; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     .convite-item {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px;
-      background: #fafafa; gap: 8px;
+      padding: 13px 14px; border: 1px solid #e5e7eb; border-radius: 12px;
+      background: #fafafa; gap: 10px;
     }
     .convite-item-info { flex: 1; min-width: 0; }
     .convite-item-nome {
-      font-size: 13px; font-weight: 600; color: #1a1a2e;
+      font-size: 14px; font-weight: 600; color: #1a1a2e;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .btn-dl {
-      flex-shrink: 0; width: auto; padding: 7px 12px;
-      background: #667eea; color: white; border-radius: 8px;
-      font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+      flex-shrink: 0; width: auto;
+      padding: 10px 16px;
+      background: #667eea; color: white; border-radius: 10px;
+      font-size: 13px; font-weight: 600; border: none; cursor: pointer;
+      min-height: 44px; /* toque mínimo */
+      touch-action: manipulation;
     }
-    .btn-dl:hover { background: #5568d3; }
+    .btn-dl:active { background: #5568d3; }
 
     .section-label {
       font-size: 11px; font-weight: 700; color: #6b7280;
-      text-transform: uppercase; letter-spacing: .5px;
+      text-transform: uppercase; letter-spacing: .6px;
     }
 
+    /* Modal — ocupa mais ecrã no mobile, desliza de baixo */
     .modal-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.45);
+      background: rgba(0,0,0,0.5);
       display: flex; align-items: flex-end; justify-content: center;
-      z-index: 1000; padding: 20px;
+      z-index: 1000;
+      padding: 0;
       animation: fadeIn .2s ease;
     }
     .modal-overlay.hidden { display: none; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
     .modal-box {
-      background: white; border-radius: 20px;
-      padding: 24px; width: 100%; max-width: 400px;
+      background: white;
+      border-radius: 24px 24px 0 0;
+      padding: 28px 20px;
+      padding-bottom: max(28px, env(safe-area-inset-bottom));
+      width: 100%;
+      max-width: 480px;
       display: flex; flex-direction: column; gap: 16px;
-      animation: slideUp .25s ease;
+      animation: slideUp .28s cubic-bezier(.32,1.01,.56,1);
+    }
+    /* No tablet/desktop fica centralizado como card */
+    @media (min-width: 540px) {
+      .modal-overlay { align-items: center; padding: 20px; }
+      .modal-box { border-radius: 24px; max-width: 420px; padding-bottom: 28px; }
     }
     @keyframes slideUp {
-      from { transform: translateY(40px); opacity: 0; }
+      from { transform: translateY(60px); opacity: 0; }
       to   { transform: translateY(0);    opacity: 1; }
     }
-    .modal-title { font-size: 17px; font-weight: 800; color: #1a1a2e; text-align: center; }
-    .modal-body  { font-size: 14px; color: #374151; text-align: center; line-height: 1.6; }
+
+    /* Puxador visual do modal (mobile) */
+    .modal-handle {
+      width: 44px; height: 5px;
+      background: #d1d5db; border-radius: 3px;
+      margin: 0 auto -4px;
+    }
+    @media (min-width: 540px) { .modal-handle { display: none; } }
+
+    .modal-title { font-size: 18px; font-weight: 800; color: #1a1a2e; text-align: center; }
+    .modal-body  { font-size: 14px; color: #6b7280; text-align: center; line-height: 1.6; }
     .modal-nome  {
       font-size: 20px; font-weight: 800; color: #667eea;
-      text-align: center; padding: 12px;
-      background: #f0f1ff; border-radius: 10px;
+      text-align: center; padding: 14px;
+      background: #f0f1ff; border-radius: 12px;
+      word-break: break-word;
+    }
+    /* Aviso de duplicado — destaque diferente */
+    .modal-nome.duplicado {
+      color: #92400e;
+      background: #fffbeb;
+      border: 2px solid #fcd34d;
     }
     .modal-actions { display: flex; flex-direction: column; gap: 10px; }
 
     .ios-hint {
-      background: #f0f1ff; border-radius: 10px;
-      padding: 14px; font-size: 13px; color: #4338ca;
+      background: #f0f1ff; border-radius: 12px;
+      padding: 14px 16px; font-size: 14px; color: #4338ca;
       line-height: 1.6; text-align: center; display: none;
     }
 
     .toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: 24px;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      left: 50%; transform: translateX(-50%);
       background: #10b981; color: white;
-      padding: 14px 24px; border-radius: 12px;
-      font-size: 14px; font-weight: 600;
+      padding: 14px 24px; border-radius: 14px;
+      font-size: 15px; font-weight: 600;
       box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-      z-index: 9999; white-space: nowrap;
+      z-index: 9999;
+      white-space: nowrap;
+      max-width: calc(100vw - 32px);
+      overflow: hidden; text-overflow: ellipsis;
       animation: fadeInUp .3s ease;
     }
     @keyframes fadeInUp {
@@ -183,21 +255,20 @@
       to   { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
 
-    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 4px; }
   </style>
 </head>
 <body>
 
+<!-- MODAL -->
 <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
+    <div class="modal-handle"></div>
     <div class="modal-title" id="modalTitle"></div>
     <div class="modal-body"  id="modalBody"></div>
     <div class="modal-nome"  id="modalNome"></div>
-    <div class="modal-actions">
-      <button class="btn-main"  id="modalBtnConfirm"></button>
-      <button class="btn-ghost" onclick="fecharModal()">✕ Cancelar</button>
-    </div>
+    <div class="modal-actions" id="modalActions"></div>
   </div>
 </div>
 
@@ -208,7 +279,7 @@
     <p>Gere o seu convite personalizado</p>
   </div>
 
-  <!-- RESTAURAÇÃO DE SESSÃO -->
+  <!-- RESTAURAÇÃO -->
   <div class="step" id="stepRestore">
     <div class="session-restore">
       <div class="spinner-lg"></div>
@@ -216,18 +287,19 @@
     </div>
   </div>
 
-  <!-- PASSO 1: Token -->
+  <!-- PASSO 1 -->
   <div class="step" id="step1">
     <div>
       <label for="tokenInput">Código do Evento</label>
       <input type="text" id="tokenInput" placeholder="ex: evt-ab3x9k"
-             autocomplete="off" autocapitalize="none" autocorrect="off">
+             autocomplete="off" autocapitalize="none" autocorrect="off"
+             spellcheck="false">
     </div>
     <div class="info blue" id="step1Info" style="display:none;"></div>
     <button class="btn-main" onclick="validarToken()">Continuar →</button>
   </div>
 
-  <!-- PASSO 2: Painel principal -->
+  <!-- PASSO 2 -->
   <div class="step" id="step2">
     <div class="info green" id="eventoNomeBox" style="text-align:center;"></div>
     <div class="info red"   id="expiradoBox"   style="display:none;">
@@ -255,8 +327,8 @@
     <div>
       <label for="nomeInput">Nome completo do convidado</label>
       <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
-             autocapitalize="words"
-             onkeydown="if(event.key==='Enter') pedirConfirmacaoGerar()">
+             autocapitalize="words" autocorrect="off" spellcheck="false"
+             onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
     </div>
     <div class="info yellow" id="step2Info" style="display:none;"></div>
     <div class="ios-hint" id="iosHint">
@@ -269,20 +341,21 @@
     <div class="convites-header">
       <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
       <span class="convites-count" id="convitesCount"></span>
-      <button class="btn-outline" style="width:auto;padding:5px 10px;font-size:11px;margin-left:auto;"
+      <button class="btn-outline" style="width:auto;margin-left:auto;"
               onclick="carregarConvitesGerados()">🔄</button>
     </div>
     <input type="text" class="convites-search" id="convitesSearch"
            placeholder="🔍 Pesquisar por nome..."
+           autocorrect="off" spellcheck="false"
            oninput="filtrarConvites()"
            style="display:none;">
     <div class="convites-lista" id="convitesLista">
-      <div style="text-align:center;color:#9ca3af;font-size:12px;padding:16px;">A carregar...</div>
+      <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
     </div>
     <button class="btn-ghost" onclick="voltarStep1()">← Sair</button>
   </div>
 
-  <!-- PASSO 3: Loading -->
+  <!-- LOADING -->
   <div class="step" id="step3">
     <div class="loading-box">
       <div class="spinner"></div>
@@ -300,16 +373,16 @@
 </div>
 
 <script>
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═════════���═════════════════════════════════
    SUPABASE
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
 const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    ESTADO
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 let clienteData     = null;
 let configData      = null;
 let realtimeChannel = null;
@@ -317,9 +390,9 @@ let todosConvites   = [];
 let validadeTimer   = null;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    INIT
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
   const savedToken = localStorage.getItem('adkira_token');
@@ -332,25 +405,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    RESTAURAR SESSÃO
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 async function tentarRestaurarSessao(token) {
   try {
     const { data: cli, error: e1 } = await DB
       .from('clientes').select('*').eq('token', token).single();
     if (e1 || !cli) return false;
-
     const agora = Math.floor(Date.now() / 1000);
     if (cli.validade && cli.validade < agora) return false;
-
     const { data: cfg, error: e2 } = await DB
       .from('convite_config').select('*').eq('token_cliente', token).single();
     if (e2 || !cfg) return false;
-
-    clienteData = cli;
-    configData  = cfg;
-
+    clienteData = cli; configData = cfg;
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
     actualizarContador();
     await carregarConvitesGerados();
@@ -361,9 +429,9 @@ async function tentarRestaurarSessao(token) {
   } catch(e) { return false; }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    TOAST
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function showToast(msg, cor) {
   const t = document.createElement('div');
   t.className = 'toast';
@@ -376,16 +444,16 @@ function showToast(msg, cor) {
   }, 3500);
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    NAVEGAÇÃO
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function showStep(id) {
   document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 function showInfo(elId, msg, type) {
   const el = document.getElementById(elId);
-  el.textContent = msg; el.className = 'info ' + (type || 'blue'); el.style.display = 'block';
+  el.textContent = msg; el.className = 'info ' + (type||'blue'); el.style.display = 'block';
 }
 function hideInfo(elId) { document.getElementById(elId).style.display = 'none'; }
 function setLoading(msg) { document.getElementById('loadingMsg').textContent = msg; }
@@ -409,9 +477,9 @@ function voltarPainel() {
   showStep('step2');
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    REALTIME
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function iniciarRealtime(token) {
   pararRealtime();
   realtimeChannel = DB
@@ -443,20 +511,18 @@ function iniciarRealtime(token) {
     )
     .subscribe();
 }
-
 function pararRealtime() {
   if (realtimeChannel) { DB.removeChannel(realtimeChannel); realtimeChannel = null; }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   TIMER DE VALIDADE
-══════════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   TIMER VALIDADE
+═══════════════════════════════════════════ */
 function iniciarTimerValidade() {
   pararTimerValidade();
   if (!clienteData || !clienteData.validade) return;
   function verificar() {
-    const agora = Math.floor(Date.now() / 1000);
-    if (clienteData.validade && clienteData.validade < agora) {
+    if (clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000)) {
       pararTimerValidade();
       document.getElementById('expiradoBox').style.display = 'block';
       const btn = document.getElementById('btnGerar');
@@ -471,30 +537,27 @@ function pararTimerValidade() {
   if (validadeTimer) { clearInterval(validadeTimer); validadeTimer = null; }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    PASSO 1 — Validar token
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 async function validarToken() {
   const token = document.getElementById('tokenInput').value.trim().toLowerCase();
-  if (!token) { showInfo('step1Info', 'Insira o código do evento.', 'yellow'); return; }
-  showInfo('step1Info', '⏳ A verificar...', 'blue');
+  if (!token) { showInfo('step1Info','Insira o código do evento.','yellow'); return; }
+  showInfo('step1Info','⏳ A verificar...','blue');
   try {
     const { data: cli, error: e1 } = await DB
       .from('clientes').select('*').eq('token', token).single();
-    if (e1 || !cli) { showInfo('step1Info', '❌ Código inválido ou não encontrado.', 'red'); return; }
-
-    const agora = Math.floor(Date.now() / 1000);
+    if (e1 || !cli) { showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
+    const agora = Math.floor(Date.now()/1000);
     if (cli.validade && cli.validade < agora) {
-      showInfo('step1Info', '❌ Este evento já expirou.', 'red'); return;
+      showInfo('step1Info','❌ Este evento já expirou.','red'); return;
     }
-
     const { data: cfg, error: e2 } = await DB
       .from('convite_config').select('*').eq('token_cliente', token).single();
     if (e2 || !cfg) {
-      showInfo('step1Info', '⚠️ O template do convite ainda não foi configurado. Contacte o organizador.', 'yellow');
+      showInfo('step1Info','⚠️ O template do convite ainda não foi configurado. Contacte o organizador.','yellow');
       return;
     }
-
     clienteData = cli; configData = cfg;
     localStorage.setItem('adkira_token', token);
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
@@ -504,12 +567,12 @@ async function validarToken() {
     iniciarTimerValidade();
     hideInfo('step1Info');
     showStep('step2');
-  } catch(e) { showInfo('step1Info', '❌ Erro de ligação: ' + e.message, 'red'); }
+  } catch(e) { showInfo('step1Info','❌ Erro de ligação: '+e.message,'red'); }
 }
 
-/* ═══════════════���══════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CONTADOR
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function actualizarContador() {
   if (!clienteData) return;
   const limite    = clienteData.limite_scans || 0;
@@ -525,33 +588,33 @@ function actualizarContador() {
 
   const limProxBox = document.getElementById('limiteProximoBox');
   if (limite && restantes > 0 && restantes <= 3) {
-    limProxBox.textContent = `⚠️ Atenção! Restam apenas ${restantes} convite${restantes === 1 ? '' : 's'}.`;
+    limProxBox.textContent = `⚠️ Atenção! Restam apenas ${restantes} convite${restantes===1?'':'s'}.`;
     limProxBox.style.display = 'block';
   } else {
     limProxBox.style.display = 'none';
   }
 
   const btnGerar = document.getElementById('btnGerar');
-  const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now() / 1000);
+  const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
   if (expirado) {
     btnGerar.disabled = true; btnGerar.textContent = '⏰ Evento expirado';
     document.getElementById('expiradoBox').style.display = 'block';
   } else if (limite && gerados >= limite) {
     btnGerar.disabled = true; btnGerar.textContent = '🚫 Limite atingido';
-    showInfo('step2Info', `Atingiu o limite de ${limite} convites.`, 'red');
+    showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red');
   } else {
     btnGerar.disabled = false; btnGerar.textContent = '🎉 Gerar Convite';
     hideInfo('step2Info');
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CARREGAR CONVITES
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 async function carregarConvitesGerados() {
   if (!clienteData) return;
   const lista = document.getElementById('convitesLista');
-  lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:12px;padding:12px;">A carregar...</div>';
+  lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
   try {
     const { data, error } = await DB
       .from('convidados')
@@ -573,40 +636,39 @@ async function carregarConvitesGerados() {
     if (todosConvites.length === 0) {
       document.getElementById('convitesSearch').style.display = 'none';
       document.getElementById('convitesCount').textContent = '';
-      lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:12px;padding:16px;">Nenhum convite gerado ainda.</div>';
+      lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';
       return;
     }
-
     document.getElementById('convitesSearch').style.display = 'block';
+    // Limpa pesquisa ao recarregar
+    document.getElementById('convitesSearch').value = '';
     renderizarConvites(todosConvites);
   } catch(e) {
-    lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:12px;padding:12px;">Erro: ${e.message}</div>`;
+    lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">Erro: ${e.message}</div>`;
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   FILTRAR CONVITES
-══════════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════��══════
+   FILTRAR
+═══════════════════════════════════════════ */
 function filtrarConvites() {
   const termo = document.getElementById('convitesSearch').value.trim().toLowerCase();
   if (!termo) { renderizarConvites(todosConvites); return; }
   renderizarConvites(todosConvites.filter(c => c.nome.toLowerCase().includes(termo)), termo);
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   RENDERIZAR LISTA — apenas nome, sem badge nem data/hora
-══════════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   RENDERIZAR LISTA
+═══════════════════════════════════════════ */
 function renderizarConvites(lista, termoPesquisa) {
   const el    = document.getElementById('convitesLista');
   const total = todosConvites.length;
 
   document.getElementById('convitesCount').textContent =
-    termoPesquisa
-      ? `${lista.length} de ${total}`
-      : `${total} convite${total === 1 ? '' : 's'}`;
+    termoPesquisa ? `${lista.length} de ${total}` : `${total} convite${total===1?'':'s'}`;
 
   if (lista.length === 0) {
-    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:12px;padding:12px;">Nenhum resultado encontrado.</div>';
+    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado encontrado.</div>';
     return;
   }
 
@@ -621,21 +683,42 @@ function renderizarConvites(lista, termoPesquisa) {
       <button class="btn-dl"
         onclick="pedirConfirmacaoDownload('${escHtml(conv.nome)}','${escHtml(conv.codigo)}',this)">
         📥
-      </button>
-    `;
+      </button>`;
     el.appendChild(item);
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   MODAL
-══════════════════════════════════════════════════════════════════════════════ */
-function abrirModal({ titulo, corpo, nome, labelConfirmar, onConfirmar }) {
-  document.getElementById('modalTitle').textContent      = titulo;
-  document.getElementById('modalBody').textContent       = corpo;
-  document.getElementById('modalNome').textContent       = nome;
-  document.getElementById('modalBtnConfirm').textContent = labelConfirmar;
-  document.getElementById('modalBtnConfirm').onclick     = () => { fecharModal(); onConfirmar(); };
+/* ═══════════════════════════════════════════
+   VERIFICAR DUPLICADO (insensível a maiúsculas/espaços)
+═══════════════════════════════════════════ */
+function normalizarNome(nome) {
+  return nome.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+function encontrarDuplicado(nome) {
+  const normalizado = normalizarNome(nome);
+  return todosConvites.find(c => normalizarNome(c.nome) === normalizado) || null;
+}
+
+/* ═══════════════════════════════════════════
+   MODAL — genérico
+═══════════════════════════════════════════ */
+function abrirModal({ titulo, corpo, nome, nomeCls, acoes }) {
+  document.getElementById('modalTitle').textContent = titulo;
+  document.getElementById('modalBody').textContent  = corpo;
+  const nomeEl = document.getElementById('modalNome');
+  nomeEl.textContent = nome;
+  nomeEl.className   = 'modal-nome' + (nomeCls ? ' ' + nomeCls : '');
+
+  const actionsEl = document.getElementById('modalActions');
+  actionsEl.innerHTML = '';
+  acoes.forEach(({ label, cls, fn }) => {
+    const btn = document.createElement('button');
+    btn.className   = cls;
+    btn.textContent = label;
+    btn.onclick     = () => { fecharModal(); fn(); };
+    actionsEl.appendChild(btn);
+  });
+
   document.getElementById('modalOverlay').classList.remove('hidden');
 }
 function fecharModal() {
@@ -645,48 +728,101 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) {
   if (e.target === this) fecharModal();
 });
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   CONFIRMAÇÃO GERAR
-══════════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   CONFIRMAÇÃO GERAR — com detecção de duplicado
+═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
   const nome = document.getElementById('nomeInput').value.trim();
   if (!nome || nome.length < 2) {
-    showInfo('step2Info', 'Insira o nome completo do convidado.', 'yellow'); return;
+    showInfo('step2Info','Insira o nome completo do convidado.','yellow'); return;
   }
   if (!clienteData || !configData) {
-    showInfo('step2Info', 'Sessão expirada. Volte ao início.', 'red'); return;
+    showInfo('step2Info','Sessão expirada. Volte ao início.','red'); return;
   }
   const limite  = clienteData.limite_scans || 0;
   const gerados = clienteData.scans_usados || 0;
   if (limite && gerados >= limite) {
-    showInfo('step2Info', `Limite de ${limite} convites atingido.`, 'red');
+    showInfo('step2Info',`Limite de ${limite} convites atingido.`,'red');
     actualizarContador(); return;
   }
-  abrirModal({
-    titulo:        '✅ Confirmar Convite',
-    corpo:         'Vai gerar um convite para:',
-    nome:          nome,
-    labelConfirmar:'🎉 Sim, gerar convite',
-    onConfirmar:   () => gerarConvite(nome)
-  });
+
+  const duplicado = encontrarDuplicado(nome);
+
+  if (duplicado) {
+    // ── Caso duplicado: modal de aviso com 3 opções ──
+    abrirModal({
+      titulo:  '⚠️ Nome já existe',
+      corpo:   'Já existe um convite gerado com este nome. Tem a certeza que quer gerar outro?',
+      nome:    nome,
+      nomeCls: 'duplicado',
+      acoes: [
+        {
+          label: '✅ Sim, gerar mesmo assim',
+          cls:   'btn-warning',
+          fn:    () => gerarConvite(nome)
+        },
+        {
+          label: '📥 Re-download do existente',
+          cls:   'btn-outline',
+          fn:    () => baixarConviteExistente(duplicado.nome, duplicado.codigo, { textContent:'📥', disabled:false })
+        },
+        {
+          label: '✕ Cancelar',
+          cls:   'btn-ghost',
+          fn:    () => {}
+        }
+      ]
+    });
+  } else {
+    // ── Caso normal: confirmação simples ──
+    abrirModal({
+      titulo:  '✅ Confirmar Convite',
+      corpo:   'Vai gerar um convite para:',
+      nome:    nome,
+      nomeCls: '',
+      acoes: [
+        {
+          label: '🎉 Sim, gerar convite',
+          cls:   'btn-main',
+          fn:    () => gerarConvite(nome)
+        },
+        {
+          label: '✕ Cancelar',
+          cls:   'btn-ghost',
+          fn:    () => {}
+        }
+      ]
+    });
+  }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CONFIRMAÇÃO RE-DOWNLOAD
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function pedirConfirmacaoDownload(nome, codigo, btn) {
   abrirModal({
-    titulo:        '📥 Re-download de Convite',
-    corpo:         'Vai descarregar novamente o convite de:',
-    nome:          nome,
-    labelConfirmar:'📥 Sim, descarregar',
-    onConfirmar:   () => baixarConviteExistente(nome, codigo, btn)
+    titulo:  '📥 Re-download de Convite',
+    corpo:   'Vai descarregar novamente o convite de:',
+    nome:    nome,
+    nomeCls: '',
+    acoes: [
+      {
+        label: '📥 Sim, descarregar',
+        cls:   'btn-main',
+        fn:    () => baixarConviteExistente(nome, codigo, btn)
+      },
+      {
+        label: '✕ Cancelar',
+        cls:   'btn-ghost',
+        fn:    () => {}
+      }
+    ]
   });
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   GERAR QR DATA URL
-══════════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   GERAR QR
+═══════════════════════════════════════════ */
 function gerarQRDataURL(codigo, tamanho) {
   return new Promise((resolve, reject) => {
     if (typeof QRCode === 'undefined') { reject(new Error('Biblioteca QRCode não carregada.')); return; }
@@ -710,9 +846,9 @@ function gerarQRDataURL(codigo, tamanho) {
   });
 }
 
-/* ═════════════���════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    GERAR CONVITE
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 async function gerarConvite(nome) {
   hideInfo('step2Info');
   showStep('step3');
@@ -743,7 +879,7 @@ async function gerarConvite(nome) {
       document.getElementById('iosHint').style.display = 'block';
       showToast('✅ Convite gerado! Veja a janela que abriu.', '#667eea');
     } else {
-      showToast(`✅ Convite de ${nome} gerado e descarregado!`);
+      showToast(`✅ Convite de ${nome} gerado!`);
     }
   } catch(e) {
     console.error(e);
@@ -752,9 +888,9 @@ async function gerarConvite(nome) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   BAIXAR CONVITE EXISTENTE
-══════════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   BAIXAR EXISTENTE
+═══════════════════════════════════════════ */
 async function baixarConviteExistente(nome, codigo, btn) {
   const original = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳';
@@ -776,9 +912,9 @@ async function baixarConviteExistente(nome, codigo, btn) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    CÓDIGO ÚNICO
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 async function gerarCodigoUnico(tokenCliente) {
   const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
   for (let t = 0; t < 30; t++) {
@@ -790,9 +926,9 @@ async function gerarCodigoUnico(tokenCliente) {
   throw new Error('Não foi possível gerar um código único. Tente novamente.');
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    GERAR PDF
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 async function gerarPDF(nome, codigo, qrDataUrl, config) {
   const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
   const pdfBytes = Uint8Array.from(atob(config.pdf_base), c => c.charCodeAt(0));
@@ -835,12 +971,12 @@ async function gerarPDF(nome, codigo, qrDataUrl, config) {
         let font;
         if (customFont) { font = customFont; }
         else {
-          const bold   = el.fontWeight === 'bold' || el.fontWeight === '700' || config.negrito;
-          const italic = el.fontStyle  === 'italic' || config.italico;
-          if (bold && italic) font = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
-          else if (bold)      font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-          else if (italic)    font = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
-          else                font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+          const bold   = el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito;
+          const italic = el.fontStyle==='italic'||config.italico;
+          if (bold&&italic) font = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+          else if (bold)    font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+          else if (italic)  font = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+          else              font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         }
         const lines = text.split('\n');
         const lineH = fontSize * 1.2;
@@ -848,65 +984,65 @@ async function gerarPDF(nome, codigo, qrDataUrl, config) {
         lines.forEach((line, li) => {
           let xPos;
           if (el.transform && el.transform.includes('translateX(-50%)')) {
-            xPos = (pW / 2) - (font.widthOfTextAtSize(line, fontSize) / 2);
-          } else { xPos = (parseFloat(el.left) || 0) * scaleX; }
-          const yPos = pH - (topPx * scaleY) - fontSize * 0.85 - (li * lineH);
-          page.drawText(line, { x: xPos, y: yPos, size: fontSize, font, color: rgb(cor.r, cor.g, cor.b) });
+            xPos = (pW/2) - (font.widthOfTextAtSize(line,fontSize)/2);
+          } else { xPos = (parseFloat(el.left)||0) * scaleX; }
+          const yPos = pH - (topPx*scaleY) - fontSize*0.85 - (li*lineH);
+          page.drawText(line, { x:xPos, y:yPos, size:fontSize, font, color:rgb(cor.r,cor.g,cor.b) });
         });
       }
-      else if (el.type === 'qr' && qrDataUrl) {
+      else if (el.type==='qr' && qrDataUrl) {
         try {
           const qrImg = await pdfDoc.embedPng(qrDataUrl);
-          const qrW   = (parseFloat(el.width)  || config.tamanho_qr || 100) * scaleX;
-          const qrH   = (parseFloat(el.height) || config.tamanho_qr || 100) * scaleY;
+          const qrW   = (parseFloat(el.width) ||config.tamanho_qr||100) * scaleX;
+          const qrH   = (parseFloat(el.height)||config.tamanho_qr||100) * scaleY;
           let xPos;
-          if (el.transform && el.transform.includes('translateX(-50%)')) xPos = (pW/2) - (qrW/2);
-          else xPos = (parseFloat(el.left) || 0) * scaleX;
-          const yPos = pH - (parseFloat(el.top) || 0) * scaleY - qrH;
-          page.drawImage(qrImg, { x: xPos, y: yPos, width: qrW, height: qrH });
-        } catch(e) { console.warn('QR no PDF falhou:', e); }
+          if (el.transform && el.transform.includes('translateX(-50%)')) xPos = (pW/2)-(qrW/2);
+          else xPos = (parseFloat(el.left)||0)*scaleX;
+          const yPos = pH - (parseFloat(el.top)||0)*scaleY - qrH;
+          page.drawImage(qrImg, { x:xPos, y:yPos, width:qrW, height:qrH });
+        } catch(e) { console.warn('QR no PDF falhou:',e); }
       }
     }
   }
   const bytes = await pdfDoc.save();
-  return new Blob([bytes], { type: 'application/pdf' });
+  return new Blob([bytes], { type:'application/pdf' });
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    REGISTAR (atómico)
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 async function registarConvite(nome, codigo, tokenCliente) {
   const { error: eRpc } = await DB.rpc('incrementar_scans', { p_token: tokenCliente });
   if (eRpc) {
     if (eRpc.message && eRpc.message.includes('LIMITE_ATINGIDO')) {
       const { data: cliData } = await DB
-        .from('clientes').select('scans_usados,limite_scans').eq('token', tokenCliente).single();
-      if (cliData) { clienteData.scans_usados = cliData.scans_usados; clienteData.limite_scans = cliData.limite_scans; }
+        .from('clientes').select('scans_usados,limite_scans').eq('token',tokenCliente).single();
+      if (cliData) { clienteData.scans_usados=cliData.scans_usados; clienteData.limite_scans=cliData.limite_scans; }
       throw new Error('Limite de convites atingido. Não é possível gerar mais convites.');
     }
-    const novoTotal = (clienteData.scans_usados || 0) + 1;
+    const novoTotal = (clienteData.scans_usados||0) + 1;
     await DB.from('clientes').update({ scans_usados: novoTotal }).eq('token', tokenCliente);
     clienteData.scans_usados = novoTotal;
   } else {
-    clienteData.scans_usados = (clienteData.scans_usados || 0) + 1;
+    clienteData.scans_usados = (clienteData.scans_usados||0) + 1;
   }
   const { error: eIns } = await DB.from('convidados').insert([{
-    token_cliente: tokenCliente, codigo, nome, status: 'convite_gerado'
+    token_cliente: tokenCliente, codigo, nome, status:'convite_gerado'
   }]);
   if (eIns) throw new Error('Erro ao registar convite: ' + eIns.message);
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    UTILS
-══════════════════════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function normalizarCor(cor) {
   if (!cor) return '#1a1a2e';
   cor = cor.trim();
   if (cor.startsWith('#')) return cor;
   if (cor.startsWith('rgb')) {
     const m = cor.match(/\d+/g);
-    if (!m || m.length < 3) return '#1a1a2e';
-    return '#' + [m[0],m[1],m[2]].map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
+    if (!m||m.length<3) return '#1a1a2e';
+    return '#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');
   }
   return '#1a1a2e';
 }
@@ -920,11 +1056,11 @@ function hexToRgb(hex) {
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   if (isIOS) {
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    window.open(url,'_blank');
+    setTimeout(()=>URL.revokeObjectURL(url), 10_000);
   } else {
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href=url; a.download=filename;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   }
