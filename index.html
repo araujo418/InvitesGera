@@ -125,13 +125,11 @@
 
     .rate-bar-wrap {
       width: 100%; height: 3px; background: rgba(102,126,234,.15);
-      border-radius: 99px; overflow: hidden;
-      transition: opacity .3s;
+      border-radius: 99px; overflow: hidden; transition: opacity .3s;
     }
     .rate-bar {
       height: 100%; background: linear-gradient(90deg,#667eea,#764ba2);
-      border-radius: 99px; width: 0%;
-      transition: width linear;
+      border-radius: 99px; width: 0%; transition: width linear;
     }
 
     .sync-pendente {
@@ -346,7 +344,7 @@ const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ═══════════════════════════════════════════
    CONSTANTES
-═══════��═══════════════════════════════════ */
+═══════════════════════════════════════════ */
 const TIMEOUT_MS     = 12000;
 const MAX_RETRIES    = 2;
 const RETRY_DELAY    = 2000;
@@ -357,6 +355,7 @@ const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
 const SS_OFFLINE_KEY = 'adkira_offline_fila';
 const MAX_OFFLINE    = 5;
+const STORAGE_BUCKET = 'convites';
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 /* ═══════════════════════════════════════════
@@ -373,7 +372,6 @@ let realtimeReconTimer = null;
 let convitesSessao     = 0;
 let downloadsSessao    = new Set();
 let filaOffline        = [];
-
 let ultimaGeracao      = 0;
 let rateLockTimer      = null;
 let rateBarTimer       = null;
@@ -400,21 +398,69 @@ function iniciarRateLimit() {
     rateBarTimer = setTimeout(() => { wrap.style.opacity = '0'; }, 300);
   }, RATE_LIMIT_MS);
 }
-
 function cancelarRateLimit() {
-  clearTimeout(rateLockTimer);
-  clearTimeout(rateBarTimer);
-  const btn  = document.getElementById('btnGerar');
+  clearTimeout(rateLockTimer); clearTimeout(rateBarTimer);
+  const btn = document.getElementById('btnGerar');
   const wrap = document.getElementById('rateBarWrap');
   const expirado = clienteData?.validade && clienteData.validade < Math.floor(Date.now()/1000);
-  const limite   = clienteData?.limite_scans || 0;
-  const gerados  = clienteData?.scans_usados || 0;
+  const limite = clienteData?.limite_scans || 0;
+  const gerados = clienteData?.scans_usados || 0;
   if (!expirado && !(limite && gerados >= limite)) btn.disabled = false;
   wrap.style.opacity = '0';
 }
+function estaEmCooldown() { return Date.now() - ultimaGeracao < RATE_LIMIT_MS; }
 
-function estaEmCooldown() {
-  return Date.now() - ultimaGeracao < RATE_LIMIT_MS;
+/* ═══════════════════════════════════════════
+   STORAGE — upload PDF e obter URL público
+   Usado no iOS para que o link seja partilhável.
+   No Android/Desktop faz download directo.
+═══════════════════════════════════════════ */
+async function uploadPdfEObterUrl(blob, codigo) {
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const path = `${codigo}.pdf`;
+    const { error } = await DB.storage
+      .from(STORAGE_BUCKET)
+      .upload(path, arrayBuffer, { contentType: 'application/pdf', upsert: true });
+    if (error) throw error;
+    const { data: urlData } = DB.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    return urlData?.publicUrl || null;
+  } catch (e) {
+    console.warn('Upload para storage falhou:', e);
+    return null;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   TRIGGER DOWNLOAD — corrigido para iOS
+   • iOS online  → faz upload para Storage e abre link permanente
+   • iOS offline → abre blob local (n��o partilhável, mas funciona para guardar)
+   • Android/Desktop → download directo via <a download>
+═══════════════════════════════════════════ */
+async function triggerDownload(blob, filename, codigo) {
+  if (isIOS) {
+    // Tenta obter link permanente do Storage (só se online e tiver código)
+    if (navigator.onLine && codigo) {
+      setLoading('A preparar link de partilha...');
+      const publicUrl = await uploadPdfEObterUrl(blob, codigo);
+      if (publicUrl) {
+        window.open(publicUrl, '_blank');
+        return;
+      }
+    }
+    // Fallback: abre blob local — pode guardar mas não partilhar link
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } else {
+    // Android / Desktop — download directo
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -432,7 +478,6 @@ function base64ParaBlob(b64) {
   const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   return new Blob([bytes], { type: 'application/pdf' });
 }
-
 function carregarFilaOffline(token) {
   try {
     const r = sessionStorage.getItem(SS_OFFLINE_KEY);
@@ -446,8 +491,7 @@ function guardarFilaOffline(token) {
     sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: filaOffline }));
   } catch(e) {
     try {
-      const semPdf = filaOffline.map(({ id_local, nome, codigo, created_at }) =>
-        ({ id_local, nome, codigo, created_at }));
+      const semPdf = filaOffline.map(({ id_local, nome, codigo, created_at }) => ({ id_local, nome, codigo, created_at }));
       sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: semPdf }));
       console.warn('sessionStorage cheio: PDFs offline não persistidos.');
     } catch(e2) { console.warn('sessionStorage completamente cheio:', e2); }
@@ -457,7 +501,6 @@ function limparFilaOffline() {
   filaOffline = [];
   try { sessionStorage.removeItem(SS_OFFLINE_KEY); } catch(e) {}
 }
-
 function obterBlobOffline(item) {
   if (item.pdf_b64) return base64ParaBlob(item.pdf_b64);
   return null;
@@ -477,7 +520,6 @@ function lerEstadoSessao(token) {
     downloadsSessao = new Set(o.downloads || []);
   } catch(e) {}
 }
-
 function guardarConfigCache(token, cfg) { try { sessionStorage.setItem(SS_CONFIG_KEY, JSON.stringify({ token, cfg })); } catch(e) {} }
 function lerConfigCache(token) { try { const r = sessionStorage.getItem(SS_CONFIG_KEY); if (!r) return null; const o = JSON.parse(r); return o.token === token ? o.cfg : null; } catch(e) { return null; } }
 function limparCache() {
@@ -492,7 +534,7 @@ function creditosOfflineRestantes() { return Math.max(0, MAX_OFFLINE - filaOffli
 
 /* ═══════════════════════════════════════════
    TIMEOUT / RETRY
-═══════════════════════════════════════════ */
+══════════════════════════════��════════════ */
 function comTimeout(promise, ms, msg) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(msg || `Ligação demorou demasiado (>${(ms||TIMEOUT_MS)/1000}s). Verifique a internet.`)), ms || TIMEOUT_MS);
@@ -541,14 +583,14 @@ const ERROS = {
 };
 function categorizarErro(e) {
   const msg = (e?.message || '').toLowerCase();
-  if (msg.includes('offline_cheio'))                                                return 'OFFLINE_CHEIO';
+  if (msg.includes('offline_cheio'))                                                    return 'OFFLINE_CHEIO';
   if (!navigator.onLine || msg.includes('failed to fetch') || msg.includes('network')) return 'OFFLINE';
-  if (msg.includes('demorou demasiado') || msg.includes('timeout'))                return 'TIMEOUT';
-  if (msg.includes('limite_atingido') || msg.includes('limite atingido'))          return 'LIMITE';
-  if (msg.includes('expirou') || msg.includes('expirado'))                         return 'EXPIRADO';
-  if (msg.includes('código único') || msg.includes('codigo unico'))                return 'CODIGO_UNICO';
-  if (msg.includes('registar') || msg.includes('inserir'))                         return 'REGISTO';
-  if (msg.includes('500') || msg.includes('servidor') || msg.includes('rpc'))     return 'SERVIDOR';
+  if (msg.includes('demorou demasiado') || msg.includes('timeout'))                    return 'TIMEOUT';
+  if (msg.includes('limite_atingido') || msg.includes('limite atingido'))              return 'LIMITE';
+  if (msg.includes('expirou') || msg.includes('expirado'))                             return 'EXPIRADO';
+  if (msg.includes('código único') || msg.includes('codigo unico'))                    return 'CODIGO_UNICO';
+  if (msg.includes('registar') || msg.includes('inserir'))                             return 'REGISTO';
+  if (msg.includes('500') || msg.includes('servidor') || msg.includes('rpc'))         return 'SERVIDOR';
   return 'GENERICO';
 }
 function mostrarErro(e) {
@@ -568,7 +610,7 @@ function toggleErroDetalhe() { const el = document.getElementById('erroDetalhe')
 
 /* ═══════════════════════════════════════════
    OFFLINE / ONLINE EVENTS
-═══════════���═══════════════════════════════ */
+═══════════════════════════════════════════ */
 function verificarOffline() { if (!navigator.onLine) { document.getElementById('offlineBanner').classList.add('visible'); return true; } return false; }
 window.addEventListener('offline', () => { document.getElementById('offlineBanner').classList.add('visible'); actualizarBannersOffline(); haptic('warning'); showToast('📵 Sem ligação à internet', '#ef4444'); });
 window.addEventListener('online',  () => { document.getElementById('offlineBanner').classList.remove('visible'); document.getElementById('offlineModeBanner').classList.remove('visible'); actualizarBannersOffline(); haptic('success'); showToast('✅ Ligação restabelecida', '#10b981'); if (filaOffline.length > 0 && clienteData) sincronizarFila(); });
@@ -703,7 +745,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } else { showStep('step1'); }
 });
 
-/* ═══════════════════���═══════════════════════
+/* ═══════════════════════════════════════════
    RESTAURAR SESSÃO
 ═══════════════════════════════════════════ */
 async function tentarRestaurarSessao(token) {
@@ -736,12 +778,12 @@ function showToast(msg, cor) {
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
 }
 
-/* ═══════════════════════════════════════════
+/* ══════════════════════════════════��════════
    UI UTILS
 ═══════════════════════════════════════════ */
 function showInfo(elId,msg,type){const el=document.getElementById(elId);el.textContent=msg;el.className='info '+(type||'blue');el.style.display='block';}
 function hideInfo(elId){document.getElementById(elId).style.display='none';}
-function setLoading(msg){document.getElementById('loadingMsg').textContent=msg;}
+function setLoading(msg){const el=document.getElementById('loadingMsg');if(el)el.textContent=msg;}
 
 /* ═══════════════════════════════════════════
    LIMPAR TUDO
@@ -820,7 +862,7 @@ async function validarToken() {
 }
 
 /* ═══════════════════════════════════════════
-   VALIDAÇÃO DO NOME  ← CORRIGIDO
+   VALIDAÇÃO DO NOME
 ═══════════════════════════════════════════ */
 function validarNome(nome) {
   const n = nome.trim();
@@ -828,13 +870,10 @@ function validarNome(nome) {
   if (/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-]/.test(n)) return { ok:false, msg:'❌ O nome não pode conter números ou símbolos' };
   const p = n.split(/\s+/).filter(x => x.length > 0);
   if (p.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
-  // Partículas e conjunções permitidas com poucas letras
   const particulas = new Set(['e','y','i','o','a','de','da','do','das','dos','di','du','van','von','bin','bint']);
-  // Cada palavra não-partícula deve ter pelo menos 2 letras
   if (p.some(x => !particulas.has(x.toLowerCase()) && x.replace(/['\-]/g,'').length < 2)) {
     return { ok:false, msg:'⚠️ Cada palavra deve ter pelo menos 2 letras' };
   }
-  // Deve haver pelo menos 2 palavras reais (não partículas)
   const palavrasReais = p.filter(x => !particulas.has(x.toLowerCase()));
   if (palavrasReais.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
   return { ok:true, msg:'✓ Nome válido' };
@@ -954,7 +993,7 @@ function abrirModal({titulo,corpo,nome,nomeCls,acoes}) {
 function fecharModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
 document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target===this) { haptic('light'); fecharModal(); } });
 
-/* ═══════════════════════════════════════════
+/* ══════════��════════════════════════════════
    CONFIRMAÇÃO GERAR
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
@@ -980,9 +1019,9 @@ function pedirConfirmacaoGerar() {
     const isPend = !!dup.id_local;
     abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeRaw, nomeCls:'duplicado',
       acoes:[
-        { label:'✅ Gerar mesmo assim',    cls:'btn-warning', fn:()=>gerarConvite(nomeRaw) },
+        { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw) },
         { label:'📥 Re-download existente', cls:'btn-outline', fn:()=>{
-          if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob,`${dup.nome}.pdf`); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
+          if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob,`${dup.nome}.pdf`,dup.codigo); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
           else baixarConviteExistente(dup.nome, dup.codigo, dup.id, { textContent:'📥', disabled:false });
         }},
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
@@ -1017,7 +1056,7 @@ function pedirConfirmacaoDownload(nome, codigo, id, isPendente, btn) {
         if (isPendente) {
           const item = filaOffline.find(f => f.id_local === id);
           const blob = item ? obterBlobOffline(item) : null;
-          if (blob) { triggerDownload(blob, `${nome}.pdf`); haptic('success'); showToast('📥 Download iniciado!'); }
+          if (blob) { triggerDownload(blob, `${nome}.pdf`, item.codigo); haptic('success'); showToast('📥 Download iniciado!'); }
           else showToast('⚠️ PDF não disponível. Feche e reabra a página para regenerar.','#f59e0b');
         } else { baixarConviteExistente(nome, codigo, id, btn); }
       }},
@@ -1054,6 +1093,7 @@ async function gerarConvite(nome) {
   if (!modoOff) iniciarProgressBar(TIMEOUT_MS * (MAX_RETRIES + 1));
   try {
     if (modoOff) {
+      /* ── MODO OFFLINE ── */
       setLoading('A gerar o convite offline...');
       const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
       let codigo = ''; for (let i=0;i<8;i++) codigo+=chars[Math.floor(Math.random()*chars.length)];
@@ -1066,7 +1106,7 @@ async function gerarConvite(nome) {
       guardarFilaOffline(clienteData.token);
       convitesSessao++;
       guardarEstadoSessaoComToken(clienteData.token);
-      triggerDownload(pdfBlob, `${nome}.pdf`);
+      await triggerDownload(pdfBlob, `${nome}.pdf`, codigo);
       document.getElementById('nomeInput').value='';
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
@@ -1077,7 +1117,8 @@ async function gerarConvite(nome) {
       showToast(`✅ Convite offline gerado! Restam ${restam} crédito${restam===1?'':'s'}.`, '#7c3aed');
       await carregarConvitesGerados();
     } else {
-      let conviteId = null;
+      /* ── MODO ONLINE ── */
+      let conviteId = null, codigoFinal = null;
       await comRetry(async () => {
         setLoading('A verificar disponibilidade...');
         const { error:eCheck } = await comTimeout(DB.rpc('incrementar_scans', { p_token:clienteData.token }));
@@ -1093,6 +1134,7 @@ async function gerarConvite(nome) {
         } else { clienteData.scans_usados=(clienteData.scans_usados||0)+1; }
         setLoading('A gerar o código único...');
         const codigo = await comTimeout(gerarCodigoUnico(clienteData.token));
+        codigoFinal = codigo;
         let qrDataUrl = null;
         if (configData.qr_ativo !== false) { setLoading('A criar o QR Code...'); qrDataUrl = await gerarQRDataURL(codigo, 300); }
         setLoading('A personalizar o convite...');
@@ -1102,7 +1144,7 @@ async function gerarConvite(nome) {
         if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
         conviteId = inserted?.id || null;
         pararProgressBar();
-        triggerDownload(pdfBlob, `${nome}.pdf`);
+        await triggerDownload(pdfBlob, `${nome}.pdf`, codigo);
       });
       ultimoContextoNome = null;
       convitesSessao++;
@@ -1114,7 +1156,7 @@ async function gerarConvite(nome) {
       document.getElementById('nomeInput').className='';
       iniciarRateLimit();
       actualizarContador(); haptic('success'); showStep('step2');
-      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado!','#667eea'); }
+      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Pode partilhar o link directamente.','#667eea'); }
       else showToast(`✅ Convite de ${nome} gerado!`);
     }
   } catch(e) {
@@ -1131,11 +1173,11 @@ async function baixarConviteExistente(nome, codigo, id, btn) {
   try {
     let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
     const blob=await gerarPDF(nome,codigo,qr,configData);
-    triggerDownload(blob,`${nome}.pdf`);
+    await triggerDownload(blob, `${nome}.pdf`, codigo);
     if(id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); }
     renderizarConvites([...filaOffline,...todosConvites]);
     haptic('success');
-    if(isIOS){ document.getElementById('iosHint').style.display='block'; showToast('📥 Aberto! Guarde na janela.','#667eea'); }
+    if(isIOS){ document.getElementById('iosHint').style.display='block'; showToast('📥 Aberto! Pode partilhar o link directamente.','#667eea'); }
     else showToast('📥 Download iniciado!');
   } catch(e) { haptic('error'); alert('Erro: '+e.message); }
   finally { btn.disabled=false; btn.textContent=orig; }
@@ -1191,8 +1233,7 @@ async function gerarPDF(nome,codigo,qrDataUrl,config){
 ═══════════════════════════════════════════ */
 function normalizarCor(cor){if(!cor)return'#1a1a2e';cor=cor.trim();if(cor.startsWith('#'))return cor;if(cor.startsWith('rgb')){const m=cor.match(/\d+/g);if(!m||m.length<3)return'#1a1a2e';return'#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');}return'#1a1a2e';}
 function hexToRgb(hex){hex=(hex||'#000000').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const n=parseInt(hex,16);if(isNaN(n))return{r:0,g:0,b:0};return{r:((n>>16)&255)/255,g:((n>>8)&255)/255,b:(n&255)/255};}
-function triggerDownload(blob,filename){const url=URL.createObjectURL(blob);if(isIOS){window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),10_000);}else{const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);}}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 </script>
 </body>
-</html>*
+</html>
