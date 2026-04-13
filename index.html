@@ -289,8 +289,7 @@
 
     <div class="info yellow" id="step2Info" style="display:none;"></div>
     <div class="ios-hint" id="iosHint">
-      📱 No seu dispositivo, o convite abre numa nova janela.<br>
-      Toque em <strong>Partilhar → Guardar em Ficheiros</strong> para o guardar.
+      📱 No seu dispositivo, escolha <strong>WhatsApp</strong> ou <strong>Guardar em Ficheiros</strong> para guardar o PDF.
     </div>
     <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()">🎉 Gerar Convite</button>
 
@@ -355,7 +354,6 @@ const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
 const SS_OFFLINE_KEY = 'adkira_offline_fila';
 const MAX_OFFLINE    = 5;
-const STORAGE_BUCKET = 'convites';
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 /* ═══════════════════════════════════════════
@@ -411,53 +409,39 @@ function cancelarRateLimit() {
 function estaEmCooldown() { return Date.now() - ultimaGeracao < RATE_LIMIT_MS; }
 
 /* ═══════════════════════════════════════════
-   STORAGE — upload PDF e obter URL público
-   Usado no iOS para que o link seja partilhável.
-   No Android/Desktop faz download directo.
+   TRIGGER DOWNLOAD / PARTILHA
+   • iOS com Web Share API → menu nativo do iOS
+     com o PDF real (WhatsApp, Ficheiros, etc.)
+   • iOS sem Web Share API → abre PDF na aba
+   • Android / Desktop → download directo
 ═══════════════════════════════════════════ */
-async function uploadPdfEObterUrl(blob, codigo) {
-  try {
-    const arrayBuffer = await blob.arrayBuffer();
-    const path = `${codigo}.pdf`;
-    const { error } = await DB.storage
-      .from(STORAGE_BUCKET)
-      .upload(path, arrayBuffer, { contentType: 'application/pdf', upsert: true });
-    if (error) throw error;
-    const { data: urlData } = DB.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-    return urlData?.publicUrl || null;
-  } catch (e) {
-    console.warn('Upload para storage falhou:', e);
-    return null;
-  }
-}
+async function triggerDownload(blob, nome) {
+  const filename = `${nome}.pdf`;
+  const file = new File([blob], filename, { type: 'application/pdf' });
 
-/* ═══════════════════════════════════════════
-   TRIGGER DOWNLOAD — corrigido para iOS
-   • iOS online  → faz upload para Storage e abre link permanente
-   • iOS offline → abre blob local (n��o partilhável, mas funciona para guardar)
-   • Android/Desktop → download directo via <a download>
-═══════════════════════════════════════════ */
-async function triggerDownload(blob, filename, codigo) {
   if (isIOS) {
-    // Tenta obter link permanente do Storage (só se online e tiver código)
-    if (navigator.onLine && codigo) {
-      setLoading('A preparar link de partilha...');
-      const publicUrl = await uploadPdfEObterUrl(blob, codigo);
-      if (publicUrl) {
-        window.open(publicUrl, '_blank');
+    // Web Share API com ficheiro — suportada desde iOS 15 / Safari 15
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
         return;
+      } catch(e) {
+        // Utilizador cancelou ou erro — cai no fallback abaixo
+        if (e.name === 'AbortError') return; // cancelou voluntariamente, não é erro
       }
     }
-    // Fallback: abre blob local — pode guardar mas não partilhar link
+    // Fallback: abre o PDF numa nova aba (iOS antigo)
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } else {
-    // Android / Desktop — download directo
+    // Android / Desktop — download directo com o nome do convidado
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click();
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
@@ -534,7 +518,7 @@ function creditosOfflineRestantes() { return Math.max(0, MAX_OFFLINE - filaOffli
 
 /* ═══════════════════════════════════════════
    TIMEOUT / RETRY
-══════════════════════════════��════════════ */
+═══════════════════════════════════════════ */
 function comTimeout(promise, ms, msg) {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(msg || `Ligação demorou demasiado (>${(ms||TIMEOUT_MS)/1000}s). Verifique a internet.`)), ms || TIMEOUT_MS);
@@ -610,7 +594,7 @@ function toggleErroDetalhe() { const el = document.getElementById('erroDetalhe')
 
 /* ═══════════════════════════════════════════
    OFFLINE / ONLINE EVENTS
-═══════════════════════════════════════════ */
+═════════════════════════���═════════════════ */
 function verificarOffline() { if (!navigator.onLine) { document.getElementById('offlineBanner').classList.add('visible'); return true; } return false; }
 window.addEventListener('offline', () => { document.getElementById('offlineBanner').classList.add('visible'); actualizarBannersOffline(); haptic('warning'); showToast('📵 Sem ligação à internet', '#ef4444'); });
 window.addEventListener('online',  () => { document.getElementById('offlineBanner').classList.remove('visible'); document.getElementById('offlineModeBanner').classList.remove('visible'); actualizarBannersOffline(); haptic('success'); showToast('✅ Ligação restabelecida', '#10b981'); if (filaOffline.length > 0 && clienteData) sincronizarFila(); });
@@ -778,7 +762,7 @@ function showToast(msg, cor) {
   setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
 }
 
-/* ══════════════════════════════════��════════
+/* ═══════════════════════════════════════════
    UI UTILS
 ═══════════════════════════════════════════ */
 function showInfo(elId,msg,type){const el=document.getElementById(elId);el.textContent=msg;el.className='info '+(type||'blue');el.style.display='block';}
@@ -956,8 +940,9 @@ function renderizarConvites(lista, termo) {
   el.innerHTML = '';
   lista.forEach(conv => {
     const isPend = !!conv.id_local;
-    const jaDl   = !isPend && downloadsSessao.has(conv.id);
-    const item   = document.createElement('div');
+    // No iOS nunca marcamos como "já descarregado" — a Web Share não é download
+    const jaDl = !isPend && !isIOS && downloadsSessao.has(conv.id);
+    const item = document.createElement('div');
     item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
     let tag='', btnCls='btn-dl', btnTxt='📥';
     if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline — por sincronizar</div>'; btnCls='btn-dl pendente'; }
@@ -967,8 +952,8 @@ function renderizarConvites(lista, termo) {
         <div class="convite-item-nome">${escHtml(conv.nome)}</div>${tag}
       </div>
       <button class="${btnCls}"
-        onclick="pedirConfirmacaoDownload('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
-        ${btnTxt}
+        onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
+        ${isIOS ? '📤' : btnTxt}
       </button>`;
     el.appendChild(item);
   });
@@ -993,7 +978,7 @@ function abrirModal({titulo,corpo,nome,nomeCls,acoes}) {
 function fecharModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
 document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target===this) { haptic('light'); fecharModal(); } });
 
-/* ══════════��════════════════════════════════
+/* ═══════════════════════════════════════════
    CONFIRMAÇÃO GERAR
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
@@ -1020,9 +1005,9 @@ function pedirConfirmacaoGerar() {
     abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeRaw, nomeCls:'duplicado',
       acoes:[
         { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw) },
-        { label:'📥 Re-download existente', cls:'btn-outline', fn:()=>{
-          if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob,`${dup.nome}.pdf`,dup.codigo); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
-          else baixarConviteExistente(dup.nome, dup.codigo, dup.id, { textContent:'📥', disabled:false });
+        { label: isIOS ? '📤 Partilhar existente' : '📥 Re-download existente', cls:'btn-outline', fn:()=>{
+          if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob, dup.nome); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
+          else baixarConviteExistente(dup.nome, dup.codigo, dup.id, { textContent: isIOS?'📤':'📥', disabled:false });
         }},
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
@@ -1042,27 +1027,27 @@ function pedirConfirmacaoGerar() {
   }
 }
 
-function pedirConfirmacaoDownload(nome, codigo, id, isPendente, btn) {
+/* Botão 📥/📤 na lista de convites — sem modal de confirmação no iOS */
+async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
   haptic('light');
-  const jaDl = !isPendente && downloadsSessao.has(id);
-  abrirModal({
-    titulo: isPendente ? '📴 Convite offline' : jaDl ? '♻️ Já descarregado' : '📥 Re-download',
-    corpo:  isPendente ? 'Este convite ainda não foi sincronizado com o servidor.'
-           : jaDl ? 'Este convite já foi descarregado nesta sessão. Quer descarregar novamente?'
-           : 'Vai descarregar novamente o convite de:',
-    nome, nomeCls: jaDl ? 'duplicado' : '',
-    acoes:[
-      { label:'📥 Sim, descarregar', cls:'btn-main', fn:()=>{
-        if (isPendente) {
-          const item = filaOffline.find(f => f.id_local === id);
-          const blob = item ? obterBlobOffline(item) : null;
-          if (blob) { triggerDownload(blob, `${nome}.pdf`, item.codigo); haptic('success'); showToast('📥 Download iniciado!'); }
-          else showToast('⚠️ PDF não disponível. Feche e reabra a página para regenerar.','#f59e0b');
-        } else { baixarConviteExistente(nome, codigo, id, btn); }
-      }},
-      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
-    ]
-  });
+  if (isPendente) {
+    const item = filaOffline.find(f => f.id_local === id);
+    const blob = item ? obterBlobOffline(item) : null;
+    if (blob) { await triggerDownload(blob, item.nome); haptic('success'); showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!'); }
+    else showToast('⚠️ PDF não disponível. Feche e reabra a página para regenerar.','#f59e0b');
+    return;
+  }
+  // Convite online — gera/partilha directamente sem modal de confirmação
+  const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
+  try {
+    let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
+    const blob=await gerarPDF(nome,codigo,qr,configData);
+    await triggerDownload(blob, nome);
+    if(!isIOS && id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); renderizarConvites([...filaOffline,...todosConvites]); }
+    haptic('success');
+    showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
+  } catch(e) { haptic('error'); alert('Erro: '+e.message); }
+  finally { btn.disabled=false; btn.textContent=orig; }
 }
 
 /* ═══════════════════════════════════════════
@@ -1093,7 +1078,6 @@ async function gerarConvite(nome) {
   if (!modoOff) iniciarProgressBar(TIMEOUT_MS * (MAX_RETRIES + 1));
   try {
     if (modoOff) {
-      /* ── MODO OFFLINE ── */
       setLoading('A gerar o convite offline...');
       const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
       let codigo = ''; for (let i=0;i<8;i++) codigo+=chars[Math.floor(Math.random()*chars.length)];
@@ -1106,7 +1090,7 @@ async function gerarConvite(nome) {
       guardarFilaOffline(clienteData.token);
       convitesSessao++;
       guardarEstadoSessaoComToken(clienteData.token);
-      await triggerDownload(pdfBlob, `${nome}.pdf`, codigo);
+      await triggerDownload(pdfBlob, nome);
       document.getElementById('nomeInput').value='';
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
@@ -1117,8 +1101,7 @@ async function gerarConvite(nome) {
       showToast(`✅ Convite offline gerado! Restam ${restam} crédito${restam===1?'':'s'}.`, '#7c3aed');
       await carregarConvitesGerados();
     } else {
-      /* ── MODO ONLINE ── */
-      let conviteId = null, codigoFinal = null;
+      let conviteId = null;
       await comRetry(async () => {
         setLoading('A verificar disponibilidade...');
         const { error:eCheck } = await comTimeout(DB.rpc('incrementar_scans', { p_token:clienteData.token }));
@@ -1134,7 +1117,6 @@ async function gerarConvite(nome) {
         } else { clienteData.scans_usados=(clienteData.scans_usados||0)+1; }
         setLoading('A gerar o código único...');
         const codigo = await comTimeout(gerarCodigoUnico(clienteData.token));
-        codigoFinal = codigo;
         let qrDataUrl = null;
         if (configData.qr_ativo !== false) { setLoading('A criar o QR Code...'); qrDataUrl = await gerarQRDataURL(codigo, 300); }
         setLoading('A personalizar o convite...');
@@ -1144,11 +1126,12 @@ async function gerarConvite(nome) {
         if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
         conviteId = inserted?.id || null;
         pararProgressBar();
-        await triggerDownload(pdfBlob, `${nome}.pdf`, codigo);
+        await triggerDownload(pdfBlob, nome);
       });
       ultimoContextoNome = null;
       convitesSessao++;
-      if (conviteId) downloadsSessao.add(conviteId);
+      // Só marca como descarregado no Android/Desktop — no iOS não há "download"
+      if (!isIOS && conviteId) { downloadsSessao.add(conviteId); }
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
@@ -1156,7 +1139,7 @@ async function gerarConvite(nome) {
       document.getElementById('nomeInput').className='';
       iniciarRateLimit();
       actualizarContador(); haptic('success'); showStep('step2');
-      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Pode partilhar o link directamente.','#667eea'); }
+      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#667eea'); }
       else showToast(`✅ Convite de ${nome} gerado!`);
     }
   } catch(e) {
@@ -1165,7 +1148,8 @@ async function gerarConvite(nome) {
 }
 
 /* ═══════════════════════════════════════════
-   BAIXAR EXISTENTE
+   BAIXAR EXISTENTE (Android/Desktop)
+   — mantido para uso interno
 ═══════════════════════════════════════════ */
 async function baixarConviteExistente(nome, codigo, id, btn) {
   if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
@@ -1173,12 +1157,11 @@ async function baixarConviteExistente(nome, codigo, id, btn) {
   try {
     let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
     const blob=await gerarPDF(nome,codigo,qr,configData);
-    await triggerDownload(blob, `${nome}.pdf`, codigo);
-    if(id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); }
+    await triggerDownload(blob, nome);
+    if(!isIOS && id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); }
     renderizarConvites([...filaOffline,...todosConvites]);
     haptic('success');
-    if(isIOS){ document.getElementById('iosHint').style.display='block'; showToast('📥 Aberto! Pode partilhar o link directamente.','#667eea'); }
-    else showToast('📥 Download iniciado!');
+    showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
   } catch(e) { haptic('error'); alert('Erro: '+e.message); }
   finally { btn.disabled=false; btn.textContent=orig; }
 }
