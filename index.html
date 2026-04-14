@@ -343,12 +343,18 @@ const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ═══════════════════════════════════════════
    CONSTANTES
+   ── convites_gerados é o campo NOVO que conta
+      apenas convites criados pela app cliente.
+      scans_usados continua a existir mas é
+      usado APENAS pelo leitor de QR — a app
+      cliente NUNCA o lê nem escreve.
 ═══════════════════════════════════════════ */
 const TIMEOUT_MS     = 12000;
 const MAX_RETRIES    = 2;
 const RETRY_DELAY    = 2000;
 const RATE_LIMIT_MS  = 3000;
-const CLIENTE_COLS   = 'token,nome,limite_scans,scans_usados,validade';
+// ▼ ALTERADO: inclui convites_gerados, remove scans_usados da leitura
+const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade';
 const CONVITE_COLS   = 'id,nome,codigo,created_at';
 const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
@@ -374,6 +380,12 @@ let ultimaGeracao      = 0;
 let rateLockTimer      = null;
 let rateBarTimer       = null;
 
+/* ══════════════════════════════════��════════
+   HELPER — lê o nº de convites gerados do
+   objecto clienteData (campo convites_gerados)
+═══════════════════════════════════════════ */
+function getGerados() { return clienteData?.convites_gerados || 0; }
+
 /* ═══════════════════════════════════════════
    RATE LIMITING
 ═══════════════════════════════════════════ */
@@ -398,11 +410,11 @@ function iniciarRateLimit() {
 }
 function cancelarRateLimit() {
   clearTimeout(rateLockTimer); clearTimeout(rateBarTimer);
-  const btn = document.getElementById('btnGerar');
+  const btn  = document.getElementById('btnGerar');
   const wrap = document.getElementById('rateBarWrap');
   const expirado = clienteData?.validade && clienteData.validade < Math.floor(Date.now()/1000);
-  const limite = clienteData?.limite_scans || 0;
-  const gerados = clienteData?.scans_usados || 0;
+  const limite   = clienteData?.limite_scans || 0;
+  const gerados  = getGerados();
   if (!expirado && !(limite && gerados >= limite)) btn.disabled = false;
   wrap.style.opacity = '0';
 }
@@ -410,40 +422,24 @@ function estaEmCooldown() { return Date.now() - ultimaGeracao < RATE_LIMIT_MS; }
 
 /* ═══════════════════════════════════════════
    TRIGGER DOWNLOAD / PARTILHA
-   • iOS com Web Share API → menu nativo do iOS
-     com o PDF real (WhatsApp, Ficheiros, etc.)
-   • iOS sem Web Share API → abre PDF na aba
-   • Android / Desktop → download directo
 ═══════════════════════════════════════════ */
 async function triggerDownload(blob, nome) {
   const filename = `${nome}.pdf`;
   const file = new File([blob], filename, { type: 'application/pdf' });
-
   if (isIOS) {
-    // Web Share API com ficheiro — suportada desde iOS 15 / Safari 15
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: filename });
-        return;
-      } catch(e) {
-        // Utilizador cancelou ou erro — cai no fallback abaixo
-        if (e.name === 'AbortError') return; // cancelou voluntariamente, não é erro
-      }
+      try { await navigator.share({ files: [file], title: filename }); return; }
+      catch(e) { if (e.name === 'AbortError') return; }
     }
-    // Fallback: abre o PDF numa nova aba (iOS antigo)
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } else {
-    // Android / Desktop — download directo com o nome do convidado
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   }
 }
 
@@ -594,7 +590,7 @@ function toggleErroDetalhe() { const el = document.getElementById('erroDetalhe')
 
 /* ═══════════════════════════════════════════
    OFFLINE / ONLINE EVENTS
-═════════════════════════���═════════════════ */
+═══════════════════════════════════════════ */
 function verificarOffline() { if (!navigator.onLine) { document.getElementById('offlineBanner').classList.add('visible'); return true; } return false; }
 window.addEventListener('offline', () => { document.getElementById('offlineBanner').classList.add('visible'); actualizarBannersOffline(); haptic('warning'); showToast('📵 Sem ligação à internet', '#ef4444'); });
 window.addEventListener('online',  () => { document.getElementById('offlineBanner').classList.remove('visible'); document.getElementById('offlineModeBanner').classList.remove('visible'); actualizarBannersOffline(); haptic('success'); showToast('✅ Ligação restabelecida', '#10b981'); if (filaOffline.length > 0 && clienteData) sincronizarFila(); });
@@ -623,6 +619,8 @@ function actualizarSyncPendente() {
 
 /* ═══════════════════════════════════════════
    SINCRONIZAR FILA OFFLINE
+   ── usa incrementar_convites (novo RPC) que
+      só toca em convites_gerados
 ═══════════════════════════════════════════ */
 async function sincronizarFila() {
   if (!navigator.onLine) { showToast('📵 Sem ligação para sincronizar', '#ef4444'); return; }
@@ -633,12 +631,16 @@ async function sincronizarFila() {
   const falhados = [];
   for (const item of filaOffline) {
     try {
-      const { error: eRpc } = await DB.rpc('incrementar_scans', { p_token: clienteData.token });
+      // ▼ ALTERADO: chama incrementar_convites em vez de incrementar_scans
+      const { error: eRpc } = await DB.rpc('incrementar_convites', { p_token: clienteData.token });
       if (eRpc && !eRpc.message?.includes('LIMITE_ATINGIDO')) {
-        const n = (clienteData.scans_usados || 0) + 1;
-        await DB.from('clientes').update({ scans_usados: n }).eq('token', clienteData.token);
-        clienteData.scans_usados = n;
-      } else if (!eRpc) { clienteData.scans_usados = (clienteData.scans_usados || 0) + 1; }
+        // fallback manual se RPC falhar por outro motivo
+        const n = (clienteData.convites_gerados || 0) + 1;
+        await DB.from('clientes').update({ convites_gerados: n }).eq('token', clienteData.token);
+        clienteData.convites_gerados = n;
+      } else if (!eRpc) {
+        clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
+      }
       await DB.from('convidados').insert([{ token_cliente: clienteData.token, codigo: item.codigo, nome: item.nome, status: 'convite_gerado' }]);
     } catch(e) { falhados.push(item); }
   }
@@ -653,6 +655,10 @@ async function sincronizarFila() {
 
 /* ═══════════════════════════════════════════
    REALTIME
+   ── Ouve UPDATE em clientes mas SÓ actualiza
+      convites_gerados e nome/validade/limite.
+      Ignora completamente scans_usados para
+      que o leitor de QR não afecte o contador.
 ═══════════════════════════════════════════ */
 function mostrarBannerRealtime(v) { document.getElementById('realtimeBanner').classList.toggle('visible', v); }
 function iniciarRealtime(token) {
@@ -660,8 +666,13 @@ function iniciarRealtime(token) {
   realtimeChannel = DB.channel('cli-' + token)
     .on('postgres_changes', { event:'UPDATE', schema:'public', table:'clientes', filter:`token=eq.${token}` }, (p) => {
       if (!p.new) return;
-      clienteData.scans_usados = p.new.scans_usados; clienteData.limite_scans = p.new.limite_scans;
-      clienteData.nome = p.new.nome; clienteData.validade = p.new.validade;
+      // ▼ ALTERADO: só actualiza convites_gerados, nome, validade e limite
+      //   scans_usados é IGNORADO — pertence ao leitor, não à app cliente
+      if (p.new.convites_gerados !== undefined)
+        clienteData.convites_gerados = p.new.convites_gerados;
+      clienteData.limite_scans = p.new.limite_scans;
+      clienteData.nome         = p.new.nome;
+      clienteData.validade     = p.new.validade;
       document.getElementById('eventoNomeBox').textContent = '🎉 ' + p.new.nome;
       actualizarContador(); iniciarTimerValidade(); haptic('light'); showToast('🔄 Evento actualizado!', '#667eea');
     })
@@ -669,12 +680,15 @@ function iniciarRealtime(token) {
       if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
       todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, created_at:p.new.created_at });
       renderizarConvites([...filaOffline, ...todosConvites]);
-      clienteData.scans_usados = (clienteData.scans_usados || 0) + 1; actualizarContador();
+      // ▼ ALTERADO: incrementa convites_gerados localmente (não scans_usados)
+      clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
+      actualizarContador();
     })
     .on('postgres_changes', { event:'DELETE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, async (p) => {
       if (p.old?.id) { todosConvites = todosConvites.filter(c => c.id !== p.old.id); renderizarConvites([...filaOffline, ...todosConvites]); }
-      const { data } = await DB.from('clientes').select('scans_usados,limite_scans').eq('token', token).single();
-      if (data) { clienteData.scans_usados = data.scans_usados; clienteData.limite_scans = data.limite_scans; actualizarContador(); }
+      // ▼ ALTERADO: relê apenas convites_gerados e limite_scans
+      const { data } = await DB.from('clientes').select('convites_gerados,limite_scans').eq('token', token).single();
+      if (data) { clienteData.convites_gerados = data.convites_gerados; clienteData.limite_scans = data.limite_scans; actualizarContador(); }
       haptic('light');
     })
     .on('system', {}, (status) => {
@@ -754,7 +768,7 @@ async function tentarRestaurarSessao(token) {
   } catch(e) { return false; }
 }
 
-/* ═══════════════════════════════════════════
+/* ═════���═════════════════════════════════════
    TOAST
 ═══════════════════════════════════════════ */
 function showToast(msg, cor) {
@@ -855,9 +869,8 @@ function validarNome(nome) {
   const p = n.split(/\s+/).filter(x => x.length > 0);
   if (p.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
   const particulas = new Set(['e','y','i','o','a','de','da','do','das','dos','di','du','van','von','bin','bint']);
-  if (p.some(x => !particulas.has(x.toLowerCase()) && x.replace(/['\-]/g,'').length < 2)) {
+  if (p.some(x => !particulas.has(x.toLowerCase()) && x.replace(/['\-]/g,'').length < 2))
     return { ok:false, msg:'⚠️ Cada palavra deve ter pelo menos 2 letras' };
-  }
   const palavrasReais = p.filter(x => !particulas.has(x.toLowerCase()));
   if (palavrasReais.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
   return { ok:true, msg:'✓ Nome válido' };
@@ -873,10 +886,13 @@ function validarNomeInput() {
 
 /* ═══════════════════════════════════════════
    CONTADOR
+   ── usa convites_gerados em vez de scans_usados
 ═══════════════════════════════════════════ */
 function actualizarContador() {
   if (!clienteData) return;
-  const limite=clienteData.limite_scans||0, gerados=clienteData.scans_usados||0, restantes=Math.max(0,limite-gerados);
+  const limite   = clienteData.limite_scans   || 0;
+  const gerados  = getGerados(); // ← convites_gerados
+  const restantes = Math.max(0, limite - gerados);
   document.getElementById('cntLimite').textContent    = limite || '∞';
   document.getElementById('cntGerados').textContent   = gerados;
   document.getElementById('cntRestantes').textContent = limite ? restantes : '∞';
@@ -940,11 +956,10 @@ function renderizarConvites(lista, termo) {
   el.innerHTML = '';
   lista.forEach(conv => {
     const isPend = !!conv.id_local;
-    // No iOS nunca marcamos como "já descarregado" — a Web Share não é download
-    const jaDl = !isPend && !isIOS && downloadsSessao.has(conv.id);
-    const item = document.createElement('div');
+    const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
+    const item   = document.createElement('div');
     item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
-    let tag='', btnCls='btn-dl', btnTxt='📥';
+    let tag='', btnCls='btn-dl', btnTxt = isIOS ? '📤' : '📥';
     if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline — por sincronizar</div>'; btnCls='btn-dl pendente'; }
     else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado nesta sessão</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
     item.innerHTML=`
@@ -953,7 +968,7 @@ function renderizarConvites(lista, termo) {
       </div>
       <button class="${btnCls}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
-        ${isIOS ? '📤' : btnTxt}
+        ${btnTxt}
       </button>`;
     el.appendChild(item);
   });
@@ -996,7 +1011,8 @@ function pedirConfirmacaoGerar() {
     if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
     if (creditosOfflineRestantes() <= 0) { haptic('error'); mostrarErro(new Error('offline_cheio')); return; }
   }
-  const limite=clienteData.limite_scans||0, gerados=clienteData.scans_usados||0;
+  const limite  = clienteData.limite_scans || 0;
+  const gerados = getGerados();
   if (limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} atingido.`,'red'); actualizarContador(); return; }
   haptic('light');
   const dup = encontrarDuplicado(nomeRaw);
@@ -1027,7 +1043,7 @@ function pedirConfirmacaoGerar() {
   }
 }
 
-/* Botão 📥/📤 na lista de convites — sem modal de confirmação no iOS */
+/* Botão na lista de convites */
 async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
   haptic('light');
   if (isPendente) {
@@ -1037,7 +1053,6 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
     else showToast('⚠️ PDF não disponível. Feche e reabra a página para regenerar.','#f59e0b');
     return;
   }
-  // Convite online — gera/partilha directamente sem modal de confirmação
   const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
   try {
     let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
@@ -1069,6 +1084,7 @@ function gerarQRDataURL(codigo, tamanho) {
 
 /* ═══════════════════════════════════════════
    GERAR CONVITE
+   ── chama incrementar_convites (novo RPC)
 ═══════════════════════════════════════════ */
 async function gerarConvite(nome) {
   const modoOff = !navigator.onLine && modoOfflinePermitido();
@@ -1104,17 +1120,21 @@ async function gerarConvite(nome) {
       let conviteId = null;
       await comRetry(async () => {
         setLoading('A verificar disponibilidade...');
-        const { error:eCheck } = await comTimeout(DB.rpc('incrementar_scans', { p_token:clienteData.token }));
+        // ▼ ALTERADO: chama incrementar_convites em vez de incrementar_scans
+        const { error:eCheck } = await comTimeout(DB.rpc('incrementar_convites', { p_token:clienteData.token }));
         if (eCheck) {
           if (eCheck.message?.includes('LIMITE_ATINGIDO')) {
-            const { data } = await DB.from('clientes').select('scans_usados,limite_scans').eq('token',clienteData.token).single();
-            if (data) { clienteData.scans_usados=data.scans_usados; clienteData.limite_scans=data.limite_scans; }
+            const { data } = await DB.from('clientes').select('convites_gerados,limite_scans').eq('token',clienteData.token).single();
+            if (data) { clienteData.convites_gerados=data.convites_gerados; clienteData.limite_scans=data.limite_scans; }
             throw new Error('LIMITE_ATINGIDO: Limite de convites atingido.');
           }
-          const n=(clienteData.scans_usados||0)+1;
-          await DB.from('clientes').update({scans_usados:n}).eq('token',clienteData.token);
-          clienteData.scans_usados=n;
-        } else { clienteData.scans_usados=(clienteData.scans_usados||0)+1; }
+          // fallback manual
+          const n=(clienteData.convites_gerados||0)+1;
+          await DB.from('clientes').update({convites_gerados:n}).eq('token',clienteData.token);
+          clienteData.convites_gerados=n;
+        } else {
+          clienteData.convites_gerados=(clienteData.convites_gerados||0)+1;
+        }
         setLoading('A gerar o código único...');
         const codigo = await comTimeout(gerarCodigoUnico(clienteData.token));
         let qrDataUrl = null;
@@ -1130,7 +1150,6 @@ async function gerarConvite(nome) {
       });
       ultimoContextoNome = null;
       convitesSessao++;
-      // Só marca como descarregado no Android/Desktop — no iOS não há "download"
       if (!isIOS && conviteId) { downloadsSessao.add(conviteId); }
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
@@ -1148,8 +1167,7 @@ async function gerarConvite(nome) {
 }
 
 /* ═══════════════════════════════════════════
-   BAIXAR EXISTENTE (Android/Desktop)
-   — mantido para uso interno
+   BAIXAR EXISTENTE
 ═══════════════════════════════════════════ */
 async function baixarConviteExistente(nome, codigo, id, btn) {
   if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
