@@ -282,6 +282,14 @@
              onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
       <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
     </div>
+    <div id="mesaField" style="display:none;">
+      <label for="mesaInput">Mesa do convidado</label>
+      <input type="text" id="mesaInput" placeholder="Ex: Mesa 12"
+             autocapitalize="words" autocorrect="off" spellcheck="false"
+             oninput="validarMesaInput()"
+             onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
+      <div class="nome-hint" id="mesaHint">Introduza a mesa do convidado</div>
+    </div>
 
     <div class="rate-bar-wrap" id="rateBarWrap" style="opacity:0;">
       <div class="rate-bar" id="rateBar"></div>
@@ -371,6 +379,7 @@ let realtimeChannel    = null;
 let todosConvites      = [];
 let validadeTimer      = null;
 let ultimoContextoNome = null;
+let ultimoContextoMesa = '';
 let realtimeOk         = false;
 let realtimeReconTimer = null;
 let convitesSessao     = 0;
@@ -471,7 +480,7 @@ function guardarFilaOffline(token) {
     sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: filaOffline }));
   } catch(e) {
     try {
-      const semPdf = filaOffline.map(({ id_local, nome, codigo, created_at }) => ({ id_local, nome, codigo, created_at }));
+      const semPdf = filaOffline.map(({ id_local, nome, mesa, codigo, created_at }) => ({ id_local, nome, mesa, codigo, created_at }));
       sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: semPdf }));
       console.warn('sessionStorage cheio: PDFs offline não persistidos.');
     } catch(e2) { console.warn('sessionStorage completamente cheio:', e2); }
@@ -510,6 +519,27 @@ function limparCache() {
    MODO OFFLINE
 ═══════════════════════════════════════════ */
 function modoOfflinePermitido() { return configData && configData.qr_ativo === false; }
+function configPermiteMesa(cfg = configData) {
+  const elementos = cfg?.elementos || {};
+  return Object.values(elementos).some(lista => Array.isArray(lista) && lista.some(el =>
+    el?.elementType === 'table' || String(el?.content || '').includes('{MESA}')
+  ));
+}
+function aplicarOpcaoMesa() {
+  const field = document.getElementById('mesaField');
+  if (!field) return;
+  const ativo = configPermiteMesa();
+  field.style.display = ativo ? 'block' : 'none';
+  if (!ativo) limparMesaInput();
+}
+function limparMesaInput() {
+  const input = document.getElementById('mesaInput'), hint = document.getElementById('mesaHint');
+  if (input) { input.value = ''; input.className = ''; }
+  if (hint) { hint.textContent = 'Introduza a mesa do convidado'; hint.className = 'nome-hint'; }
+}
+function obterMesaInput() {
+  return configPermiteMesa() ? document.getElementById('mesaInput').value.trim() : '';
+}
 function creditosOfflineRestantes() { return Math.max(0, MAX_OFFLINE - filaOffline.length); }
 
 /* ═══════════════════════════════════════════
@@ -641,7 +671,14 @@ async function sincronizarFila() {
       } else if (!eRpc) {
         clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
       }
-      await DB.from('convidados').insert([{ token_cliente: clienteData.token, codigo: item.codigo, nome: item.nome, status: 'convite_gerado' }]);
+      let payload = { token_cliente: clienteData.token, codigo: item.codigo, nome: item.nome, status: 'convite_gerado' };
+      if (item.mesa) payload.mesa = item.mesa;
+      let { error: eIns } = await DB.from('convidados').insert([payload]);
+      if (eIns && item.mesa && /mesa|column|schema|cache/i.test(eIns.message || '')) {
+        delete payload.mesa;
+        ({ error: eIns } = await DB.from('convidados').insert([payload]));
+      }
+      if (eIns) throw eIns;
     } catch(e) { falhados.push(item); }
   }
   filaOffline = falhados;
@@ -759,6 +796,7 @@ async function tentarRestaurarSessao(token) {
     }
     clienteData = cli; configData = cfg;
     lerEstadoSessao(token); carregarFilaOffline(token);
+    aplicarOpcaoMesa();
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
@@ -789,11 +827,13 @@ function setLoading(msg){const el=document.getElementById('loadingMsg');if(el)el
 function limparTudo() {
   pararRealtime(); pararTimerValidade(); cancelarRateLimit();
   localStorage.removeItem('adkira_token'); limparCache();
-  clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
+  clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null; ultimoContextoMesa='';
   convitesSessao=0; downloadsSessao=new Set(); filaOffline=[];
   ultimaGeracao=0;
   document.getElementById('tokenInput').value='';
   document.getElementById('nomeInput').value='';
+  limparMesaInput();
+  aplicarOpcaoMesa();
   document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
   document.getElementById('nomeHint').className='nome-hint';
   document.getElementById('nomeInput').className='';
@@ -804,7 +844,7 @@ function limparTudo() {
   hideInfo('step1Info'); hideInfo('expiradoBox'); hideInfo('limiteProximoBox');
 }
 function voltarStep1() { limparTudo(); showStep('step1'); }
-function voltarPainel() { document.getElementById('nomeInput').value=''; hideInfo('step2Info'); actualizarContador(); carregarConvitesGerados(); showStep('step2'); }
+function voltarPainel() { document.getElementById('nomeInput').value=''; limparMesaInput(); hideInfo('step2Info'); actualizarContador(); carregarConvitesGerados(); showStep('step2'); }
 function pedirConfirmacaoSair() {
   haptic('light');
   const temPendentes = filaOffline.length > 0;
@@ -818,7 +858,7 @@ function pedirConfirmacaoSair() {
     ]
   });
 }
-function tentarRetry() { if (ultimoContextoNome) gerarConvite(ultimoContextoNome); else voltarPainel(); }
+function tentarRetry() { if (ultimoContextoNome) gerarConvite(ultimoContextoNome, ultimoContextoMesa); else voltarPainel(); }
 
 /* ═══════════════════════════════════════════
    TIMER VALIDADE
@@ -851,6 +891,7 @@ async function validarToken() {
     clienteData = cli; configData = cfg;
     localStorage.setItem('adkira_token', token);
     lerEstadoSessao(token); carregarFilaOffline(token);
+    aplicarOpcaoMesa();
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
@@ -879,6 +920,23 @@ function validarNomeInput() {
   const input=document.getElementById('nomeInput'), hint=document.getElementById('nomeHint'), v=input.value;
   if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Introduza o nome próprio e apelido'; return; }
   const { ok, msg } = validarNome(v);
+  input.className = ok ? 'input-ok' : 'input-error';
+  hint.className  = 'nome-hint ' + (ok ? 'ok' : 'err');
+  hint.textContent = msg;
+}
+function validarMesa(mesa) {
+  const m = mesa.trim();
+  if (!configPermiteMesa()) return { ok:true, msg:'' };
+  if (!m) return { ok:false, msg:'Introduza a mesa do convidado' };
+  if (m.length > 40) return { ok:false, msg:'A mesa deve ter no máximo 40 caracteres' };
+  return { ok:true, msg:'✓ Mesa válida' };
+}
+function validarMesaInput() {
+  const input=document.getElementById('mesaInput'), hint=document.getElementById('mesaHint');
+  if (!input || !hint) return;
+  const v=input.value;
+  if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Introduza a mesa do convidado'; return; }
+  const { ok, msg } = validarMesa(v);
   input.className = ok ? 'input-ok' : 'input-error';
   hint.className  = 'nome-hint ' + (ok ? 'ok' : 'err');
   hint.textContent = msg;
@@ -964,7 +1022,7 @@ function renderizarConvites(lista, termo) {
     else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado nesta sessão</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
     item.innerHTML=`
       <div class="convite-item-info">
-        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${tag}
+        <div class="convite-item-nome">${escHtml(conv.nome)}${conv.mesa ? ' · ' + escHtml(conv.mesa) : ''}</div>${tag}
       </div>
       <button class="${btnCls}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
@@ -1006,6 +1064,9 @@ function pedirConfirmacaoGerar() {
   const nomeRaw = document.getElementById('nomeInput').value.trim();
   const { ok, msg } = validarNome(nomeRaw);
   if (!ok) { haptic('warning'); showInfo('step2Info', msg, 'yellow'); validarNomeInput(); return; }
+  const mesaRaw = obterMesaInput();
+  const mesaVal = validarMesa(mesaRaw);
+  if (!mesaVal.ok) { haptic('warning'); showInfo('step2Info', mesaVal.msg, 'yellow'); validarMesaInput(); return; }
   if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada.','red'); return; }
   if (!navigator.onLine) {
     if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
@@ -1016,11 +1077,12 @@ function pedirConfirmacaoGerar() {
   if (limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} atingido.`,'red'); actualizarContador(); return; }
   haptic('light');
   const dup = encontrarDuplicado(nomeRaw);
+  const nomeModal = mesaRaw ? `${nomeRaw} · ${mesaRaw}` : nomeRaw;
   if (dup) {
     const isPend = !!dup.id_local;
-    abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeRaw, nomeCls:'duplicado',
+    abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeModal, nomeCls:'duplicado',
       acoes:[
-        { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw) },
+        { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
         { label: isIOS ? '📤 Partilhar existente' : '📥 Re-download existente', cls:'btn-outline', fn:()=>{
           if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob, dup.nome); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
           else baixarConviteExistente(dup.nome, dup.codigo, dup.id, { textContent: isIOS?'📤':'📥', disabled:false });
@@ -1034,9 +1096,9 @@ function pedirConfirmacaoGerar() {
     abrirModal({
       titulo: modoOff ? '📴 Gerar offline' : '✅ Confirmar Convite',
       corpo:  modoOff ? `Sem internet. O convite será gerado localmente e sincronizado quando ligar à rede. Restam ${creditos-1} crédito${creditos-1===1?'':'s'} offline após este.` : 'Vai gerar um convite para:',
-      nome:nomeRaw, nomeCls:'',
+      nome:nomeModal, nomeCls:'',
       acoes:[
-        { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw) },
+        { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
@@ -1086,10 +1148,11 @@ function gerarQRDataURL(codigo, tamanho) {
    GERAR CONVITE
    ── chama incrementar_convites (novo RPC)
 ═══════════════════════════════════════════ */
-async function gerarConvite(nome) {
+async function gerarConvite(nome, mesa = '') {
   const modoOff = !navigator.onLine && modoOfflinePermitido();
   if (!navigator.onLine && !modoOff) { haptic('error'); mostrarErro(new Error('failed to fetch')); return; }
   ultimoContextoNome = nome;
+  ultimoContextoMesa = mesa || '';
   hideInfo('step2Info'); showStep('step3');
   if (!modoOff) iniciarProgressBar(TIMEOUT_MS * (MAX_RETRIES + 1));
   try {
@@ -1097,17 +1160,20 @@ async function gerarConvite(nome) {
       setLoading('A gerar o convite offline...');
       const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
       let codigo = ''; for (let i=0;i<8;i++) codigo+=chars[Math.floor(Math.random()*chars.length)];
-      const pdfBlob = await gerarPDF(nome, codigo, null, configData);
+      const pdfBlob = await gerarPDF(nome, codigo, null, configData, mesa);
       setLoading('A guardar offline...');
       const pdf_b64 = await blobParaBase64(pdfBlob);
       const id_local = 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-      const item = { id_local, nome, codigo, created_at: new Date().toISOString(), pdf_b64 };
+      const item = { id_local, nome, mesa, codigo, created_at: new Date().toISOString(), pdf_b64 };
       filaOffline.push(item);
       guardarFilaOffline(clienteData.token);
+      ultimoContextoNome = null;
+      ultimoContextoMesa = '';
       convitesSessao++;
       guardarEstadoSessaoComToken(clienteData.token);
       await triggerDownload(pdfBlob, nome);
       document.getElementById('nomeInput').value='';
+      limparMesaInput();
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
@@ -1140,19 +1206,27 @@ async function gerarConvite(nome) {
         let qrDataUrl = null;
         if (configData.qr_ativo !== false) { setLoading('A criar o QR Code...'); qrDataUrl = await gerarQRDataURL(codigo, 300); }
         setLoading('A personalizar o convite...');
-        const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData);
+        const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData, mesa);
         setLoading('A registar o convidado...');
-        const { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([{ token_cliente:clienteData.token, codigo, nome, status:'convite_gerado' }]).select('id').single());
+        let payload = { token_cliente:clienteData.token, codigo, nome, status:'convite_gerado' };
+        if (mesa) payload.mesa = mesa;
+        let { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([payload]).select('id').single());
+        if (eIns && mesa && /mesa|column|schema|cache/i.test(eIns.message || '')) {
+          delete payload.mesa;
+          ({ data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([payload]).select('id').single()));
+        }
         if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
         conviteId = inserted?.id || null;
         pararProgressBar();
         await triggerDownload(pdfBlob, nome);
       });
       ultimoContextoNome = null;
+      ultimoContextoMesa = '';
       convitesSessao++;
       if (!isIOS && conviteId) { downloadsSessao.add(conviteId); }
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
+      limparMesaInput();
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
@@ -1196,7 +1270,7 @@ async function gerarCodigoUnico(tokenCliente) {
 /* ═══════════════════════════════════════════
    GERAR PDF
 ═══════════════════════════════════════════ */
-async function gerarPDF(nome,codigo,qrDataUrl,config){
+async function gerarPDF(nome,codigo,qrDataUrl,config,mesa=''){
   const{PDFDocument,StandardFonts,rgb}=window.PDFLib;
   const pdfBytes=Uint8Array.from(atob(config.pdf_base),c=>c.charCodeAt(0));
   const pdfDoc=await PDFDocument.load(pdfBytes);
@@ -1212,7 +1286,8 @@ async function gerarPDF(nome,codigo,qrDataUrl,config){
     for(const el of els){
       if(el.type==='text'){
         let text=el.content||'';
-        if(text.includes('{NOME}'))text=text.replace('{NOME}',config.maiusculas?nome.toUpperCase():nome);
+        if(text.includes('{NOME}'))text=text.split('{NOME}').join(config.maiusculas?nome.toUpperCase():nome);
+        if(text.includes('{MESA}'))text=text.split('{MESA}').join(mesa || '');
         const fontSize=(parseFloat(el.fontSize)||config.tamanho_nome||16)*scaleX;
         const cor=hexToRgb(normalizarCor(el.elementType==='table'?(el.color||config.cor_mesa||'#1a1a2e'):(el.color||config.cor_nome||'#1a1a2e')));
         let font;
