@@ -2,8 +2,12 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>AdKira – Gestão de Convites</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="mobile-web-app-capable" content="yes">
 
   <!-- Gerador scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -16,6 +20,7 @@
   <script src="https://cdn.tailwindcss.com?v=3.4.0"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -25,38 +30,44 @@
 
     .app-nav {
       display: flex;
-      background: #5ba189;
+      background: white;
       padding: 0;
       position: sticky;
       top: 0;
-      z-index: 10000;
-      box-shadow: 0 2px 12px rgba(91,161,137,0.4);
+      z-index: 9999;
+      border-bottom: 1.5px solid #e0f0eb;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.06);
     }
     .app-nav-btn {
       flex: 1;
-      padding: 14px 10px;
+      padding: 13px 10px 11px;
       border: none;
+      border-bottom: 2.5px solid transparent;
+      margin-bottom: -1.5px;
       background: transparent;
-      color: rgba(255,255,255,0.65);
-      font-size: 14px;
-      font-weight: 700;
+      color: #9ca3af;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
-      transition: all .2s;
-      border-bottom: 3px solid transparent;
-      letter-spacing: .3px;
+      transition: color .15s, border-color .15s;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
     .app-nav-btn.active {
-      color: white;
-      border-bottom-color: white;
-      background: rgba(255,255,255,0.12);
+      color: #5ba189;
+      border-bottom-color: #5ba189;
+      font-weight: 600;
     }
-    .app-nav-btn:active { opacity: .8; }
+    .app-nav-btn:active { opacity: .75; }
+    .app-nav-btn i { font-size: 17px; }
 
     .app-panel { display: none; }
     .app-panel.active { display: block; }
@@ -69,15 +80,18 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     .card {
-      background: white; border-radius: 24px; padding: 28px 20px;
+      background: white; border-radius: 20px; padding: 24px 20px;
       max-width: 480px; width: 100%; margin: 0 auto;
-      box-shadow: 0 2px 16px rgba(91,161,137,0.12), 0 1px 4px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 12px rgba(91,161,137,0.1), 0 1px 3px rgba(0,0,0,0.04);
       overflow: hidden; position: relative;
       border: 1px solid #e0f0eb;
     }
-    .logo { text-align: center; margin-bottom: 22px; }
-    .logo h1 { font-size: 26px; font-weight: 800; color: #5ba189; }
-    .logo p  { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    @media (max-width: 400px) { .card { border-radius: 16px; padding: 20px 16px; } }
+    .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .logo-icon { width: 44px; height: 44px; background: #5ba189; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .logo-icon i { font-size: 22px; color: white; }
+    .logo-text h1 { font-size: 20px; font-weight: 700; color: #1a1a2e; line-height: 1.2; }
+    .logo-text p  { font-size: 12px; color: #9ca3af; margin-top: 2px; }
 
     .step {
       display: none; flex-direction: column; gap: 14px;
@@ -88,37 +102,40 @@
     .step.active  { pointer-events: auto; }
     .step.visible { opacity: 1; transform: translateX(0); }
 
-    label { font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px; }
+    label { font-size: 11px; font-weight: 600; color: #5ba189; display: block; margin-bottom: 7px; text-transform: uppercase; letter-spacing: .5px; }
     input[type="text"] {
       width: 100%; padding: 15px 16px;
-      border: 2px solid #e5e7eb; border-radius: 12px;
+      border: 1.5px solid #d1fae5; border-radius: 12px;
       font-size: 16px; font-family: inherit;
-      transition: border-color .2s; -webkit-appearance: none;
+      background: #f8fffe; color: #1a1a2e;
+      transition: border-color .2s, background .2s; -webkit-appearance: none;
     }
-    input:focus { outline: none; border-color: #5ba189; }
-    input.input-error { border-color: #ef4444; }
-    input.input-ok    { border-color: #10b981; }
+    input:focus { outline: none; border-color: #5ba189; background: #fff; box-shadow: 0 0 0 3px rgba(91,161,137,0.12); }
+    input.input-error { border-color: #ef4444; background: #fff; }
+    input.input-ok    { border-color: #10b981; background: #f0fdf4; }
 
     .nome-hint { font-size: 12px; margin-top: -8px; padding: 0 4px; color: #9ca3af; transition: color .2s; }
     .nome-hint.ok  { color: #10b981; }
     .nome-hint.err { color: #ef4444; }
 
     button {
-      width: 100%; padding: 16px; border: none; border-radius: 14px;
-      font-size: 16px; font-weight: 700; cursor: pointer;
-      font-family: inherit; transition: transform .1s, opacity .1s;
+      width: 100%; padding: 16px; border: none; border-radius: 16px;
+      font-size: 16px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: transform .12s, opacity .12s, background .12s;
       min-height: 52px; -webkit-appearance: none; touch-action: manipulation;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      letter-spacing: .15px;
     }
-    .btn-main    { background: linear-gradient(135deg,#5ba189,#3d8a6e); color: white; box-shadow: 0 4px 14px rgba(91,161,137,.4); }
-    .btn-main:active    { transform: scale(0.97); opacity: .9; }
-    .btn-main:disabled  { opacity: .5; cursor: not-allowed; transform: none; }
-    .btn-ghost   { background: #f3f4f6; color: #374151; }
-    .btn-ghost:active   { background: #e5e7eb; transform: scale(0.97); }
-    .btn-warning { background: #fffbeb; color: #92400e; border: 2px solid #fcd34d; }
+    .btn-main    { background: #5ba189; color: white; }
+    .btn-main:active    { transform: scale(0.97); background: #4a9073; }
+    .btn-main:disabled  { opacity: .45; cursor: not-allowed; transform: none; }
+    .btn-ghost   { background: transparent; color: #5ba189; border: 1.5px solid #d0ede6; }
+    .btn-ghost:active   { background: #edf7f3; transform: scale(0.97); }
+    .btn-warning { background: #fffbeb; color: #92400e; border: 1.5px solid #fcd34d; }
     .btn-warning:active { background: #fef3c7; transform: scale(0.97); }
-    .btn-outline { background: white; color: #5ba189; border: 2px solid #5ba189; min-height: 40px; padding: 8px 14px; font-size: 13px; }
+    .btn-outline { background: transparent; color: #5ba189; border: 1.5px solid #5ba189; min-height: 44px; padding: 10px 16px; font-size: 14px; border-radius: 12px; }
     .btn-outline:active { background: #edf7f3; transform: scale(0.97); }
-    .btn-danger  { background: #fef2f2; color: #991b1b; border: 2px solid #fca5a5; }
+    .btn-danger  { background: #fef2f2; color: #991b1b; border: 1.5px solid #fca5a5; }
     .btn-danger:active  { background: #fee2e2; transform: scale(0.97); }
 
     .info { border-radius: 12px; padding: 13px 15px; font-size: 14px; line-height: 1.5; }
@@ -144,33 +161,37 @@
       transform: translateY(-100%); transition: transform .3s ease;
       color: white;
     }
-    .offline-banner      { background: #ef4444; z-index: 9998; font-size: 14px; }
-    .offline-mode-banner { background: #5ba189; z-index: 9997; }
-    .realtime-banner     { background: #f59e0b; z-index: 9996; }
+    .offline-banner      { background: #ef4444; z-index: 10003; font-size: 14px; }
+    .offline-mode-banner { background: #5ba189; z-index: 10002; }
+    .realtime-banner     { background: #f59e0b; z-index: 10001; }
     .offline-banner.visible, .offline-mode-banner.visible, .realtime-banner.visible { transform: translateY(0); }
 
     .counter-box {
-      background: linear-gradient(135deg,#5ba189,#3d8a6e);
-      border-radius: 16px; padding: 18px 12px 14px;
+      background: #f8fffe;
+      border: 1.5px solid #d0ede6;
+      border-radius: 16px; padding: 16px 12px 14px;
       display: flex; flex-direction: column; gap: 12px;
     }
-    .counter-box.warning { background: linear-gradient(135deg,#f59e0b,#d97706); }
-    .counter-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align: center; }
-    .counter-item { color: white; }
-    .counter-item .val { font-size: 28px; font-weight: 800; line-height: 1; }
-    .counter-item .lbl { font-size: 11px; opacity: .85; margin-top: 4px; }
+    .counter-box.warning { background: #fffbeb; border-color: #fcd34d; }
+    .counter-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; text-align: center; }
+    .counter-item { padding: 6px 4px; }
+    .counter-item + .counter-item { border-left: 1px solid #d0ede6; }
+    .counter-box.warning .counter-item + .counter-item { border-left-color: #fcd34d; }
+    .counter-item .val { font-size: 26px; font-weight: 700; line-height: 1; color: #5ba189; }
+    .counter-box.warning .counter-item .val { color: #92400e; }
+    .counter-item .lbl { font-size: 11px; color: #9ca3af; margin-top: 4px; }
     .uso-wrap { padding: 0 4px; }
-    .uso-label { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,.85); margin-bottom: 6px; font-weight: 600; }
-    .uso-track { width: 100%; height: 8px; background: rgba(255,255,255,.25); border-radius: 99px; overflow: hidden; }
-    .uso-bar   { height: 100%; border-radius: 99px; background: white; transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 4px; }
-    .counter-box.warning .uso-bar { background: #fef08a; }
+    .uso-label { display: flex; justify-content: space-between; font-size: 11px; color: #6b7280; margin-bottom: 6px; font-weight: 500; }
+    .uso-track { width: 100%; height: 6px; background: #d0ede6; border-radius: 99px; overflow: hidden; }
+    .uso-bar   { height: 100%; border-radius: 99px; background: #5ba189; transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 4px; }
+    .counter-box.warning .uso-bar { background: #f59e0b; }
     .sessao-badge, .offline-creditos-badge {
       display: flex; align-items: center; justify-content: center; gap: 6px;
-      background: rgba(255,255,255,.18); border-radius: 10px;
-      padding: 7px 12px; font-size: 12px; color: white; font-weight: 600;
+      background: #edf7f3; border-radius: 10px;
+      padding: 7px 12px; font-size: 12px; color: #3d8a6e; font-weight: 600;
     }
-    .sessao-badge .dot     { width: 8px; height: 8px; border-radius: 50%; background: #86efac; box-shadow: 0 0 6px #86efac; flex-shrink: 0; }
-    .offline-creditos-badge .dot-off { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; flex-shrink: 0; }
+    .sessao-badge .dot     { width: 8px; height: 8px; border-radius: 50%; background: #5ba189; flex-shrink: 0; }
+    .offline-creditos-badge .dot-off { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
 
     .rate-bar-wrap {
       width: 100%; height: 3px; background: rgba(91,161,137,.15);
@@ -195,7 +216,7 @@
     .divider { height: 1px; background: #e5e7eb; margin: 2px 0; }
 
     .loading-box { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 0; }
-    .spinner { width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #5ba189; border-radius: 50%; animation: spin .8s linear infinite; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #d0ede6; border-top-color: #5ba189; border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-box p { font-size: 14px; color: #6b7280; text-align: center; }
     .timeout-bar-wrap { width: 100%; background: #e5e7eb; border-radius: 99px; height: 4px; overflow: hidden; display: none; }
@@ -206,31 +227,35 @@
     .session-restore p { font-size: 15px; color: #6b7280; font-weight: 500; text-align: center; }
 
     .convites-header { display: flex; align-items: center; gap: 8px; }
-    .convites-search { flex: 1; padding: 11px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 16px; font-family: inherit; transition: border-color .2s; -webkit-appearance: none; }
-    .convites-search:focus { outline: none; border-color: #5ba189; }
+    .convites-search { flex: 1; padding: 11px 14px; border: 1.5px solid #d1fae5; border-radius: 10px; font-size: 16px; font-family: inherit; transition: border-color .2s; -webkit-appearance: none; background: #f8fffe; }
+    .convites-search:focus { outline: none; border-color: #5ba189; background: white; box-shadow: 0 0 0 3px rgba(91,161,137,0.1); }
     .convites-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
 
-    .convites-lista { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-    .convite-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fafafa; gap: 10px; transition: border-color .2s, background .2s; }
-    .convite-item.ja-descarregado { background: #f0fdf4; border-color: #86efac; }
-    .convite-item.offline-pendente { background: #edf7f3; border-color: #d0ede6; }
+    .convites-lista { display: flex; flex-direction: column; gap: 0; max-height: 320px; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; border: 1.5px solid #e0f0eb; background: white; overflow: hidden; }
+    .convite-item { display: flex; align-items: center; padding: 12px 14px; gap: 12px; transition: background .15s; border-bottom: 1px solid #f0f9f5; }
+    .convite-item:last-child { border-bottom: none; }
+    .convite-item.ja-descarregado { background: #f8fffe; }
+    .convite-item.offline-pendente { background: #fafffe; }
+    .convite-avatar { width: 38px; height: 38px; border-radius: 50%; background: #edf7f3; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #5ba189; flex-shrink: 0; letter-spacing: -.3px; }
+    .convite-item.ja-descarregado .convite-avatar { background: #d1fae5; color: #065f46; }
+    .convite-item.offline-pendente .convite-avatar { background: #fef3c7; color: #92400e; }
     .convite-item-info { flex: 1; min-width: 0; }
     .convite-item-nome { font-size: 14px; font-weight: 600; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .convite-item-tag  { font-size: 11px; margin-top: 2px; }
-    .convite-item-tag.verde { color: #10b981; font-weight: 600; }
-    .convite-item-tag.roxo  { color: #5ba189; font-weight: 600; }
-    .btn-dl { flex-shrink: 0; width: auto; padding: 10px 16px; background: #5ba189; color: white; border-radius: 10px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; min-height: 44px; touch-action: manipulation; }
-    .btn-dl:active   { background: #3d8a6e; transform: scale(0.96); }
+    .convite-item-tag  { font-size: 11px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .convite-item-tag.verde { color: #10b981; font-weight: 500; }
+    .convite-item-tag.roxo  { color: #5ba189; font-weight: 500; }
+    .btn-dl { flex-shrink: 0; width: 38px; height: 38px; min-height: 38px; padding: 0; background: #edf7f3; color: #5ba189; border-radius: 10px; font-size: 16px; font-weight: 600; border: none; cursor: pointer; touch-action: manipulation; display: flex; align-items: center; justify-content: center; }
+    .btn-dl:active   { background: #d0ede6; transform: scale(0.94); }
     .btn-dl.ja-dl    { background: #d1fae5; color: #065f46; }
     .btn-dl.ja-dl:active { background: #a7f3d0; }
-    .btn-dl.pendente { background: #edf7f3; color: #3d8a6e; }
+    .btn-dl.pendente { background: #fef3c7; color: #92400e; }
 
     .section-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
 
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; padding: 0; animation: fadeIn .2s ease; }
     .modal-overlay.hidden { display: none; }
     @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-    .modal-box { background: white; border-radius: 24px 24px 0 0; padding: 28px 20px; padding-bottom: max(28px, env(safe-area-inset-bottom)); width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; animation: slideUp .28s cubic-bezier(.32,1.01,.56,1); }
+    .modal-box { background: white; border-radius: 24px 24px 0 0; padding: 24px 20px; padding-bottom: max(28px, env(safe-area-inset-bottom)); width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; animation: slideUp .28s cubic-bezier(.32,1.01,.56,1); }
     @media (min-width: 540px) { .modal-overlay { align-items: center; padding: 20px; } .modal-box { border-radius: 24px; max-width: 420px; padding-bottom: 28px; } }
     @keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:translateY(0);opacity:1} }
     .modal-handle { width: 44px; height: 5px; background: #d1d5db; border-radius: 3px; margin: 0 auto -4px; }
@@ -249,14 +274,67 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #5ba189; border-radius: 4px; }
 
-    .tab-btn { width: auto; min-height: 36px; padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 10px; background: #f3f4f6; color: #6b7280; border: 1.5px solid #e5e7eb; cursor: pointer; transition: all .15s; }
-    .tab-btn.tab-active { background: #5ba189; color: white; border-color: #5ba189; }
+    .tab-btn { width: auto; min-height: 36px; padding: 7px 16px; font-size: 13px; font-weight: 500; border-radius: 99px; background: transparent; color: #9ca3af; border: 1.5px solid #e0f0eb; cursor: pointer; transition: all .15s; }
+    .tab-btn.tab-active { background: #5ba189; color: white; border-color: #5ba189; font-weight: 600; }
     .tab-btn:active { transform: scale(0.96); }
 
     .mesa-group { margin-bottom: 10px; }
     .mesa-group-title { font-size: 12px; font-weight: 800; color: #5ba189; text-transform: uppercase; letter-spacing: .5px; padding: 6px 10px; background: #edf7f3; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
     .mesa-group-count { font-size: 11px; background: #5ba189; color: white; border-radius: 99px; padding: 1px 7px; font-weight: 700; margin-left: auto; }
   
+    /* ── MOBILE SAFE AREAS & GLOBAL POLISH ── */
+    .app-panel { -webkit-overflow-scrolling: touch; }
+    #panelGerador > div { padding-top: env(safe-area-inset-top, 0px); }
+
+    /* ── CONVITES HEADER ── */
+    .convites-header { margin-bottom: 8px; }
+    .convites-count { font-size: 12px; color: #9ca3af; white-space: nowrap; font-weight: 500; }
+
+    /* ── SECTION LABEL ── */
+    .section-label { font-size: 11px; font-weight: 600; color: #5ba189; text-transform: uppercase; letter-spacing: .6px; }
+
+    /* ── RECARREGAR BTN ── */
+    #btnRecarregar { width: 40px; min-height: 40px; height: 40px; padding: 0; border-radius: 10px; background: #edf7f3; color: #5ba189; border: none; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    #btnRecarregar:active { background: #d0ede6; transform: scale(0.94); }
+
+    /* ── MESA GROUP ── */
+    .mesa-group-title { font-size: 11px; font-weight: 600; color: #3d8a6e; text-transform: uppercase; letter-spacing: .5px; padding: 6px 12px; background: #edf7f3; margin: 0; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #d0ede6; }
+    .mesa-group-count { font-size: 11px; background: #5ba189; color: white; border-radius: 99px; padding: 1px 7px; font-weight: 700; margin-left: auto; }
+    .mesa-group:not(:first-child) .mesa-group-title { border-top: 1px solid #d0ede6; }
+
+    /* ── TOAST ── */
+    .toast { border-radius: 12px; font-size: 14px; padding: 12px 20px; font-weight: 500; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: #d0ede6; border-radius: 3px; }
+
+    /* ── EVENTO NOME BOX ── */
+    #eventoNomeBox { font-size: 15px; font-weight: 600; color: #1a1a2e; }
+
+    /* ── OFFLINE/REALTIME BANNERS: above everything including nav ── */
+
+    /* ── LOADING BOX ── */
+    .loading-box { padding: 32px 0; }
+    .loading-box p { font-size: 13px; }
+
+    /* ── STEP RESTORE ── */
+    .session-restore { padding: 40px 0 24px; }
+    .session-restore p { font-size: 14px; }
+    .session-restore .spinner-lg { border-width: 3px; border-color: #d0ede6; border-top-color: #5ba189; }
+
+    /* ── TABLET / DESKTOP ── */
+    @media (min-width: 600px) {
+      #panelGerador > div { padding: 28px 24px; }
+      .card { padding: 32px 28px; }
+      .convites-lista { max-height: 400px; }
+    }
+    @media (min-width: 900px) {
+      .card { max-width: 520px; }
+      .convites-lista { max-height: 500px; }
+    }
+
+
 
     /* ===== LEITOR CSS ===== */
     
@@ -265,16 +343,17 @@
         .scanner-container { position: relative; border-radius: 12px; overflow: hidden; }
         .tab-button { transition: all 0.3s ease; }
         .tab-button.active {
-            background-color: rgba(90, 161, 137, 0.1);
-            color: #5aa189;
-            border-bottom-color: #5aa189;
+            background-color: rgba(91, 161, 137, 0.08);
+            color: #5ba189;
+            border-bottom-color: #5ba189;
+            font-weight: 600;
         }
         .tab-content { display: block; }
         .tab-content.hidden { display: none; }
         .mobile-bottom-actions {
             position: fixed; bottom: 0; left: 0; right: 0;
-            background: white; padding: 16px;
-            box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.1);
+            background: white; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom));
+            box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.08);
             z-index: 50; border-top: 1px solid #e5e7eb;
         }
         .mobile-bottom-actions button {
@@ -306,6 +385,7 @@
             transform:translateY(-100%); transition:transform .3s;
         }
         .sync-queue-bar.visible { transform:translateY(0); }
+        .bg-gray-50 { background: #f9fafb !important; }
     
   </style>
 </head>
@@ -317,13 +397,13 @@
 <div class="realtime-banner"     id="realtimeBanner">⚠️ Actualizações em tempo real desligadas — a reconectar...</div>
 
 <nav class="app-nav">
-  <button class="app-nav-btn active" id="navGerador" onclick="switchApp('gerador')">🎟️ Gerador</button>
-  <button class="app-nav-btn"        id="navLeitor"  onclick="switchApp('leitor')">📷 Leitor QR</button>
+  <button class="app-nav-btn active" id="navGerador" onclick="switchApp('gerador')"><i class="ti ti-ticket" aria-hidden="true"></i> Gerador</button>
+  <button class="app-nav-btn"        id="navLeitor"  onclick="switchApp('leitor')"><i class="ti ti-qrcode" aria-hidden="true"></i> Leitor</button>
 </nav>
 
 <!-- PAINEL GERADOR -->
 <div class="app-panel active" id="panelGerador">
-  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: white; min-height: calc(100vh - 47px); padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); box-sizing: border-box;">
+  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5faf8; min-height: calc(100vh - 47px); padding: 20px 16px; padding-bottom: max(24px, env(safe-area-inset-bottom)); box-sizing: border-box;">
     <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
     <div class="modal-handle"></div>
@@ -336,8 +416,11 @@
 
 <div class="card">
   <div class="logo">
-    <h1>🎟️ AdKira</h1>
-    <p>Gere o seu convite personalizado</p>
+    <div class="logo-icon"><i class="ti ti-ticket" aria-hidden="true"></i></div>
+    <div class="logo-text">
+      <h1>AdKira</h1>
+      <p>Gestão de Convites</p>
+    </div>
   </div>
 
   <div class="step" id="stepRestore">
@@ -354,7 +437,7 @@
              autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
     </div>
     <div class="info blue" id="step1Info" style="display:none;"></div>
-    <button class="btn-main" onclick="validarToken()">Continuar →</button>
+    <button class="btn-main" onclick="validarToken()"><i class="ti ti-arrow-right" aria-hidden="true"></i> Continuar</button>
   </div>
 
   <div class="step" id="step2">
@@ -363,12 +446,12 @@
     <div class="info orange" id="limiteProximoBox" style="display:none;"></div>
 
     <div class="sync-pendente" id="syncPendente" style="display:none;">
-      <div class="sync-icon">🔄</div>
+      <div class="sync-icon"><i class="ti ti-refresh" aria-hidden="true"></i></div>
       <div class="sync-texto">
         <strong id="syncPendenteTexto">1 convite offline por sincronizar</strong><br>
         <span style="font-size:12px;opacity:.8;">Ligue à internet para enviar para o servidor</span>
       </div>
-      <button class="sync-btn" onclick="sincronizarFila()">Sincronizar</button>
+      <button class="sync-btn" onclick="sincronizarFila()"><i class="ti ti-refresh" aria-hidden="true"></i> Sincronizar</button>
     </div>
 
     <div class="counter-box" id="counterBox">
@@ -416,19 +499,19 @@
     <div class="ios-hint" id="iosHint">
       📱 No seu dispositivo, escolha <strong>WhatsApp</strong> ou <strong>Guardar em Ficheiros</strong> para guardar o PDF.
     </div>
-    <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()">🎉 Gerar Convite</button>
+    <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
 
     <div class="divider"></div>
     <div class="convites-header">
       <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
       <span class="convites-count" id="convitesCount"></span>
-      <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()">🔄</button>
+      <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
     </div>
 
     <!-- Tabs (visíveis só quando mesa_ativa=true) -->
     <div id="convitesTabs" style="display:none;display:none;gap:6px;flex-direction:row;">
-      <button id="tabLista" class="tab-btn tab-active" onclick="mudarTab('lista')">📋 Lista</button>
-      <button id="tabMesas" class="tab-btn" onclick="mudarTab('mesas')">🪑 Por Mesa</button>
+      <button id="tabLista" class="tab-btn tab-active" onclick="mudarTab('lista')"><i class="ti ti-list" aria-hidden="true"></i> Lista</button>
+      <button id="tabMesas" class="tab-btn" onclick="mudarTab('mesas')"><i class="ti ti-layout-grid" aria-hidden="true"></i> Por Mesa</button>
     </div>
 
     <input type="text" class="convites-search" id="convitesSearch"
@@ -438,7 +521,7 @@
     <div class="convites-lista" id="convitesLista">
       <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
     </div>
-    <button class="btn-ghost" onclick="pedirConfirmacaoSair()">← Sair</button>
+    <button class="btn-ghost" onclick="pedirConfirmacaoSair()"><i class="ti ti-logout" aria-hidden="true"></i> Sair</button>
   </div>
 
   <div class="step" id="step3">
@@ -459,9 +542,9 @@
       <button class="erro-detalhe-toggle" id="erroDetalheToggle" onclick="toggleErroDetalhe()" style="display:none;">ver detalhe técnico</button>
       <div class="erro-detalhe" id="erroDetalhe"></div>
     </div>
-    <button class="btn-main"  id="btnRetry"        onclick="tentarRetry()"  style="display:none;">🔄 Tentar novamente</button>
-    <button class="btn-ghost" id="btnVoltarPainel" onclick="voltarPainel()">← Voltar ao painel</button>
-    <button class="btn-ghost" onclick="voltarStep1()">← Mudar de evento</button>
+    <button class="btn-main"  id="btnRetry"        onclick="tentarRetry()"  style="display:none;"><i class="ti ti-refresh" aria-hidden="true"></i> Tentar novamente</button>
+    <button class="btn-ghost" id="btnVoltarPainel" onclick="voltarPainel()"><i class="ti ti-arrow-left" aria-hidden="true"></i> Voltar</button>
+    <button class="btn-ghost" onclick="voltarStep1()"><i class="ti ti-arrow-left" aria-hidden="true"></i> Mudar evento</button>
   </div>
 </div>
 
@@ -761,7 +844,7 @@ async function sincronizarFila() {
   if (!navigator.onLine) { showToast('📵 Sem ligação para sincronizar', '#ef4444'); return; }
   if (filaOffline.length === 0) return;
   const btn = document.querySelector('#syncPendente .sync-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>'; }
   showToast('🔄 A sincronizar...', '#5ba189');
   const falhados = [];
   for (const item of filaOffline) {
@@ -785,7 +868,7 @@ async function sincronizarFila() {
   await carregarConvitesGerados();
   if (falhados.length === 0) { haptic('success'); showToast('✅ Sincronização concluída!', '#10b981'); }
   else { haptic('warning'); showToast(`⚠️ ${falhados.length} convite(s) não sincronizados.`, '#f59e0b'); }
-  if (btn) { btn.disabled = false; btn.textContent = 'Sincronizar'; }
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-refresh" aria-hidden="true"></i> Sincronizar'; }
 }
 
 /* ═══════════════════════════════════════════
@@ -858,6 +941,7 @@ function haptic(tipo) {
 let stepAtual = null;
 function showStep(id) {
   const novoStep = document.getElementById(id); if (!novoStep || stepAtual === novoStep) return;
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   document.querySelectorAll('.step').forEach(s => { s.classList.remove('active','visible','exit'); s.style.display = 'none'; });
   stepAtual = novoStep; novoStep.style.display = 'flex'; novoStep.classList.add('active');
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -969,7 +1053,7 @@ function tentarRetry() { if (ultimoContextoNome) gerarConvite(ultimoContextoNome
 ═══════════════════════════════════════════ */
 function iniciarTimerValidade() {
   pararTimerValidade(); if (!clienteData?.validade) return;
-  const v = () => { if (clienteData.validade < Math.floor(Date.now()/1000)) { pararTimerValidade(); document.getElementById('expiradoBox').style.display='block'; const b=document.getElementById('btnGerar'); b.disabled=true; b.textContent='⏰ Evento expirado'; haptic('warning'); showToast('⏰ Este evento expirou.','#ef4444'); } };
+  const v = () => { if (clienteData.validade < Math.floor(Date.now()/1000)) { pararTimerValidade(); document.getElementById('expiradoBox').style.display='block'; const b=document.getElementById('btnGerar'); b.disabled=true; b.innerHTML='<i class="ti ti-clock-off" aria-hidden="true"></i> Evento expirado'; haptic('warning'); showToast('⏰ Este evento expirou.','#ef4444'); } };
   v(); validadeTimer = setInterval(v, 30_000);
 }
 function pararTimerValidade() { if (validadeTimer) { clearInterval(validadeTimer); validadeTimer = null; } }
@@ -1059,9 +1143,9 @@ function actualizarContador() {
   if (perto) { limBox.textContent = `⚠️ Restam apenas ${restantes} convite${restantes===1?'':'s'}.`; limBox.style.display = 'block'; } else limBox.style.display = 'none';
   const btnGerar = document.getElementById('btnGerar');
   const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
-  if (expirado) { btnGerar.disabled=true; btnGerar.textContent='⏰ Evento expirado'; document.getElementById('expiradoBox').style.display='block'; }
-  else if (limite && gerados >= limite) { btnGerar.disabled=true; btnGerar.textContent='🚫 Limite atingido'; showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red'); }
-  else if (!estaEmCooldown()) { btnGerar.disabled=false; btnGerar.textContent='🎉 Gerar Convite'; hideInfo('step2Info'); }
+  if (expirado) { btnGerar.disabled=true; btnGerar.innerHTML='<i class="ti ti-clock-off" aria-hidden="true"></i> Evento expirado'; document.getElementById('expiradoBox').style.display='block'; }
+  else if (limite && gerados >= limite) { btnGerar.disabled=true; btnGerar.innerHTML='<i class="ti ti-ban" aria-hidden="true"></i> Limite atingido'; showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red'); }
+  else if (!estaEmCooldown()) { btnGerar.disabled=false; btnGerar.innerHTML='<i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite'; hideInfo('step2Info'); }
 }
 
 /* ═══════════════════════════════════════════
@@ -1091,7 +1175,7 @@ async function carregarConvitesGerados() {
     else renderizarConvites(total);
   } catch(e) { lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${navigator.onLine ? e.message : 'Sem ligação à internet'}</div>`; }
 }
-async function recarregarLista() { const btn=document.getElementById('btnRecarregar'); btn.disabled=true; btn.textContent='⏳'; await carregarConvitesGerados(); btn.disabled=false; btn.textContent='🔄'; }
+async function recarregarLista() { const btn=document.getElementById('btnRecarregar'); btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i>'; await carregarConvitesGerados(); btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh" aria-hidden="true"></i>'; }
 
 /* ═══════════════════════════════════════════
    FILTRAR / RENDERIZAR
@@ -1149,16 +1233,18 @@ function renderizarPorMesas() {
       const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
       const item   = document.createElement('div');
       item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
-      let tag='', btnCls='btn-dl', btnTxt = isIOS ? '📤' : '📥';
-      if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline</div>'; btnCls='btn-dl pendente'; }
-      else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
+      const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+      let tag='', btnCls='btn-dl', btnIcon = isIOS ? '<i class="ti ti-share-2" aria-hidden="true"></i>' : '<i class="ti ti-download" aria-hidden="true"></i>';
+      if (isPend) { tag='<div class="convite-item-tag roxo">Offline</div>'; btnCls='btn-dl pendente'; btnIcon='<i class="ti ti-clock" aria-hidden="true"></i>'; }
+      else if (jaDl) { tag='<div class="convite-item-tag verde">Descarregado</div>'; btnCls='btn-dl ja-dl'; btnIcon='<i class="ti ti-check" aria-hidden="true"></i>'; }
       item.innerHTML=`
+        <div class="convite-avatar">${initials}</div>
         <div class="convite-item-info">
           <div class="convite-item-nome">${escHtml(conv.nome)}</div>${tag}
         </div>
-        <button class="${btnCls}"
+        <button class="${btnCls}" aria-label="Descarregar convite de ${escHtml(conv.nome)}"
           onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
-          ${btnTxt}
+          ${btnIcon}
         </button>`;
       grp.appendChild(item);
     });
@@ -1185,17 +1271,19 @@ function renderizarConvites(lista, termo) {
     const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
     const item   = document.createElement('div');
     item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
-    let tag='', btnCls='btn-dl', btnTxt = isIOS ? '📤' : '📥';
-    const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#5ba189;font-weight:600;">🪑 ${escHtml(conv.mesa)}</div>` : '';
-    if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline — por sincronizar</div>'; btnCls='btn-dl pendente'; }
-    else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado nesta sessão</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
+    const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+    let tag='', btnCls='btn-dl', btnIcon = isIOS ? '<i class="ti ti-share-2" aria-hidden="true"></i>' : '<i class="ti ti-download" aria-hidden="true"></i>';
+    const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#5ba189;">Mesa ${escHtml(conv.mesa)}</div>` : '';
+    if (isPend) { tag='<div class="convite-item-tag roxo">Offline — a aguardar sync</div>'; btnCls='btn-dl pendente'; btnIcon='<i class="ti ti-clock" aria-hidden="true"></i>'; }
+    else if (jaDl) { tag='<div class="convite-item-tag verde">Descarregado</div>'; btnCls='btn-dl ja-dl'; btnIcon='<i class="ti ti-check" aria-hidden="true"></i>'; }
     item.innerHTML=`
+      <div class="convite-avatar">${initials}</div>
       <div class="convite-item-info">
         <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${tag}
       </div>
-      <button class="${btnCls}"
+      <button class="${btnCls}" aria-label="Descarregar convite de ${escHtml(conv.nome)}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
-        ${btnTxt}
+        ${btnIcon}
       </button>`;
     el.appendChild(item);
   });
@@ -1285,7 +1373,7 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
     else showToast('⚠️ PDF não disponível. Feche e reabra a página para regenerar.','#f59e0b');
     return;
   }
-  const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
+  const orig=btn.textContent; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i>';
   try {
     // Find mesa from loaded convites list
     const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
@@ -1415,7 +1503,7 @@ async function gerarConvite(nome, mesa) {
 ═══════════════════════════════════════════ */
 async function baixarConviteExistente(nome, codigo, id, btn) {
   if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
-  const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
+  const orig=btn.textContent; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i>';
   try {
     const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
     const mesaConv = convObj?.mesa || '';
@@ -1767,24 +1855,34 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
                 <!-- Lista de Convidados -->
                 <div class="bg-white rounded-xl shadow-sm">
-                    <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50">
-                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
-                                <i class="fas fa-users mr-3 text-blue-600"></i>Lista de Convidados
+                    <div style="padding:16px 20px;border-bottom:1.5px solid #e0f0eb;background:#f8fffe;">
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                            <h2 style="font-size:16px;font-weight:600;color:#1a1a2e;display:flex;align-items:center;gap:8px;margin:0;">
+                                <i class="ti ti-users" style="color:#5ba189;font-size:18px;"></i>Lista de Convidados
                             </h2>
-                            <div class="flex flex-col sm:flex-row gap-2">
-                                <input type="text" id="searchInput" placeholder="Procurar convidado..."
-                                       class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                                <select id="filterSelect" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                                    <option value="all">Todos</option>
-                                    <option value="scanned">Digitalizados</option>
-                                    <option value="pending">Pendentes</option>
-                                </select>
+                            <div style="display:flex;flex-direction:column;gap:8px;width:100%;">
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <div style="position:relative;flex:1;">
+                                        <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:13px;pointer-events:none;"></i>
+                                        <input type="text" id="searchInput" placeholder="Procurar por nome ou código..."
+                                               style="width:100%;padding:10px 12px 10px 34px;border:1.5px solid #d1fae5;border-radius:10px;font-size:14px;background:#f8fffe;font-family:inherit;-webkit-appearance:none;outline:none;"
+                                               oninput="renderGuestList()"
+                                               onfocus="this.style.borderColor='#5ba189';this.style.background='#fff'"
+                                               onblur="this.style.borderColor='#d1fae5';this.style.background='#f8fffe'">
+                                    </div>
+                                    <select id="filterSelect" onchange="renderGuestList()"
+                                            style="padding:10px 12px;border:1.5px solid #d1fae5;border-radius:10px;font-size:13px;background:#f8fffe;font-family:inherit;color:#374151;-webkit-appearance:none;outline:none;cursor:pointer;white-space:nowrap;">
+                                        <option value="all">Todos</option>
+                                        <option value="scanned">Entrados</option>
+                                        <option value="pending">Pendentes</option>
+                                    </select>
+                                </div>
+                                <div id="guestSearchCount" style="font-size:12px;color:#9ca3af;padding:0 2px;"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="overflow-hidden">
-                        <div id="guestList" class="max-h-96 overflow-y-auto">
+                    <div style="overflow:hidden;">
+                        <div id="guestList" style="max-height:420px;overflow-y:auto;-webkit-overflow-scrolling:touch;">
                             <table class="w-full">
                                 <thead class="bg-gray-50 sticky top-0">
                                     <tr>
@@ -2095,6 +2193,7 @@ window.addEventListener('offline', () => actualizarConexao(false));
 let realToken = null;
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     const token = (document.getElementById('leitor_tokenInput').value === '********' && realToken)
         ? realToken : document.getElementById('leitor_tokenInput').value.trim();
     if (!token) return;
@@ -2115,6 +2214,17 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         if (client.validade && client.validade < Math.floor(Date.now()/1000))
             throw new Error('Token expirado.');
 
+        // Verificar se o token tem QR Code activo
+        const { data: cfg, error: cfgErr } = await DB_LEITOR
+            .from('convite_config')
+            .select('qr_ativo')
+            .eq('token_cliente', token)
+            .single();
+
+        if (!cfgErr && cfg && cfg.qr_ativo === false) {
+            throw new Error('🚫 Este evento não inclui QR Code.\n\nO acesso ao leitor não está disponível para este token. Contacte o organizador.');
+        }
+
         currentClient = client;
 
         // Carregar undo_usages_remaining do Supabase
@@ -2131,8 +2241,20 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         updateUndoButton();
 
     } catch(err) {
-        document.getElementById('loginError').textContent = err.message;
-        document.getElementById('loginError').classList.remove('hidden');
+        const errDiv = document.getElementById('loginError');
+        const isQrBlock = err.message.includes('QR Code') || err.message.includes('não inclui');
+        if (isQrBlock) {
+            errDiv.style.borderColor = '#f59e0b';
+            errDiv.style.background = '#fffbeb';
+            errDiv.style.color = '#92400e';
+            errDiv.innerHTML = err.message.replace(/\n/g, '<br>');
+        } else {
+            errDiv.style.borderColor = '';
+            errDiv.style.background = '';
+            errDiv.style.color = '';
+            errDiv.textContent = err.message;
+        }
+        errDiv.classList.remove('hidden');
     } finally {
         document.getElementById('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-3"></i>Entrar no Sistema';
     }
@@ -2712,7 +2834,7 @@ function showNotification(msg, type = 'info', duration = 4000) {
 ═══════════════════════════════════════════ */
 function playFeedback(type) {
     if (settings.vibrationEnabled && navigator.vibrate) {
-        navigator.vibrate({ success:[200], warning:[100,100,100], error:[300,100,300] }[type] || [200]);
+        navigator.vibrate({ success:[60], warning:[80,60,80], error:[40,30,40,30,300] }[type] || [60]);
     }
     if (settings.soundEnabled) {
         try {
@@ -2720,9 +2842,13 @@ function playFeedback(type) {
             const osc  = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.connect(gain); gain.connect(ctx.destination);
-            osc.frequency.setValueAtTime({ success:800, warning:600, error:400 }[type] || 600, ctx.currentTime);
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            osc.start(); osc.stop(ctx.currentTime + 0.2);
+            const freqs = { success:880, warning:520, error:240 };
+            const durs  = { success:0.12, warning:0.18, error:0.25 };
+            osc.type = type === 'error' ? 'sawtooth' : type === 'warning' ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(freqs[type] || 600, ctx.currentTime);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (durs[type] || 0.15));
+            osc.start(); osc.stop(ctx.currentTime + (durs[type] || 0.15));
         } catch(e) {}
     }
 }
@@ -2923,6 +3049,15 @@ document.getElementById('manualSearchInput').addEventListener('input', () => {
             <button class="text-xs px-3 py-1.5 rounded-lg font-semibold" style="${btnStyle}">${btnLabel}</button>
         </div>`;
     }).join('');
+    const countEl = document.getElementById('guestSearchCount');
+    if (countEl) {
+        const total = guests.length;
+        const filtered = lista.length;
+        const scanned = guests.filter(g => scannedGuests.has(g.id)).length;
+        countEl.textContent = filtered < total
+            ? `${filtered} de ${total} convidados · ${scanned} entrados`
+            : `${total} convidado${total===1?'':'s'} · ${scanned} entrado${scanned===1?'':'s'}`;
+    }
 });
 
 function manualCheckin(guestId) {
@@ -3025,7 +3160,14 @@ function switchApp(app) {
   document.getElementById('panelLeitor').classList.toggle('active', app === 'leitor');
   document.getElementById('navGerador').classList.toggle('active', app === 'gerador');
   document.getElementById('navLeitor').classList.toggle('active', app === 'leitor');
+  try { sessionStorage.setItem('adkira_aba', app); } catch(e) {}
 }
+(function() {
+  try {
+    const aba = sessionStorage.getItem('adkira_aba');
+    if (aba && aba !== 'gerador') switchApp(aba);
+  } catch(e) {}
+})();
 </script>
 
 </body>
