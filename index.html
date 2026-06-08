@@ -3,31 +3,80 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>AdKira – Gerar Convite</title>
+  <title>AdKira – Gestão de Convites</title>
 
+  <!-- Gerador scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
+  <!-- Leitor scripts -->
+  
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.tailwindcss.com?v=3.4.0"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    /* ===== NAVEGAÇÃO ENTRE APPS ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overscroll-behavior: none; }
+
+    .app-nav {
+      display: flex;
+      background: #5ba189;
+      padding: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10000;
+      box-shadow: 0 2px 12px rgba(91,161,137,0.4);
+    }
+    .app-nav-btn {
+      flex: 1;
+      padding: 14px 10px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.65);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      transition: all .2s;
+      border-bottom: 3px solid transparent;
+      letter-spacing: .3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    .app-nav-btn.active {
+      color: white;
+      border-bottom-color: white;
+      background: rgba(255,255,255,0.12);
+    }
+    .app-nav-btn:active { opacity: .8; }
+
+    .app-panel { display: none; }
+    .app-panel.active { display: block; }
+
+    /* ===== GERADOR CSS ===== */
+    
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html, body { height: 100%; overscroll-behavior: none; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh; min-height: -webkit-fill-available;
-      padding: 16px;
-      padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
     .card {
       background: white; border-radius: 24px; padding: 28px 20px;
       max-width: 480px; width: 100%; margin: 0 auto;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.25);
+      box-shadow: 0 2px 16px rgba(91,161,137,0.12), 0 1px 4px rgba(0,0,0,0.06);
       overflow: hidden; position: relative;
+      border: 1px solid #e0f0eb;
     }
     .logo { text-align: center; margin-bottom: 22px; }
-    .logo h1 { font-size: 26px; font-weight: 800; color: #1a1a2e; }
+    .logo h1 { font-size: 26px; font-weight: 800; color: #5ba189; }
     .logo p  { font-size: 13px; color: #6b7280; margin-top: 4px; }
 
     .step {
@@ -46,7 +95,7 @@
       font-size: 16px; font-family: inherit;
       transition: border-color .2s; -webkit-appearance: none;
     }
-    input:focus { outline: none; border-color: #667eea; }
+    input:focus { outline: none; border-color: #5ba189; }
     input.input-error { border-color: #ef4444; }
     input.input-ok    { border-color: #10b981; }
 
@@ -60,25 +109,25 @@
       font-family: inherit; transition: transform .1s, opacity .1s;
       min-height: 52px; -webkit-appearance: none; touch-action: manipulation;
     }
-    .btn-main    { background: linear-gradient(135deg,#667eea,#764ba2); color: white; box-shadow: 0 4px 14px rgba(102,126,234,.4); }
+    .btn-main    { background: linear-gradient(135deg,#5ba189,#3d8a6e); color: white; box-shadow: 0 4px 14px rgba(91,161,137,.4); }
     .btn-main:active    { transform: scale(0.97); opacity: .9; }
     .btn-main:disabled  { opacity: .5; cursor: not-allowed; transform: none; }
     .btn-ghost   { background: #f3f4f6; color: #374151; }
     .btn-ghost:active   { background: #e5e7eb; transform: scale(0.97); }
     .btn-warning { background: #fffbeb; color: #92400e; border: 2px solid #fcd34d; }
     .btn-warning:active { background: #fef3c7; transform: scale(0.97); }
-    .btn-outline { background: white; color: #667eea; border: 2px solid #667eea; min-height: 40px; padding: 8px 14px; font-size: 13px; }
-    .btn-outline:active { background: #f0f1ff; transform: scale(0.97); }
+    .btn-outline { background: white; color: #5ba189; border: 2px solid #5ba189; min-height: 40px; padding: 8px 14px; font-size: 13px; }
+    .btn-outline:active { background: #edf7f3; transform: scale(0.97); }
     .btn-danger  { background: #fef2f2; color: #991b1b; border: 2px solid #fca5a5; }
     .btn-danger:active  { background: #fee2e2; transform: scale(0.97); }
 
     .info { border-radius: 12px; padding: 13px 15px; font-size: 14px; line-height: 1.5; }
-    .info.blue   { background: #f0f1ff; color: #4338ca; }
+    .info.blue   { background: #edf7f3; color: #3d8a6e; }
     .info.green  { background: #f0fdf4; color: #065f46; font-weight: 600; }
     .info.red    { background: #fef2f2; color: #991b1b; }
     .info.yellow { background: #fffbeb; color: #92400e; }
     .info.orange { background: #fff7ed; color: #9a3412; font-weight: 600; }
-    .info.purple { background: #faf5ff; color: #6d28d9; font-weight: 600; }
+    .info.purple { background: #edf7f3; color: #3d8a6e; font-weight: 600; }
 
     .erro-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 0; }
     .erro-icon   { font-size: 48px; line-height: 1; }
@@ -96,12 +145,12 @@
       color: white;
     }
     .offline-banner      { background: #ef4444; z-index: 9998; font-size: 14px; }
-    .offline-mode-banner { background: #7c3aed; z-index: 9997; }
+    .offline-mode-banner { background: #5ba189; z-index: 9997; }
     .realtime-banner     { background: #f59e0b; z-index: 9996; }
     .offline-banner.visible, .offline-mode-banner.visible, .realtime-banner.visible { transform: translateY(0); }
 
     .counter-box {
-      background: linear-gradient(135deg,#667eea,#764ba2);
+      background: linear-gradient(135deg,#5ba189,#3d8a6e);
       border-radius: 16px; padding: 18px 12px 14px;
       display: flex; flex-direction: column; gap: 12px;
     }
@@ -124,57 +173,57 @@
     .offline-creditos-badge .dot-off { width: 8px; height: 8px; border-radius: 50%; background: #fbbf24; flex-shrink: 0; }
 
     .rate-bar-wrap {
-      width: 100%; height: 3px; background: rgba(102,126,234,.15);
+      width: 100%; height: 3px; background: rgba(91,161,137,.15);
       border-radius: 99px; overflow: hidden; transition: opacity .3s;
     }
     .rate-bar {
-      height: 100%; background: linear-gradient(90deg,#667eea,#764ba2);
+      height: 100%; background: linear-gradient(90deg,#5ba189,#3d8a6e);
       border-radius: 99px; width: 0%; transition: width linear;
     }
 
     .sync-pendente {
       display: flex; align-items: center; gap: 10px;
-      background: #faf5ff; border: 1.5px solid #c4b5fd;
-      border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #6d28d9;
+      background: #edf7f3; border: 1.5px solid #d0ede6;
+      border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #3d8a6e;
     }
     .sync-pendente .sync-icon  { font-size: 20px; flex-shrink: 0; }
     .sync-pendente .sync-texto { flex: 1; line-height: 1.4; }
-    .sync-pendente .sync-btn   { width: auto; min-height: 36px; padding: 6px 14px; font-size: 12px; background: #7c3aed; color: white; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; flex-shrink: 0; }
+    .sync-pendente .sync-btn   { width: auto; min-height: 36px; padding: 6px 14px; font-size: 12px; background: #5ba189; color: white; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; flex-shrink: 0; }
     .sync-pendente .sync-btn:active { opacity: .8; transform: scale(0.97); }
     .sync-pendente .sync-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     .divider { height: 1px; background: #e5e7eb; margin: 2px 0; }
 
     .loading-box { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 0; }
-    .spinner { width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: spin .8s linear infinite; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #5ba189; border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-box p { font-size: 14px; color: #6b7280; text-align: center; }
     .timeout-bar-wrap { width: 100%; background: #e5e7eb; border-radius: 99px; height: 4px; overflow: hidden; display: none; }
-    .timeout-bar { height: 100%; background: #667eea; border-radius: 99px; width: 100%; transition: width linear; }
+    .timeout-bar { height: 100%; background: #5ba189; border-radius: 99px; width: 100%; transition: width linear; }
 
     .session-restore { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 36px 0 20px; }
-    .session-restore .spinner-lg { width: 52px; height: 52px; border: 5px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: spin .8s linear infinite; }
+    .session-restore .spinner-lg { width: 52px; height: 52px; border: 5px solid #e5e7eb; border-top-color: #5ba189; border-radius: 50%; animation: spin .8s linear infinite; }
     .session-restore p { font-size: 15px; color: #6b7280; font-weight: 500; text-align: center; }
 
     .convites-header { display: flex; align-items: center; gap: 8px; }
     .convites-search { flex: 1; padding: 11px 14px; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 16px; font-family: inherit; transition: border-color .2s; -webkit-appearance: none; }
-    .convites-search:focus { outline: none; border-color: #667eea; }
+    .convites-search:focus { outline: none; border-color: #5ba189; }
     .convites-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
 
     .convites-lista { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .convite-item { display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fafafa; gap: 10px; transition: border-color .2s, background .2s; }
     .convite-item.ja-descarregado { background: #f0fdf4; border-color: #86efac; }
-    .convite-item.offline-pendente { background: #faf5ff; border-color: #c4b5fd; }
+    .convite-item.offline-pendente { background: #edf7f3; border-color: #d0ede6; }
     .convite-item-info { flex: 1; min-width: 0; }
     .convite-item-nome { font-size: 14px; font-weight: 600; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .convite-item-tag  { font-size: 11px; margin-top: 2px; }
     .convite-item-tag.verde { color: #10b981; font-weight: 600; }
-    .convite-item-tag.roxo  { color: #7c3aed; font-weight: 600; }
-    .btn-dl { flex-shrink: 0; width: auto; padding: 10px 16px; background: #667eea; color: white; border-radius: 10px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; min-height: 44px; touch-action: manipulation; }
-    .btn-dl:active   { background: #5568d3; transform: scale(0.96); }
+    .convite-item-tag.roxo  { color: #5ba189; font-weight: 600; }
+    .btn-dl { flex-shrink: 0; width: auto; padding: 10px 16px; background: #5ba189; color: white; border-radius: 10px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; min-height: 44px; touch-action: manipulation; }
+    .btn-dl:active   { background: #3d8a6e; transform: scale(0.96); }
     .btn-dl.ja-dl    { background: #d1fae5; color: #065f46; }
     .btn-dl.ja-dl:active { background: #a7f3d0; }
-    .btn-dl.pendente { background: #ede9fe; color: #6d28d9; }
+    .btn-dl.pendente { background: #edf7f3; color: #3d8a6e; }
 
     .section-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
 
@@ -188,34 +237,94 @@
     @media (min-width: 540px) { .modal-handle { display: none; } }
     .modal-title { font-size: 18px; font-weight: 800; color: #1a1a2e; text-align: center; }
     .modal-body  { font-size: 14px; color: #6b7280; text-align: center; line-height: 1.6; }
-    .modal-nome  { font-size: 20px; font-weight: 800; color: #667eea; text-align: center; padding: 14px; background: #f0f1ff; border-radius: 12px; word-break: break-word; }
+    .modal-nome  { font-size: 20px; font-weight: 800; color: #5ba189; text-align: center; padding: 14px; background: #edf7f3; border-radius: 12px; word-break: break-word; }
     .modal-nome.duplicado { color: #92400e; background: #fffbeb; border: 2px solid #fcd34d; }
     .modal-actions { display: flex; flex-direction: column; gap: 10px; }
 
-    .ios-hint { background: #f0f1ff; border-radius: 12px; padding: 14px 16px; font-size: 14px; color: #4338ca; line-height: 1.6; text-align: center; display: none; }
+    .ios-hint { background: #edf7f3; border-radius: 12px; padding: 14px 16px; font-size: 14px; color: #3d8a6e; line-height: 1.6; text-align: center; display: none; }
 
     .toast { position: fixed; bottom: max(24px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 14px 24px; border-radius: 14px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 9999; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; animation: fadeInUp .3s ease; }
     @keyframes fadeInUp { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
 
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #5ba189; border-radius: 4px; }
 
     .tab-btn { width: auto; min-height: 36px; padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 10px; background: #f3f4f6; color: #6b7280; border: 1.5px solid #e5e7eb; cursor: pointer; transition: all .15s; }
-    .tab-btn.tab-active { background: #667eea; color: white; border-color: #667eea; }
+    .tab-btn.tab-active { background: #5ba189; color: white; border-color: #5ba189; }
     .tab-btn:active { transform: scale(0.96); }
 
     .mesa-group { margin-bottom: 10px; }
-    .mesa-group-title { font-size: 12px; font-weight: 800; color: #7c3aed; text-transform: uppercase; letter-spacing: .5px; padding: 6px 10px; background: #ede9fe; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
-    .mesa-group-count { font-size: 11px; background: #7c3aed; color: white; border-radius: 99px; padding: 1px 7px; font-weight: 700; margin-left: auto; }
+    .mesa-group-title { font-size: 12px; font-weight: 800; color: #5ba189; text-transform: uppercase; letter-spacing: .5px; padding: 6px 10px; background: #edf7f3; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .mesa-group-count { font-size: 11px; background: #5ba189; color: white; border-radius: 99px; padding: 1px 7px; font-weight: 700; margin-left: auto; }
+  
+
+    /* ===== LEITOR CSS ===== */
+    
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .scanner-container { position: relative; border-radius: 12px; overflow: hidden; }
+        .tab-button { transition: all 0.3s ease; }
+        .tab-button.active {
+            background-color: rgba(90, 161, 137, 0.1);
+            color: #5aa189;
+            border-bottom-color: #5aa189;
+        }
+        .tab-content { display: block; }
+        .tab-content.hidden { display: none; }
+        .mobile-bottom-actions {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: white; padding: 16px;
+            box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.1);
+            z-index: 50; border-top: 1px solid #e5e7eb;
+        }
+        .mobile-bottom-actions button {
+            width: 100%; padding: 16px; font-size: 18px;
+            font-weight: 600; border-radius: 12px;
+            transition: all 0.2s ease; touch-action: manipulation;
+        }
+        .scanner-no-zoom {
+            touch-action: pan-x pan-y; user-select: none;
+            -webkit-user-select: none; -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .feedback-success { animation: successPulse 0.6s ease-out; }
+        .feedback-error   { animation: errorShake 0.6s ease-out; }
+        .feedback-warning { animation: warningBounce 0.6s ease-out; }
+        @keyframes successPulse  { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        @keyframes errorShake    { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+        @keyframes warningBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        .offline-badge {
+            display:inline-flex; align-items:center; gap:6px;
+            background:#fef3c7; color:#92400e; border:1px solid #fcd34d;
+            border-radius:8px; padding:4px 10px; font-size:12px; font-weight:600;
+        }
+        .offline-badge.online { background:#f0fdf4; color:#065f46; border-color:#86efac; }
+        .sync-queue-bar {
+            background:#7c3aed; color:white; text-align:center;
+            padding:8px; font-size:13px; font-weight:600;
+            position:fixed; top:0; left:0; right:0; z-index:9999;
+            transform:translateY(-100%); transition:transform .3s;
+        }
+        .sync-queue-bar.visible { transform:translateY(0); }
+    
   </style>
 </head>
 <body>
 
+<!-- NAVEGAÇÃO PRINCIPAL -->
 <div class="offline-banner"      id="offlineBanner">📵 Sem ligação à internet — verifique o WiFi ou dados móveis</div>
 <div class="offline-mode-banner" id="offlineModeBanner">📴 Modo offline — a gerar localmente (sem QR)</div>
 <div class="realtime-banner"     id="realtimeBanner">⚠️ Actualizações em tempo real desligadas — a reconectar...</div>
 
-<div class="modal-overlay hidden" id="modalOverlay">
+<nav class="app-nav">
+  <button class="app-nav-btn active" id="navGerador" onclick="switchApp('gerador')">🎟️ Gerador</button>
+  <button class="app-nav-btn"        id="navLeitor"  onclick="switchApp('leitor')">📷 Leitor QR</button>
+</nav>
+
+<!-- PAINEL GERADOR -->
+<div class="app-panel active" id="panelGerador">
+  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: white; min-height: calc(100vh - 47px); padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); box-sizing: border-box;">
+    <div class="modal-overlay hidden" id="modalOverlay">
   <div class="modal-box">
     <div class="modal-handle"></div>
     <div class="modal-title"   id="modalTitle"></div>
@@ -357,6 +466,8 @@
 </div>
 
 <script>
+(function() {
+
 /* ═══════════════════════════════════════════
    SUPABASE
 ═══════════════════════════════════════════ */
@@ -651,7 +762,7 @@ async function sincronizarFila() {
   if (filaOffline.length === 0) return;
   const btn = document.querySelector('#syncPendente .sync-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
-  showToast('🔄 A sincronizar...', '#7c3aed');
+  showToast('🔄 A sincronizar...', '#5ba189');
   const falhados = [];
   for (const item of filaOffline) {
     try {
@@ -698,7 +809,7 @@ function iniciarRealtime(token) {
       clienteData.nome         = p.new.nome;
       clienteData.validade     = p.new.validade;
       document.getElementById('eventoNomeBox').textContent = '🎉 ' + p.new.nome;
-      actualizarContador(); iniciarTimerValidade(); haptic('light'); showToast('🔄 Evento actualizado!', '#667eea');
+      actualizarContador(); iniciarTimerValidade(); haptic('light'); showToast('🔄 Evento actualizado!', '#5ba189');
     })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, (p) => {
       if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
@@ -1075,7 +1186,7 @@ function renderizarConvites(lista, termo) {
     const item   = document.createElement('div');
     item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
     let tag='', btnCls='btn-dl', btnTxt = isIOS ? '📤' : '📥';
-    const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#7c3aed;font-weight:600;">🪑 ${escHtml(conv.mesa)}</div>` : '';
+    const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#5ba189;font-weight:600;">🪑 ${escHtml(conv.mesa)}</div>` : '';
     if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline — por sincronizar</div>'; btnCls='btn-dl pendente'; }
     else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado nesta sessão</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
     item.innerHTML=`
@@ -1244,7 +1355,7 @@ async function gerarConvite(nome, mesa) {
       iniciarRateLimit();
       actualizarContador(); actualizarBannersOffline(); haptic('success'); showStep('step2');
       const restam = creditosOfflineRestantes();
-      showToast(`✅ Convite offline gerado! Restam ${restam} crédito${restam===1?'':'s'}.`, '#7c3aed');
+      showToast(`✅ Convite offline gerado! Restam ${restam} crédito${restam===1?'':'s'}.`, '#5ba189');
       await carregarConvitesGerados();
     } else {
       let conviteId = null;
@@ -1291,7 +1402,7 @@ async function gerarConvite(nome, mesa) {
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
       iniciarRateLimit();
       actualizarContador(); haptic('success'); showStep('step2');
-      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#667eea'); }
+      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
       else showToast(`✅ Convite de ${nome} gerado!`);
     }
   } catch(e) {
@@ -1354,7 +1465,7 @@ async function gerarPDF(nome,codigo,qrDataUrl,config,mesa){
         // Mesa element: use mesa size/color from config
         const isMesaEl = el.elementType==='mesa';
         const fontSize=(parseFloat(el.fontSize)||(isMesaEl?config.tamanho_mesa:config.tamanho_nome)||16)*scaleX;
-        const corHex = isMesaEl ? (el.color||config.cor_mesa||'#7c3aed') : (el.color||config.cor_nome||'#1a1a2e');
+        const corHex = isMesaEl ? (el.color||config.cor_mesa||'#5ba189') : (el.color||config.cor_nome||'#1a1a2e');
         const cor=hexToRgb(normalizarCor(corHex));
         let font;
         if(customFont)font=customFont;
@@ -1376,6 +1487,1546 @@ async function gerarPDF(nome,codigo,qrDataUrl,config,mesa){
 function normalizarCor(cor){if(!cor)return'#1a1a2e';cor=cor.trim();if(cor.startsWith('#'))return cor;if(cor.startsWith('rgb')){const m=cor.match(/\d+/g);if(!m||m.length<3)return'#1a1a2e';return'#'+[m[0],m[1],m[2]].map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');}return'#1a1a2e';}
 function hexToRgb(hex){hex=(hex||'#000000').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const n=parseInt(hex,16);if(isNaN(n))return{r:0,g:0,b:0};return{r:((n>>16)&255)/255,g:((n>>8)&255)/255,b:(n&255)/255};}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// Expose to global scope
+  window.baixarOuPartilhar = typeof baixarOuPartilhar !== "undefined" ? baixarOuPartilhar : window.baixarOuPartilhar;
+  window.filtrarConvites = typeof filtrarConvites !== "undefined" ? filtrarConvites : window.filtrarConvites;
+  window.mudarTab = typeof mudarTab !== "undefined" ? mudarTab : window.mudarTab;
+  window.pedirConfirmacaoGerar = typeof pedirConfirmacaoGerar !== "undefined" ? pedirConfirmacaoGerar : window.pedirConfirmacaoGerar;
+  window.pedirConfirmacaoSair = typeof pedirConfirmacaoSair !== "undefined" ? pedirConfirmacaoSair : window.pedirConfirmacaoSair;
+  window.recarregarLista = typeof recarregarLista !== "undefined" ? recarregarLista : window.recarregarLista;
+  window.sincronizarFila = typeof sincronizarFila !== "undefined" ? sincronizarFila : window.sincronizarFila;
+  window.tentarRetry = typeof tentarRetry !== "undefined" ? tentarRetry : window.tentarRetry;
+  window.toggleErroDetalhe = typeof toggleErroDetalhe !== "undefined" ? toggleErroDetalhe : window.toggleErroDetalhe;
+  window.validarNomeInput = typeof validarNomeInput !== "undefined" ? validarNomeInput : window.validarNomeInput;
+  window.validarToken = typeof validarToken !== "undefined" ? validarToken : window.validarToken;
+  window.voltarPainel = typeof voltarPainel !== "undefined" ? voltarPainel : window.voltarPainel;
+  window.voltarStep1 = typeof voltarStep1 !== "undefined" ? voltarStep1 : window.voltarStep1;
+  window.baixarConviteExistente = typeof baixarConviteExistente !== "undefined" ? baixarConviteExistente : window.baixarConviteExistente;
+  window.pedirConfirmacaoSair = typeof pedirConfirmacaoSair !== "undefined" ? pedirConfirmacaoSair : window.pedirConfirmacaoSair;
+})();
 </script>
+  </div>
+</div>
+
+
+  </div>
+</div>
+
+<!-- PAINEL LEITOR -->
+<div class="app-panel" id="panelLeitor">
+  <div class="bg-gray-50" style="min-height: calc(100vh - 47px);">
+    <div class="sync-queue-bar" id="syncQueueBar">
+    🔄 <span id="syncQueueText">0 scans por sincronizar</span> — a aguardar ligação...
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen" class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex flex-col items-center justify-center p-4">
+    <div class="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg" style="background:linear-gradient(135deg,#5aa189,#4a9d7a);">
+                <i class="fas fa-qrcode text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold" style="color:#5aa189;">QR Scanner</h1>
+            <p class="text-gray-600 mt-2 text-lg">Controlo de Acesso</p>
+        </div>
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-3">Token do Evento</label>
+                <input type="text" id="leitor_tokenInput"
+                       class="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl transition-all duration-200 bg-gray-50/50"
+                       placeholder="Introduza o seu token" required>
+            </div>
+            <button type="submit" id="loginBtn"
+                    class="w-full text-white py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg"
+                    style="background:linear-gradient(135deg,#5aa189,#4a9d7a);">
+                <i class="fas fa-sign-in-alt mr-3"></i>Entrar no Sistema
+            </button>
+        </form>
+        <div id="loginError" class="hidden mt-6 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg text-red-700"></div>
+    </div>
+    <div class="text-center mt-12 text-sm text-gray-500">
+        <div class="flex items-center justify-center space-x-2">
+            <i class="fas fa-heart text-red-400"></i>
+            <span>Created by Invites <span id="currentYear"></span></span>
+        </div>
+    </div>
+</div>
+
+<!-- Main App -->
+<div id="mainApp" class="hidden min-h-screen">
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+            <div class="flex justify-between items-center h-14 sm:h-16">
+                <div class="flex items-center min-w-0 flex-1 gap-2">
+                    <h1 class="text-lg sm:text-xl font-semibold text-gray-800 truncate" id="eventTitle">Evento</h1>
+                    <span id="statusBadge" class="offline-badge online">
+                        <span id="statusDot" class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                        <span id="statusText">Online</span>
+                    </span>
+                </div>
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="text-xs sm:text-sm text-gray-600 hidden sm:block">
+                        <span id="scannedCount">0</span> / <span id="totalGuests">0</span> digitalizados
+                    </div>
+                    <button id="logoutBtn" class="text-gray-500 hover:text-gray-700 p-2">
+                        <i class="fas fa-sign-out-alt text-sm sm:text-base"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+        <div class="bg-white border-b">
+            <div class="flex space-x-0">
+                <button id="scannerTab" class="tab-button active flex-1 px-4 py-3 text-sm sm:text-base font-medium border-b-2 rounded-t-lg" style="border-color:#5aa189;color:#5aa189;background-color:rgba(90,161,137,0.1);">
+                    <i class="fas fa-qrcode mr-1 sm:mr-2"></i>Scanner
+                </button>
+                <button id="optionsTab" class="tab-button flex-1 px-4 py-3 text-sm sm:text-base font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 rounded-t-lg">
+                    <i class="fas fa-cog mr-1 sm:mr-2"></i>Opções
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4">
+
+<!-- Modal: Acompanhante -->
+<div id="companionModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm text-center">
+        <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background:linear-gradient(135deg,#5aa189,#4a9d7a);">
+            <i class="fas fa-user-friends text-white text-2xl"></i>
+        </div>
+        <h2 class="text-xl font-bold text-gray-800 mb-1">Convidado com Acompanhante</h2>
+        <div class="text-sm text-gray-500 mb-3">Confirme quem entrou:</div>
+        <div class="flex gap-2 justify-center mb-4">
+            <span class="px-3 py-1 rounded-full text-sm font-semibold" style="background:rgba(90,161,137,0.12);color:#5aa189;" id="companionTitularName"></span>
+            <span class="text-gray-400 flex items-center text-sm">e</span>
+            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-purple-50 text-purple-700" id="companionAcompName"></span>
+        </div>
+        <p class="font-medium text-gray-700 mb-4">O acompanhante veio junto?</p>
+        <div class="flex gap-3">
+            <button id="companionYes" class="flex-1 py-3 rounded-xl text-white font-bold text-base transition-all" style="background:linear-gradient(135deg,#5aa189,#4a9d7a);">
+                <i class="fas fa-check mr-2"></i>Sim
+            </button>
+            <button id="companionNo" class="flex-1 py-3 rounded-xl bg-gray-200 text-gray-700 font-bold text-base transition-all hover:bg-gray-300">
+                <i class="fas fa-times mr-2"></i>Não
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Check-in Manual -->
+<div id="manualCheckinModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-search" style="color:#5aa189;"></i>Check-in Manual
+            </h2>
+            <button id="closeManualModal" class="text-gray-400 hover:text-gray-600 p-1">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        <input type="text" id="manualSearchInput" placeholder="Pesquisar nome do convidado..."
+               class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:border-transparent outline-none mb-3"
+               style="--tw-ring-color:#5aa189;">
+        <div id="manualSearchResults" class="max-h-64 overflow-y-auto divide-y divide-gray-100 rounded-xl border border-gray-100"></div>
+    </div>
+</div>
+
+        <!-- Scanner Tab -->
+        <div id="scannerTabContent" class="tab-content">
+            <div style="padding-bottom:100px;">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <!-- Botão Check-in Manual -->
+                            <button id="openManualCheckinBtn" class="w-full mb-4 py-3 px-4 rounded-xl border-2 font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90"
+                                style="border-color:#5aa189;color:#5aa189;background-color:rgba(90,161,137,0.07);">
+                                <i class="fas fa-search"></i>Check-in sem QR Code (pesquisar por nome)
+                            </button>
+                            <div id="scannerContainer" class="scanner-container scanner-no-zoom bg-gray-900 rounded-2xl h-[300px] flex items-center justify-center mx-auto border-4 border-gray-300 shadow-2xl">
+                                <div class="text-center text-gray-400 px-6">
+                                    <i class="fas fa-qrcode text-5xl mb-4 text-gray-500"></i>
+                                    <p class="text-lg font-medium">A inicializar scanner...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                            <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-clipboard-check mr-2" style="color:#5aa189;"></i>Resultado
+                            </h3>
+                            <div id="scanResult" class="hidden p-4 rounded-lg text-center border-l-4 transform transition-all duration-300"></div>
+                            <div id="scanResultPlaceholder" class="text-center text-gray-400 py-8">
+                                <i class="fas fa-qrcode text-3xl mb-2"></i>
+                                <p class="text-sm">Aguardando scan...</p>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-chart-line mr-2 text-green-600"></i>Progresso
+                            </h3>
+                            <div class="text-center mb-4">
+                                <div class="text-3xl font-bold text-blue-600" id="scannerProgressText">0%</div>
+                                <div class="text-sm text-gray-600">Concluído</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                                <div id="scannerProgressBar" class="h-3 rounded-full transition-all duration-500" style="width:0%;background:linear-gradient(90deg,#5aa189,#4a9d7a);"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-center">
+                                <div class="p-3 rounded-lg" style="background-color:rgba(90,161,137,0.1);">
+                                    <div class="text-xl font-bold" style="color:#5aa189;" id="scannerScannedCount">0</div>
+                                    <div class="text-xs" style="color:#4a9d7a;">Escaneados</div>
+                                </div>
+                                <div class="bg-blue-50 p-3 rounded-lg">
+                                    <div class="text-xl font-bold text-blue-600" id="scannerTotalGuestCount">0</div>
+                                    <div class="text-xs text-blue-700">Total</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Options Tab -->
+        <div id="optionsTabContent" class="tab-content hidden">
+            <div class="space-y-6">
+
+                <!-- Token Info -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-key mr-3" style="color:#5aa189;"></i>Informações do Token
+                    </h2>
+                    <div class="p-6 rounded-xl mb-6 text-white text-center" id="countdownWrapper" style="background:linear-gradient(135deg,#5aa189,#4a9d7a);">
+                        <div class="flex items-center justify-center mb-3">
+                            <i class="fas fa-clock text-3xl mr-3"></i>
+                            <h3 class="text-xl font-bold">Tempo Restante</h3>
+                        </div>
+                        <div id="countdownClock" class="text-2xl sm:text-4xl font-mono font-bold mb-2">
+                            <span id="countdownDays">00</span>d
+                            <span id="countdownHours">00</span>h
+                            <span id="countdownMinutes">00</span>m
+                            <span id="countdownSeconds">00</span>s
+                        </div>
+                        <div id="countdownStatus" class="text-sm opacity-80">Calculando...</div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-calendar-alt text-blue-600 mr-2"></i>
+                                <h3 class="font-medium text-gray-800">Data de Validade</h3>
+                            </div>
+                            <div id="tokenExpiryDate" class="text-lg font-bold text-blue-600">A carregar...</div>
+                            <div id="tokenExpiryCountdown" class="text-sm text-gray-600 mt-1">Calculando...</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-shield-alt text-green-600 mr-2"></i>
+                                <h3 class="font-medium text-gray-800">Status do Token</h3>
+                            </div>
+                            <div id="tokenStatus" class="text-lg font-bold text-green-600">Ativo</div>
+                            <div class="text-sm text-gray-600 mt-1">Token válido e funcional</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estatísticas -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-chart-bar mr-3 text-blue-600"></i>Estatísticas do Evento
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="bg-green-50 p-4 rounded-lg text-center border border-green-200">
+                            <div class="text-3xl font-bold text-green-600" id="confirmedCount">0</div>
+                            <div class="text-sm text-green-700 mt-1">Confirmados</div>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg text-center border border-yellow-200">
+                            <div class="text-3xl font-bold text-yellow-600" id="pendingCount">0</div>
+                            <div class="text-sm text-yellow-700 mt-1">Pendentes</div>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-gray-800 flex items-center">
+                                <i class="fas fa-wifi mr-2 text-blue-600"></i>Status da Conexão
+                            </h3>
+                            <span id="connectionStatus" class="flex items-center text-sm text-green-700">
+                                <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>Online
+                            </span>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-600" id="offlineQueueInfo" style="display:none;">
+                            <i class="fas fa-clock mr-1 text-yellow-600"></i>
+                            <span id="offlineQueueCount">0</span> scans por sincronizar
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Convidados -->
+                <div class="bg-white rounded-xl shadow-sm">
+                    <div class="p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+                        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                            <h2 class="text-xl font-semibold text-gray-800 flex items-center">
+                                <i class="fas fa-users mr-3 text-blue-600"></i>Lista de Convidados
+                            </h2>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <input type="text" id="searchInput" placeholder="Procurar convidado..."
+                                       class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                                <select id="filterSelect" class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">Todos</option>
+                                    <option value="scanned">Digitalizados</option>
+                                    <option value="pending">Pendentes</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="overflow-hidden">
+                        <div id="guestList" class="max-h-96 overflow-y-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50 sticky top-0">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nome</th>
+                                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="guestTableBody" class="bg-white divide-y divide-gray-200">
+                                    <tr><td colspan="2" class="text-center text-gray-500 py-8">A carregar...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feedback -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-volume-up mr-3 text-green-600"></i>Configurações de Feedback
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                            <div>
+                                <h3 class="font-medium text-gray-800"><i class="fas fa-volume-up mr-2 text-green-600"></i>Som</h3>
+                                <p class="text-sm text-gray-600 mt-1">Feedback sonoro nos scans</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="soundToggle" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            </label>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-200">
+                            <div>
+                                <h3 class="font-medium text-gray-800"><i class="fas fa-mobile-alt mr-2 text-purple-600"></i>Vibração</h3>
+                                <p class="text-sm text-gray-600 mt-1">Feedback tátil nos scans</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="vibrationToggle" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div>
+                                <h3 class="font-medium text-gray-800"><i class="fas fa-bell mr-2 text-blue-600"></i>Notificações</h3>
+                                <p class="text-sm text-gray-600 mt-1">Alertas e marcos do evento</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="notificationsToggle" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ações Rápidas -->
+                <div class="bg-white rounded-xl shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-bolt mr-3 text-yellow-600"></i>Ações Rápidas
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <button id="refreshDataBtn" class="bg-gray-600 text-white py-4 px-6 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
+                            <i class="fas fa-refresh mr-3"></i>Atualizar
+                        </button>
+                        <button id="syncBtn" class="bg-green-600 text-white py-4 px-6 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
+                            <i class="fas fa-sync-alt mr-3"></i>Sincronizar
+                        </button>
+                        <button id="exportBtn" class="bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
+                            <i class="fas fa-download mr-3"></i>Exportar
+                        </button>
+                        <button id="undoScansBtn" class="bg-red-600 text-white py-4 px-6 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
+                            <i class="fas fa-undo mr-3"></i>Desfazer
+                        </button>
+                    </div>
+                    <div id="undoUsageInfo" class="mt-4 text-center text-sm text-gray-600">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Restam <span id="undoUsagesLeft">3</span> utilizações do botão desfazer
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="mobileBottomActions" class="mobile-bottom-actions hidden">
+            <button id="nextScanBtn" class="text-white" style="background-color:#5aa189;">
+                <i class="fas fa-arrow-right mr-3"></i>Próximo Scan
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+
+/* ═══════════════════════════════════════════
+   SUPABASE
+═══════════════════════════════════════════ */
+const SUPABASE_URL      = 'https://rnvunprjvppbjavkaoek.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
+let DB_LEITOR = null;
+window.addEventListener('load', () => {
+    if (typeof supabase !== 'undefined') {
+        DB_LEITOR = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+});
+
+/* ═══════════════════════════════════════════
+   ESTADO GLOBAL
+═══════════════════════════════════════════ */
+let currentClient       = null;
+let guests              = [];
+let scannedGuests       = new Set();
+// Tracks guests whose companion also entered (both fully scanned)
+let companionScanned    = new Set();
+// Tracks guests waiting for companion-only second scan
+let awaitingCompanionScan = null;
+let _lastCompanionName    = '';
+let scanQueue           = [];
+let html5QrCode         = null;
+let isScanning          = false;
+let scanPaused          = false;
+let isOnline            = navigator.onLine;
+let realtimeChannel     = null;
+let undoUsagesRemaining = 3;
+
+/* ═══════════════════════════════════════════
+   ACOMPANHANTE — detecção automática pelo nome
+   Ex: "Artur e Esposa", "João e Maria"
+═══════════════════════════════════════════ */
+function temAcompanhante(guest) {
+    if (!guest || !guest.nome) return false;
+    return / e /i.test(guest.nome);
+}
+
+function nomeTitular(guest) {
+    if (!guest || !guest.nome) return '';
+    return guest.nome.split(/ e /i)[0].trim();
+}
+
+function nomeAcompanhante(guest) {
+    if (!guest || !guest.nome) return '';
+    const partes = guest.nome.split(/ e /i);
+    return partes.length > 1 ? partes.slice(1).join(' e ').trim() : '';
+}
+
+/* ═══════════════════════════════════════════
+   CHAVES localStorage (apenas cache offline)
+═══════════════════════════════════════════ */
+const LS_TOKEN      = 'adkira_leitor_token';
+const LS_GUESTS     = 'adkira_leitor_guests';
+const LS_SCANNED    = 'adkira_leitor_scanned';
+const LS_QUEUE      = 'adkira_leitor_queue';
+const LS_SETTINGS   = 'adkira_leitor_settings';
+const LS_COMP_DONE  = 'adkira_leitor_comp_done';
+
+/* ═══════════════════════════════════════════
+   PERSISTÊNCIA LOCAL (cache offline)
+   undo_usages_remaining vem sempre do Supabase
+═══════════════════════════════════════════ */
+function salvarCache() {
+    try {
+        localStorage.setItem(LS_GUESTS,    JSON.stringify(guests));
+        localStorage.setItem(LS_SCANNED,   JSON.stringify([...scannedGuests]));
+        localStorage.setItem(LS_QUEUE,     JSON.stringify(scanQueue));
+        localStorage.setItem(LS_COMP_DONE, JSON.stringify([...companionScanned]));
+    } catch(e) { console.warn('localStorage cheio:', e); }
+}
+
+function carregarCache() {
+    try {
+        const g  = localStorage.getItem(LS_GUESTS);
+        const s  = localStorage.getItem(LS_SCANNED);
+        const q  = localStorage.getItem(LS_QUEUE);
+        const cd = localStorage.getItem(LS_COMP_DONE);
+        if (g)  guests           = JSON.parse(g);
+        if (s)  scannedGuests    = new Set(JSON.parse(s));
+        if (q)  scanQueue        = JSON.parse(q);
+        if (cd) companionScanned = new Set(JSON.parse(cd));
+    } catch(e) {
+        guests = []; scannedGuests = new Set(); scanQueue = []; companionScanned = new Set();
+    }
+}
+
+function limparCache() {
+    [LS_GUESTS, LS_SCANNED, LS_QUEUE, LS_COMP_DONE].forEach(k => localStorage.removeItem(k));
+}
+
+/* ═══════════════════════════════════════════
+   CONFIGURAÇÕES
+═══════════════════════════════════════════ */
+let settings = { soundEnabled: true, vibrationEnabled: true, notificationsEnabled: true };
+
+function loadSettings() {
+    try {
+        const s = localStorage.getItem(LS_SETTINGS);
+        if (s) settings = { ...settings, ...JSON.parse(s) };
+    } catch(e) {}
+    document.getElementById('soundToggle').checked         = settings.soundEnabled;
+    document.getElementById('vibrationToggle').checked     = settings.vibrationEnabled;
+    document.getElementById('notificationsToggle').checked = settings.notificationsEnabled;
+}
+function saveSettings() { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+
+/* ═══════════════════════════════════════════
+   REALTIME
+═══════════════════════════════════════════ */
+function iniciarRealtime(token) {
+    pararRealtime();
+    realtimeChannel = DB_LEITOR.channel('leitor-' + token)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'convidados', filter: `token_cliente=eq.${token}` }, (payload) => {
+            if (!payload.new) return;
+            if (!guests.find(g => g.id === payload.new.id)) {
+                guests.push(payload.new);
+                salvarCache();
+                updateUI();
+                renderGuestList();
+                showNotification(`Novo convidado: ${payload.new.nome}`, 'info');
+            }
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'convidados', filter: `token_cliente=eq.${token}` }, (payload) => {
+            if (!payload.old) return;
+            guests = guests.filter(g => g.id !== payload.old.id);
+            scannedGuests.delete(payload.old.id);
+            salvarCache();
+            updateUI();
+            renderGuestList();
+        })
+        .subscribe();
+}
+
+function pararRealtime() {
+    if (realtimeChannel) { DB_LEITOR.removeChannel(realtimeChannel); realtimeChannel = null; }
+}
+
+/* ═══════════════════════════════════════════
+   FILA OFFLINE
+═══════════════════════════════════════════ */
+async function sincronizarFila() {
+    if (!isOnline || scanQueue.length === 0 || !DB_LEITOR) return;
+    const falhados = [];
+    for (const item of scanQueue) {
+        try {
+            await DB_LEITOR.from('scans_realtime').insert({
+                codigo_convidado: item.codigo,
+                token_cliente:    currentClient.token,
+                data_scan:        item.data_scan,
+                dispositivo:      item.dispositivo
+            });
+            await DB_LEITOR.from('clientes')
+                .update({ scans_usados: item.scans_usados_depois })
+                .eq('token', currentClient.token);
+        } catch(e) { falhados.push(item); }
+    }
+    scanQueue = falhados;
+    salvarCache();
+    actualizarBarraSync();
+    if (falhados.length === 0) showNotification('✅ Todos os scans sincronizados!', 'success');
+}
+
+function actualizarBarraSync() {
+    const bar  = document.getElementById('syncQueueBar');
+    const txt  = document.getElementById('syncQueueText');
+    const info = document.getElementById('offlineQueueInfo');
+    const cnt  = document.getElementById('offlineQueueCount');
+    const n    = scanQueue.length;
+    if (n > 0) {
+        txt.textContent = `${n} scan${n===1?'':'s'} por sincronizar`;
+        bar.classList.add('visible');
+        if (info) { info.style.display = 'block'; if(cnt) cnt.textContent = n; }
+    } else {
+        bar.classList.remove('visible');
+        if (info) info.style.display = 'none';
+    }
+}
+
+/* ═══════════════════════════════════════════
+   CONEXÃO
+═══════════════════════════════════════════ */
+function actualizarConexao(online) {
+    isOnline = online;
+    const badge = document.getElementById('statusBadge');
+    const dot   = document.getElementById('statusDot');
+    const txt   = document.getElementById('statusText');
+    const cs    = document.getElementById('connectionStatus');
+    if (online) {
+        badge.className = 'offline-badge online';
+        dot.className   = 'w-2 h-2 rounded-full bg-green-500 inline-block';
+        txt.textContent = 'Online';
+        cs.innerHTML    = '<div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>Online';
+        cs.className    = 'flex items-center text-sm text-green-700';
+        sincronizarFila();
+        if (currentClient) carregarConvidadosServidor();
+    } else {
+        badge.className = 'offline-badge';
+        dot.className   = 'w-2 h-2 rounded-full bg-yellow-500 inline-block';
+        txt.textContent = 'Offline';
+        cs.innerHTML    = '<div class="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>Offline (modo local)';
+        cs.className    = 'flex items-center text-sm text-yellow-700';
+    }
+    actualizarBarraSync();
+}
+
+window.addEventListener('online',  () => actualizarConexao(true));
+window.addEventListener('offline', () => actualizarConexao(false));
+
+/* ═══════════════════════════════════════════
+   LOGIN
+═══════════════════════════════════════════ */
+let realToken = null;
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = (document.getElementById('leitor_tokenInput').value === '********' && realToken)
+        ? realToken : document.getElementById('leitor_tokenInput').value.trim();
+    if (!token) return;
+
+    document.getElementById('loginError').classList.add('hidden');
+    document.getElementById('loginBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+
+    try {
+        if (!DB_LEITOR) throw new Error('Sistema não inicializado. Recarregue a página.');
+
+        const { data: client, error } = await DB_LEITOR
+            .from('clientes')
+            .select('id,nome,token,validade,limite_scans,scans_usados,undo_usages_remaining')
+            .eq('token', token)
+            .single();
+
+        if (error || !client) throw new Error('Token inválido ou não encontrado.');
+        if (client.validade && client.validade < Math.floor(Date.now()/1000))
+            throw new Error('Token expirado.');
+
+        currentClient = client;
+
+        // Carregar undo_usages_remaining do Supabase
+        undoUsagesRemaining = client.undo_usages_remaining ?? 3;
+
+        localStorage.setItem(LS_TOKEN, token);
+        carregarCache();
+        mostrarApp();
+
+        await carregarConvidadosServidor();
+        iniciarRealtime(token);
+        iniciarCronometro();
+        updateTokenInfo();
+        updateUndoButton();
+
+    } catch(err) {
+        document.getElementById('loginError').textContent = err.message;
+        document.getElementById('loginError').classList.remove('hidden');
+    } finally {
+        document.getElementById('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-3"></i>Entrar no Sistema';
+    }
+});
+
+/* ═══════════════════════════════════════════
+   CARREGAR CONVIDADOS DO SERVIDOR
+═══════════════════════════════════════════ */
+async function carregarConvidadosServidor() {
+    if (!isOnline || !DB_LEITOR || !currentClient) return;
+    try {
+        const { data, error } = await DB_LEITOR
+            .from('convidados')
+            .select('id,nome,codigo,token_cliente,status,mesa')
+            .eq('token_cliente', currentClient.token);
+        if (error) throw error;
+
+        guests = data || [];
+
+        const { data: scans } = await DB_LEITOR
+            .from('scans_realtime')
+            .select('codigo_convidado')
+            .eq('token_cliente', currentClient.token);
+
+        if (scans) {
+            scannedGuests = new Set();
+            scans.forEach(s => {
+                const g = guests.find(x => x.codigo === s.codigo_convidado);
+                if (g) scannedGuests.add(g.id);
+            });
+        }
+
+        // Actualizar undo_usages_remaining do servidor
+        const { data: cli } = await DB_LEITOR
+            .from('clientes')
+            .select('undo_usages_remaining,scans_usados')
+            .eq('token', currentClient.token)
+            .single();
+        if (cli) {
+            undoUsagesRemaining = cli.undo_usages_remaining ?? 3;
+            currentClient.scans_usados = cli.scans_usados;
+            updateUndoButton();
+        }
+
+        salvarCache();
+        updateUI();
+        renderGuestList();
+    } catch(e) {
+        console.error('Erro ao carregar convidados:', e);
+    }
+}
+
+/* ═══════════════════════════════════════════
+   MOSTRAR APP
+═══════════════════════════════════════════ */
+function mostrarApp() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+    document.getElementById('eventTitle').textContent = currentClient.nome || 'Evento';
+    actualizarBarraSync();
+    updateUI();
+    renderGuestList();
+    updateUndoButton();
+    setTimeout(() => startScanner(), 300);
+}
+
+/* ═══════════════════════════════════════════
+   SCANNER
+═══════════════════════════════════════════ */
+async function startScanner() {
+    if (isScanning) return;
+    try {
+        html5QrCode = new Html5Qrcode('scannerContainer');
+        await html5QrCode.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, disableFlip: false },
+            onScanSuccess,
+            () => {}
+        );
+        isScanning = true;
+    } catch(err) {
+        document.getElementById('scannerContainer').innerHTML = `
+            <div class="text-center text-red-400 px-6">
+                <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
+                <p class="text-lg font-medium">Erro ao aceder à câmara</p>
+                <p class="text-sm mt-2">Verifique as permissões da câmara</p>
+                <button onclick="startScanner()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg">Tentar novamente</button>
+            </div>`;
+    }
+}
+
+/* ═══════════════════════════════════════════
+   PROCESSAR SCAN — 100% local, rápido
+═══════════════════════════════════════════ */
+async function onScanSuccess(decodedText) {
+    if (scanPaused) return;
+    scanPaused = true;
+
+    const codigo = decodedText.trim().split(/[_|:]/)[0];
+    const guest  = guests.find(g => g.codigo && g.codigo.trim().split(/[_|:]/)[0].toLowerCase() === codigo.toLowerCase());
+
+    if (!guest) {
+        showScanResult('CÓDIGO INVÁLIDO', '', 'error');
+        playFeedback('error');
+        showNextScanButton();
+        return;
+    }
+
+    // Caso especial: aguardando scan do acompanhante
+    if (awaitingCompanionScan && awaitingCompanionScan.id === guest.id) {
+        // Segunda leitura válida — registar acompanhante
+        _lastCompanionName = nomeAcompanhante(guest);
+        awaitingCompanionScan = null;
+        registarScan(guest, 1); // +1 para o acompanhante
+        showScanResult('ACOMPANHANTE CONFIRMADO', nomeTitular(guest), 'success');
+        playFeedback('success');
+        showNextScanButton();
+        return;
+    }
+
+    // QR já totalmente usado (titular + acompanhante juntos)
+    if (companionScanned.has(guest.id)) {
+        showScanResult('JÁ ESCANEADO', guest.nome, 'warning');
+        playFeedback('warning');
+        showNextScanButton();
+        return;
+    }
+
+    // Já escaneado — verificar se é para acompanhante avulso
+    if (scannedGuests.has(guest.id)) {
+        if (awaitingCompanionScan && awaitingCompanionScan.id === guest.id) {
+            // tratado acima
+        }
+        showScanResult('JÁ ESCANEADO', guest.nome, 'warning');
+        playFeedback('warning');
+        showNextScanButton();
+        return;
+    }
+
+    const limite = currentClient?.limite_scans || 0;
+    const usados = currentClient?.scans_usados || 0;
+    if (limite && usados >= limite) {
+        showScanResult('LIMITE ATINGIDO', '', 'error');
+        playFeedback('error');
+        showNextScanButton();
+        return;
+    }
+
+    // Registar entrada do titular
+    registarScan(guest, 1);
+
+    // Se tem acompanhante, abrir modal de pergunta
+    if (temAcompanhante(guest)) {
+        scanPaused = true; // manter pausado enquanto modal está aberto
+        showCompanionModal(guest);
+    } else {
+        showScanResult('PERMITIDO', nomeTitular(guest), 'success');
+        playFeedback('success');
+        showNextScanButton();
+    }
+}
+
+function registarScan(guest, quantidade) {
+    for (let i = 0; i < quantidade; i++) {
+        currentClient.scans_usados = (currentClient.scans_usados || 0) + 1;
+    }
+
+    const scanItem = {
+        codigo:              guest.codigo,
+        data_scan:           new Date().toISOString(),
+        dispositivo:         getDeviceInfo(),
+        scans_usados_depois: currentClient.scans_usados
+    };
+
+    if (isOnline && DB_LEITOR) {
+        DB_LEITOR.from('scans_realtime').insert({
+            codigo_convidado: guest.codigo,
+            token_cliente:    currentClient.token,
+            data_scan:        scanItem.data_scan,
+            dispositivo:      scanItem.dispositivo
+        }).then(({ error }) => {
+            if (error) { scanQueue.push(scanItem); actualizarBarraSync(); }
+            else { DB_LEITOR.from('clientes').update({ scans_usados: currentClient.scans_usados }).eq('token', currentClient.token); }
+        });
+    } else {
+        scanQueue.push(scanItem);
+        actualizarBarraSync();
+    }
+
+    scannedGuests.add(guest.id);
+    salvarCache();
+    updateUI();
+    renderGuestList();
+    checkMilestones();
+}
+
+function showCompanionModal(guest) {
+    document.getElementById('companionTitularName').textContent = nomeTitular(guest);
+    document.getElementById('companionAcompName').textContent   = nomeAcompanhante(guest);
+    document.getElementById('companionModal').classList.remove('hidden');
+
+    const yesBtn = document.getElementById('companionYes');
+    const noBtn  = document.getElementById('companionNo');
+
+    // Remove listeners anteriores clonando os botões
+    const newYes = yesBtn.cloneNode(true);
+    const newNo  = noBtn.cloneNode(true);
+    yesBtn.replaceWith(newYes);
+    noBtn.replaceWith(newNo);
+
+    newYes.addEventListener('click', () => {
+        document.getElementById('companionModal').classList.add('hidden');
+        // Titular + acompanhante entraram juntos → registar +1 e bloquear QR
+        registarScan(guest, 1); // +1 para acompanhante
+        companionScanned.add(guest.id);
+        awaitingCompanionScan = null;
+        _lastCompanionName = nomeAcompanhante(guest);
+        showScanResult('ENTRADA CONFIRMADA (+ACOMPANHANTE)', nomeTitular(guest), 'success');
+        playFeedback('success');
+        scanPaused = false;
+        showNextScanButton();
+    });
+
+    newNo.addEventListener('click', () => {
+        document.getElementById('companionModal').classList.add('hidden');
+        // Acompanhante virá depois → deixar QR disponível para 2ª leitura
+        awaitingCompanionScan = guest;
+        _lastCompanionName = nomeAcompanhante(guest);
+        showScanResult('PERMITIDO (ACOMPANHANTE PENDENTE)', nomeTitular(guest), 'success');
+        playFeedback('success');
+        scanPaused = false;
+        showNextScanButton();
+    });
+}
+
+/* ═══════════════════════════════════════════
+   DESFAZER SCANS — lê/escreve no Supabase
+═══════════════════════════════════════════ */
+document.getElementById('undoScansBtn').addEventListener('click', async () => {
+    if (undoUsagesRemaining <= 0) {
+        showNotification('Limite de utilizações atingido', 'error'); return;
+    }
+    if (scannedGuests.size === 0) {
+        showNotification('Não há escaneados para desfazer', 'warning'); return;
+    }
+    const ok = confirm(`⚠️ Desfazer TODOS os ${scannedGuests.size} escaneados?\n\nRestam ${undoUsagesRemaining} utilizações.\n\nDeseja continuar?`);
+    if (!ok) return;
+
+    const btn = document.getElementById('undoScansBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i>A desfazer...';
+    btn.disabled = true;
+
+    try {
+        const total = scannedGuests.size;
+
+        // Decrementar localmente
+        undoUsagesRemaining--;
+
+        // Limpar estado local
+        scannedGuests.clear();
+        companionScanned.clear();
+        awaitingCompanionScan = null;
+        scanQueue = [];
+        currentClient.scans_usados = 0;
+        salvarCache();
+
+        // Actualizar Supabase
+        if (isOnline && DB_LEITOR) {
+            await DB_LEITOR.from('scans_realtime')
+                .delete()
+                .eq('token_cliente', currentClient.token);
+
+            await DB_LEITOR.from('clientes')
+                .update({
+                    scans_usados: 0,
+                    undo_usages_remaining: undoUsagesRemaining
+                })
+                .eq('token', currentClient.token);
+        } else {
+            // Offline — adicionar à fila para sincronizar depois
+            scanQueue.push({
+                _tipo: 'undo',
+                undo_usages_remaining: undoUsagesRemaining
+            });
+            salvarCache();
+            showNotification('⚠️ Sem internet — será sincronizado quando ligar.', 'warning');
+        }
+
+        updateUI();
+        renderGuestList();
+        updateUndoButton();
+        actualizarBarraSync();
+        showNotification(`✅ ${total} escaneados desfeitos!`, 'success');
+
+    } catch(e) {
+        // Reverter decremento em caso de erro
+        undoUsagesRemaining++;
+        showNotification('Erro ao desfazer: ' + e.message, 'error');
+    } finally {
+        btn.innerHTML = '<i class="fas fa-undo mr-3"></i>Desfazer';
+        btn.disabled = false;
+    }
+});
+
+function updateUndoButton() {
+    const btn  = document.getElementById('undoScansBtn');
+    const info = document.getElementById('undoUsageInfo');
+    if (undoUsagesRemaining <= 0) {
+        if (btn)  btn.style.display = 'none';
+        if (info) info.innerHTML = '<i class="fas fa-ban mr-1 text-red-500"></i><span class="text-red-600">Limite de utilizações atingido</span>';
+    } else {
+        if (btn)  btn.style.display = 'flex';
+        const cor = undoUsagesRemaining === 1 ? 'text-red-600' : 'text-gray-600';
+        if (info) info.innerHTML = `<i class="fas fa-info-circle mr-1"></i><span class="${cor}">Restam <span id="undoUsagesLeft">${undoUsagesRemaining}</span> utilizações do botão desfazer</span>`;
+    }
+}
+
+/* ═══════════════════════════════════════════
+   UI
+═══════════════════════════════════════════ */
+function updateUI() {
+    const total     = guests.length;
+    const confirmed = scannedGuests.size;
+    const pending   = total - confirmed;
+    const pct       = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+
+    document.getElementById('totalGuests').textContent          = total;
+    document.getElementById('scannedCount').textContent         = confirmed;
+    document.getElementById('confirmedCount').textContent       = confirmed;
+    document.getElementById('pendingCount').textContent         = pending;
+    document.getElementById('scannerProgressText').textContent  = `${pct}%`;
+    document.getElementById('scannerProgressBar').style.width   = `${pct}%`;
+    document.getElementById('scannerScannedCount').textContent  = confirmed;
+    document.getElementById('scannerTotalGuestCount').textContent = total;
+}
+
+function renderGuestList() {
+    const tbody  = document.getElementById('guestTableBody');
+    if (!tbody) return;
+    const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+    const filter = document.getElementById('filterSelect')?.value || 'all';
+
+    let lista = guests.filter(g => {
+        if (!g || !g.nome) return false;
+        const match = g.nome.toLowerCase().includes(search) || (g.codigo||'').toLowerCase().includes(search);
+        if (filter === 'scanned') return match && scannedGuests.has(g.id);
+        if (filter === 'pending') return match && !scannedGuests.has(g.id);
+        return match;
+    });
+
+    lista.sort((a, b) => {
+        const aS = scannedGuests.has(a.id), bS = scannedGuests.has(b.id);
+        if (aS && !bS) return -1; if (!aS && bS) return 1;
+        return a.nome.localeCompare(b.nome);
+    });
+
+    if (lista.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" class="text-center text-gray-500 py-8">Nenhum convidado encontrado</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = lista.map(g => {
+        const sc        = scannedGuests.has(g.id);
+        const compDone  = companionScanned.has(g.id);
+        const awaitComp = awaitingCompanionScan && awaitingCompanionScan.id === g.id;
+        const hasComp   = temAcompanhante(g);
+        const name      = nomeTitular(g).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#x27;'}[c]));
+        const acompName = hasComp ? nomeAcompanhante(g).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#x27;'}[c])) : '';
+        const compIcon  = hasComp ? `<i class="fas fa-user-friends text-xs text-purple-400 ml-1" title="Com acompanhante: ${acompName}"></i>` : '';
+
+        let statusHtml;
+        if (!sc) statusHtml = `<i class="fas fa-clock text-yellow-600 mr-1"></i>Pendente`;
+        else if (compDone) statusHtml = `<i class="fas fa-check-circle text-green-600 mr-1"></i>Entrou (+acomp.)`;
+        else if (awaitComp) statusHtml = `<i class="fas fa-hourglass-half text-blue-500 mr-1"></i>Acomp. pendente`;
+        else statusHtml = `<i class="fas fa-check-circle text-green-600 mr-1"></i>Escaneado`;
+
+        const subName = hasComp ? `<div class="text-xs text-purple-500 mt-0.5">+ ${acompName}</div>` : '';
+        const mesaRowTag = g.mesa ? `<div class="text-xs mt-0.5" style="color:#7c3aed;">🪑 ${g.mesa}</div>` : '';
+
+        return `<tr class="${sc ? 'bg-green-50' : ''} hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">${name}${compIcon}${subName}${mesaRowTag}</td>
+            <td class="px-4 py-3 text-center">
+                <span class="inline-flex items-center text-sm">${statusHtml}</span>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function showScanResult(status, guestName, type) {
+    const styles = {
+        success: { bg:'bg-gradient-to-r from-green-50 to-emerald-50', border:'border-l-green-500', text:'text-green-800', icon:'fas fa-check-circle text-green-500', anim:'feedback-success' },
+        error:   { bg:'bg-gradient-to-r from-red-50 to-rose-50',     border:'border-l-red-500',   text:'text-red-800',   icon:'fas fa-times-circle text-red-500',   anim:'feedback-error'   },
+        warning: { bg:'bg-gradient-to-r from-yellow-50 to-amber-50', border:'border-l-yellow-500',text:'text-yellow-800',icon:'fas fa-exclamation-triangle text-yellow-500', anim:'feedback-warning' }
+    };
+    const s = styles[type];
+    document.getElementById('scanResultPlaceholder').classList.add('hidden');
+    const el = document.getElementById('scanResult');
+    el.className = `p-4 rounded-lg text-center border-l-4 ${s.bg} ${s.border} ${s.text} ${s.anim}`;
+
+    let msg = '';
+    if (type === 'success' && guestName && status === 'ENTRADA CONFIRMADA (+ACOMPANHANTE)')
+        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA</div><div class="text-base">${guestName}</div><div class="text-sm mt-1 opacity-80">👥 Titular + Acompanhante</div>`;
+    else if (type === 'success' && guestName && status === 'PERMITIDO (ACOMPANHANTE PENDENTE)')
+        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA</div><div class="text-base">${guestName}</div><div class="text-sm mt-1 opacity-80">⏳ Acompanhante pode entrar depois</div>`;
+    else if (type === 'success' && guestName && status === 'ACOMPANHANTE CONFIRMADO') {
+        const acomp = _lastCompanionName || guestName;
+        msg = `<div class="text-lg font-bold mb-2">ACOMPANHANTE CONFIRMADO</div><div class="text-base">${acomp}</div>`;
+    }
+    else if (type === 'success' && guestName) {
+        const gObj = guests.find(g => nomeTitular(g) === guestName || g.nome === guestName);
+        const mesaTag = gObj?.mesa ? `<div class="text-sm mt-2 font-semibold" style="color:#7c3aed;">🪑 ${gObj.mesa}</div>` : '';
+        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA PARA</div><div class="text-base">${guestName}</div>${mesaTag}`;
+    }
+    else if (type === 'warning' && guestName) {
+        const gObj = guests.find(g => nomeTitular(g) === guestName || g.nome === guestName);
+        const mesaTag = gObj?.mesa ? `<div class="text-sm mt-1 font-semibold" style="color:#7c3aed;">🪑 ${gObj.mesa}</div>` : '';
+        msg = `<div class="text-lg font-bold mb-2">JÁ ENTROU ANTERIORMENTE</div><div class="text-base">${guestName}</div>${mesaTag}`;
+    }
+    else if (status === 'CÓDIGO INVÁLIDO')    msg = '❌ QR inválido — verifique novamente';
+    else if (status === 'LIMITE ATINGIDO')    msg = '🚫 Limite de entradas atingido';
+    else msg = status;
+
+    el.innerHTML = `<div class="flex items-center justify-center mb-3"><i class="${s.icon} text-3xl"></i></div><div class="text-lg font-bold">${msg}</div>`;
+    el.classList.remove('hidden');
+}
+
+/* ═══════════════════════════════════════════
+   NEXT SCAN
+═══════════════════════════════════════════ */
+function showNextScanButton() {
+    const el = document.getElementById('mobileBottomActions');
+    const scannerActive = document.getElementById('scannerTab')?.classList.contains('active');
+    if (el && scannerActive) el.classList.remove('hidden');
+}
+function hideNextScanButton() {
+    const el = document.getElementById('mobileBottomActions');
+    if (el) el.classList.add('hidden');
+}
+
+document.getElementById('nextScanBtn').addEventListener('click', () => {
+    scanPaused = false;
+    hideNextScanButton();
+    document.getElementById('scanResult').classList.add('hidden');
+    document.getElementById('scanResultPlaceholder').classList.remove('hidden');
+});
+
+/* ═══════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════ */
+function switchTab(tab) {
+    const sTab = document.getElementById('scannerTab');
+    const oTab = document.getElementById('optionsTab');
+    const sCnt = document.getElementById('scannerTabContent');
+    const oCnt = document.getElementById('optionsTabContent');
+
+    [sTab, oTab].forEach(t => {
+        t.classList.remove('active');
+        t.style.backgroundColor = '';
+        t.style.color = '';
+        t.style.borderColor = '';
+        t.classList.add('text-gray-500', 'border-transparent');
+    });
+    sCnt.classList.add('hidden');
+    oCnt.classList.add('hidden');
+
+    if (tab === 'scanner') {
+        sTab.classList.add('active');
+        sTab.classList.remove('text-gray-500', 'border-transparent');
+        sTab.style.backgroundColor = 'rgba(90,161,137,0.1)';
+        sTab.style.color = '#5aa189';
+        sTab.style.borderColor = '#5aa189';
+        sCnt.classList.remove('hidden');
+        showNextScanButton();
+    } else {
+        oTab.classList.add('active');
+        oTab.classList.remove('text-gray-500', 'border-transparent');
+        oTab.style.backgroundColor = 'rgba(90,161,137,0.1)';
+        oTab.style.color = '#5aa189';
+        oTab.style.borderColor = '#5aa189';
+        oCnt.classList.remove('hidden');
+        hideNextScanButton();
+    }
+}
+
+/* ═══════════════════════════════════════════
+   TOKEN INFO + CRONÓMETRO
+═══════════════════════════════════════════ */
+let cronometroInterval = null;
+
+function iniciarCronometro() {
+    if (cronometroInterval) clearInterval(cronometroInterval);
+    cronometroInterval = setInterval(() => updateCountdownClock(), 1000);
+    updateCountdownClock();
+}
+
+function updateTokenInfo() {
+    if (!currentClient) return;
+    const expiryEl = document.getElementById('tokenExpiryDate');
+    const cntdwnEl = document.getElementById('tokenExpiryCountdown');
+    const statusEl = document.getElementById('tokenStatus');
+
+    if (!currentClient.validade) {
+        expiryEl.textContent = 'Sem data definida';
+        cntdwnEl.textContent = 'Token sem expiração';
+        statusEl.textContent = 'Ativo';
+        return;
+    }
+
+    const expiry = new Date(currentClient.validade * 1000);
+    const diff   = expiry - Date.now();
+    const days   = Math.ceil(diff / 86400000);
+
+    expiryEl.textContent = expiry.toLocaleDateString('pt-PT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    cntdwnEl.textContent = diff > 0 ? `Expira em ${days} dia${days===1?'':'s'}` : 'Expirado';
+    statusEl.textContent = diff > 0 ? 'Ativo' : 'Expirado';
+    statusEl.className   = `text-lg font-bold ${diff > 0 ? 'text-green-600' : 'text-red-600'}`;
+}
+
+function updateCountdownClock() {
+    if (!currentClient) return;
+    const dEl  = document.getElementById('countdownDays');
+    const hEl  = document.getElementById('countdownHours');
+    const mEl  = document.getElementById('countdownMinutes');
+    const sEl  = document.getElementById('countdownSeconds');
+    const stEl = document.getElementById('countdownStatus');
+    const wEl  = document.getElementById('countdownWrapper');
+
+    if (!currentClient.validade) {
+        [dEl,hEl,mEl,sEl].forEach(el => { if(el) el.textContent = '∞'; });
+        if (stEl) stEl.textContent = 'Sem data de expiração';
+        return;
+    }
+
+    const diff = new Date(currentClient.validade * 1000) - Date.now();
+    if (diff <= 0) {
+        [dEl,hEl,mEl,sEl].forEach(el => { if(el) el.textContent = '00'; });
+        if (stEl) stEl.textContent = 'TOKEN EXPIRADO!';
+        if (wEl)  wEl.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
+        return;
+    }
+
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000)  / 60000);
+    const s = Math.floor((diff % 60000)    / 1000);
+    if (dEl) dEl.textContent = String(d).padStart(2,'0');
+    if (hEl) hEl.textContent = String(h).padStart(2,'0');
+    if (mEl) mEl.textContent = String(m).padStart(2,'0');
+    if (sEl) sEl.textContent = String(s).padStart(2,'0');
+    if (stEl) stEl.textContent = d <= 1 ? 'Último dia — faça o download do relatório!' : d <= 3 ? 'Poucos dias restantes' : 'Token ativo';
+    if (wEl)  wEl.style.background = d <= 1 ? 'linear-gradient(135deg,#f59e0b,#d97706)' : d <= 3 ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'linear-gradient(135deg,#5aa189,#4a9d7a)';
+}
+
+/* ═══════════════════════════════════════════
+   MILESTONES / NOTIFICAÇÕES
+═══════════════════════════════════════════ */
+function checkMilestones() {
+    const n = scannedGuests.size;
+    if ([10,50,100,200,500].includes(n)) showNotification(`🎉 ${n} convidados escaneados!`, 'success');
+    if (guests.length > 0 && n / guests.length >= 0.8 && n / guests.length < 0.81)
+        showNotification('⚠️ 80% da capacidade atingida!', 'warning');
+}
+
+function showNotification(msg, type = 'info', duration = 4000) {
+    if (!settings.notificationsEnabled) return;
+    const colors = { success:'bg-green-500', error:'bg-red-500', warning:'bg-yellow-500', info:'bg-blue-500' };
+    const n = document.createElement('div');
+    n.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm text-white ${colors[type]} transform transition-all duration-300 translate-x-full`;
+    n.textContent = msg;
+    document.body.appendChild(n);
+    setTimeout(() => n.classList.remove('translate-x-full'), 100);
+    setTimeout(() => { n.classList.add('translate-x-full'); setTimeout(() => n.remove(), 300); }, duration);
+}
+
+/* ═══════════════════════════════════════════
+   FEEDBACK (SOM / VIBRAÇÃO)
+═══════════════════════════════════════════ */
+function playFeedback(type) {
+    if (settings.vibrationEnabled && navigator.vibrate) {
+        navigator.vibrate({ success:[200], warning:[100,100,100], error:[300,100,300] }[type] || [200]);
+    }
+    if (settings.soundEnabled) {
+        try {
+            const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+            const osc  = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.setValueAtTime({ success:800, warning:600, error:400 }[type] || 600, ctx.currentTime);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            osc.start(); osc.stop(ctx.currentTime + 0.2);
+        } catch(e) {}
+    }
+}
+
+/* ═══════════════════════════════════════════
+   BOTÕES DE ACÇÃO
+═══════════════════════════════════════════ */
+document.getElementById('refreshDataBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('refreshDataBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>A actualizar...';
+    btn.disabled = true;
+    await carregarConvidadosServidor();
+    showNotification('Lista actualizada!', 'success');
+    btn.innerHTML = '<i class="fas fa-refresh mr-2"></i>Atualizar';
+    btn.disabled = false;
+});
+
+document.getElementById('syncBtn').addEventListener('click', async () => {
+    if (!isOnline) { showNotification('Sem ligação para sincronizar', 'error'); return; }
+    const btn = document.getElementById('syncBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i>A sincronizar...';
+    btn.disabled = true;
+    await sincronizarFila();
+    await carregarConvidadosServidor();
+    showNotification('Dados sincronizados!', 'success');
+    btn.innerHTML = '<i class="fas fa-sync-alt mr-3"></i>Sincronizar';
+    btn.disabled = false;
+});
+
+document.getElementById('exportBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('exportBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i>A gerar PDF...';
+    btn.disabled = true;
+    try { await generatePDFReport(); showNotification('PDF gerado!', 'success'); }
+    catch(e) { showNotification('Erro ao gerar PDF', 'error'); }
+    finally { btn.innerHTML = '<i class="fas fa-download mr-3"></i>Exportar'; btn.disabled = false; }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    if (html5QrCode && isScanning) html5QrCode.stop().catch(()=>{});
+    pararRealtime();
+    if (cronometroInterval) clearInterval(cronometroInterval);
+    currentClient = null; guests = []; scannedGuests.clear(); companionScanned.clear(); awaitingCompanionScan = null; scanQueue = [];
+    undoUsagesRemaining = 3;
+    const saved = localStorage.getItem(LS_TOKEN);
+    if (saved) { realToken = saved; document.getElementById('leitor_tokenInput').value = '********'; }
+    document.getElementById('mainApp').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    isScanning = false;
+});
+
+/* ═══════════════════════════════════════════
+   PESQUISA / FILTRO
+═══════════════════════════════════════════ */
+document.getElementById('searchInput')?.addEventListener('input', renderGuestList);
+document.getElementById('filterSelect')?.addEventListener('change', renderGuestList);
+
+/* ═══════════════════════════════════════════
+   CONFIGURAÇÕES
+═══════════════════════════════════════════ */
+document.getElementById('soundToggle').addEventListener('change', e => { settings.soundEnabled = e.target.checked; saveSettings(); });
+document.getElementById('vibrationToggle').addEventListener('change', e => { settings.vibrationEnabled = e.target.checked; saveSettings(); });
+document.getElementById('notificationsToggle').addEventListener('change', e => { settings.notificationsEnabled = e.target.checked; saveSettings(); });
+
+/* ═══════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════ */
+function getDeviceInfo() {
+    const ua  = navigator.userAgent;
+    const dev = /Android/i.test(ua) ? 'Android' : /iPhone|iPad/i.test(ua) ? 'iOS' : 'Desktop';
+    const br  = /Chrome/i.test(ua) && !/Edge/i.test(ua) ? 'Chrome' : /Firefox/i.test(ua) ? 'Firefox' : /Safari/i.test(ua) ? 'Safari' : 'Browser';
+    return `${dev} - ${br}`;
+}
+
+/* ═══════════════════════════════════════════
+   EXPORTAR PDF
+═══════════════════════════════════════════ */
+async function generatePDFReport() {
+    const { jsPDF } = window.jspdf;
+    const doc  = new jsPDF();
+    const now  = new Date();
+    const sc   = scannedGuests.size;
+    const tot  = guests.length;
+    const rate = tot > 0 ? ((sc/tot)*100).toFixed(1) : 0;
+
+    doc.setFillColor(37,99,235); doc.rect(0,0,210,40,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(20); doc.setFont('helvetica','bold');
+    doc.text('RELATÓRIO DE CONTROLO DE ACESSO', 105, 18, {align:'center'});
+    doc.setFontSize(11); doc.setFont('helvetica','normal');
+    doc.text(`Gerado em ${now.toLocaleDateString('pt-PT')} às ${now.toLocaleTimeString('pt-PT')}`, 105, 30, {align:'center'});
+
+    let y = 55;
+    doc.setTextColor(0,0,0); doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('INFORMAÇÕES DO EVENTO', 20, y); y += 8;
+    doc.setFontSize(10); doc.setFont('helvetica','normal');
+    doc.text(`Evento: ${currentClient.nome || '-'}`, 20, y); y += 6;
+    doc.text(`Token: ${currentClient.token}`, 20, y); y += 6;
+    doc.text(`Data: ${now.toLocaleString('pt-PT')}`, 20, y); y += 14;
+
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('RESUMO', 20, y); y += 8;
+    doc.setFontSize(10); doc.setFont('helvetica','normal');
+    doc.text(`Total: ${tot}   Presentes: ${sc}   Ausentes: ${tot-sc}   Taxa: ${rate}%`, 20, y); y += 14;
+
+    doc.setFillColor(229,231,235); doc.rect(20, y, 150, 6, 'F');
+    if (sc > 0 && tot > 0) { doc.setFillColor(34,197,94); doc.rect(20, y, (sc/tot)*150, 6, 'F'); }
+    y += 16;
+
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('LISTA DE CONVIDADOS', 20, y); y += 8;
+    doc.setFillColor(37,99,235); doc.rect(15, y, 180, 9, 'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('NOME', 18, y+6); doc.text('MESA', 110, y+6); doc.text('STATUS', 155, y+6); y += 13;
+
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
+    guests.forEach((g, i) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        if (i%2===0) { doc.setFillColor(249,250,251); doc.rect(15,y-2,180,8,'F'); }
+        const name = g.nome.length > 38 ? g.nome.substring(0,38)+'...' : g.nome;
+        doc.setFontSize(8);
+        doc.text(name, 18, y+3);
+        if (g.mesa) { doc.setTextColor(124,58,237); doc.text(g.mesa.length > 15 ? g.mesa.substring(0,15)+'...' : g.mesa, 110, y+3); doc.setTextColor(0,0,0); }
+        const isSc = scannedGuests.has(g.id);
+        doc.setTextColor(isSc?34:220, isSc?197:38, isSc?94:38);
+        doc.text(isSc ? 'PRESENTE' : 'AUSENTE', 155, y+3);
+        doc.setTextColor(0,0,0);
+        y += 8;
+    });
+
+    const pages = doc.internal.getNumberOfPages();
+    for (let i=1;i<=pages;i++) {
+        doc.setPage(i); doc.setFontSize(8); doc.setTextColor(107,114,128);
+        doc.text(`Página ${i} de ${pages}`, 105, 290, {align:'center'});
+    }
+
+    doc.save(`relatorio_${(currentClient.nome||'evento').replace(/[^a-zA-Z0-9]/g,'_')}_${now.toISOString().split('T')[0]}.pdf`);
+}
+
+/* ═══════════════════════════════════════════
+   CHECK-IN MANUAL (sem QR Code)
+═══════════════════════════════════════════ */
+document.getElementById('openManualCheckinBtn').addEventListener('click', () => {
+    document.getElementById('manualSearchInput').value = '';
+    document.getElementById('manualSearchResults').innerHTML = '';
+    document.getElementById('manualCheckinModal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('manualSearchInput').focus(), 150);
+});
+
+document.getElementById('closeManualModal').addEventListener('click', () => {
+    document.getElementById('manualCheckinModal').classList.add('hidden');
+});
+
+document.getElementById('manualCheckinModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('manualCheckinModal'))
+        document.getElementById('manualCheckinModal').classList.add('hidden');
+});
+
+document.getElementById('manualSearchInput').addEventListener('input', () => {
+    const q     = document.getElementById('manualSearchInput').value.toLowerCase().trim();
+    const wrap  = document.getElementById('manualSearchResults');
+    if (!q) { wrap.innerHTML = ''; return; }
+
+    const results = guests.filter(g => g.nome && g.nome.toLowerCase().includes(q)).slice(0, 10);
+
+    if (results.length === 0) {
+        wrap.innerHTML = `<div class="text-center text-gray-400 py-6 text-sm">Nenhum convidado encontrado</div>`;
+        return;
+    }
+
+    wrap.innerHTML = results.map(g => {
+        const sc       = scannedGuests.has(g.id);
+        const compDone = companionScanned.has(g.id);
+        const awaitComp = awaitingCompanionScan && awaitingCompanionScan.id === g.id;
+        const hasComp  = temAcompanhante(g);
+        const tName    = nomeTitular(g).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#x27;'}[c]));
+        const aName    = hasComp ? nomeAcompanhante(g).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#x27;'}[c])) : '';
+
+        let statusLabel;
+        if (!sc) statusLabel = '<span class="text-yellow-600 text-xs font-semibold">Pendente</span>';
+        else if (compDone) statusLabel = '<span class="text-green-600 text-xs font-semibold">✔ Ambos entraram</span>';
+        else if (awaitComp) statusLabel = '<span class="text-blue-600 text-xs font-semibold">⏳ Aguarda acomp.</span>';
+        else statusLabel = '<span class="text-green-600 text-xs font-semibold">✔ Entrou</span>';
+
+        const compIcon = hasComp ? '<i class="fas fa-user-friends text-xs text-purple-400 ml-1"></i>' : '';
+        const subLabel = hasComp ? `<div class="text-xs text-purple-500">+ ${aName}</div>` : '';
+        const mesaLabel = g.mesa ? `<div class="text-xs" style="color:#7c3aed;">🪑 ${g.mesa}</div>` : '';
+        const blocked  = (sc && !awaitComp) || compDone;
+        const rowCls   = blocked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer';
+        const btnLabel = awaitComp ? 'Acomp.' : 'Check-in';
+        const btnStyle = blocked ? 'background:#d1d5db;color:#6b7280;pointer-events:none;' : 'background:#5aa189;color:white;';
+
+        return `<div class="flex items-center justify-between px-4 py-3 ${rowCls} transition-colors" onclick="manualCheckin('${g.id}')">
+            <div>
+                <div class="font-medium text-gray-800 text-sm">${tName}${compIcon}</div>
+                ${subLabel}${mesaLabel}
+                <div class="mt-0.5">${statusLabel}</div>
+            </div>
+            <button class="text-xs px-3 py-1.5 rounded-lg font-semibold" style="${btnStyle}">${btnLabel}</button>
+        </div>`;
+    }).join('');
+});
+
+function manualCheckin(guestId) {
+    const guest = guests.find(g => g.id == guestId);
+    if (!guest) return;
+
+    const compDone  = companionScanned.has(guest.id);
+    const awaitComp = awaitingCompanionScan && awaitingCompanionScan.id === guest.id;
+
+    if (compDone) return; // bloqueado
+
+    if (awaitComp) {
+        // Registar entrada do acompanhante
+        _lastCompanionName = nomeAcompanhante(guest);
+        awaitingCompanionScan = null;
+        registarScan(guest, 1);
+        document.getElementById('manualCheckinModal').classList.add('hidden');
+        showScanResult('ACOMPANHANTE CONFIRMADO', nomeTitular(guest), 'success');
+        playFeedback('success');
+        showNextScanButton();
+        return;
+    }
+
+    if (scannedGuests.has(guest.id)) return; // já entrou
+
+    const limite = currentClient?.limite_scans || 0;
+    const usados = currentClient?.scans_usados || 0;
+    if (limite && usados >= limite) {
+        document.getElementById('manualCheckinModal').classList.add('hidden');
+        showScanResult('LIMITE ATINGIDO', '', 'error');
+        playFeedback('error');
+        showNextScanButton();
+        return;
+    }
+
+    registarScan(guest, 1);
+
+    if (temAcompanhante(guest)) {
+        document.getElementById('manualCheckinModal').classList.add('hidden');
+        scanPaused = true;
+        showCompanionModal(guest);
+    } else {
+        document.getElementById('manualCheckinModal').classList.add('hidden');
+        showScanResult('PERMITIDO', nomeTitular(guest), 'success');
+        playFeedback('success');
+        showNextScanButton();
+    }
+
+    // Atualizar resultados da pesquisa
+    document.getElementById('manualSearchInput').dispatchEvent(new Event('input'));
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+    let lastTouch = 0;
+    document.addEventListener('touchend', e => {
+        const now = Date.now();
+        if (now - lastTouch <= 300) e.preventDefault();
+        lastTouch = now;
+    }, false);
+
+    document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+    const saved = localStorage.getItem(LS_TOKEN);
+    if (saved) {
+        realToken = saved;
+        document.getElementById('leitor_tokenInput').value = '********';
+    }
+
+    document.getElementById('leitor_tokenInput').addEventListener('focus', () => {
+        if (document.getElementById('leitor_tokenInput').value === '********' && realToken) {
+            document.getElementById('leitor_tokenInput').value = '';
+            realToken = null;
+        }
+    });
+
+    loadSettings();
+
+    document.getElementById('scannerTab').addEventListener('click', () => switchTab('scanner'));
+    document.getElementById('optionsTab').addEventListener('click', () => switchTab('options'));
+
+    switchTab('scanner');
+    actualizarConexao(navigator.onLine);
+});
+
+// Expose to global scope
+  window.manualCheckin = typeof manualCheckin !== "undefined" ? manualCheckin : window.manualCheckin;
+  window.startScanner = typeof startScanner !== "undefined" ? startScanner : window.startScanner;
+})();
+</script>
+  </div>
+</div>
+
+<script>
+/* ===== NAVEGAÇÃO ===== */
+function switchApp(app) {
+  document.getElementById('panelGerador').classList.toggle('active', app === 'gerador');
+  document.getElementById('panelLeitor').classList.toggle('active', app === 'leitor');
+  document.getElementById('navGerador').classList.toggle('active', app === 'gerador');
+  document.getElementById('navLeitor').classList.toggle('active', app === 'leitor');
+}
+</script>
+
 </body>
 </html>
