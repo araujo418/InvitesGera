@@ -199,6 +199,14 @@
 
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #667eea; border-radius: 4px; }
+
+    .tab-btn { width: auto; min-height: 36px; padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 10px; background: #f3f4f6; color: #6b7280; border: 1.5px solid #e5e7eb; cursor: pointer; transition: all .15s; }
+    .tab-btn.tab-active { background: #667eea; color: white; border-color: #667eea; }
+    .tab-btn:active { transform: scale(0.96); }
+
+    .mesa-group { margin-bottom: 10px; }
+    .mesa-group-title { font-size: 12px; font-weight: 800; color: #7c3aed; text-transform: uppercase; letter-spacing: .5px; padding: 6px 10px; background: #ede9fe; border-radius: 8px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .mesa-group-count { font-size: 11px; background: #7c3aed; color: white; border-radius: 99px; padding: 1px 7px; font-weight: 700; margin-left: auto; }
   </style>
 </head>
 <body>
@@ -282,13 +290,13 @@
              onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
       <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
     </div>
-    <div id="mesaField" style="display:none;">
-      <label for="mesaInput">Mesa do convidado</label>
-      <input type="text" id="mesaInput" placeholder="Ex: Mesa 12"
+
+    <!-- Campo Mesa (visível só quando mesa_ativa=true) -->
+    <div id="mesaInputBox" style="display:none;">
+      <label for="mesaInput">🪑 Mesa do convidado</label>
+      <input type="text" id="mesaInput" placeholder="Ex: Mesa 5 ou VIP"
              autocapitalize="words" autocorrect="off" spellcheck="false"
-             oninput="validarMesaInput()"
              onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
-      <div class="nome-hint" id="mesaHint">Introduza a mesa do convidado</div>
     </div>
 
     <div class="rate-bar-wrap" id="rateBarWrap" style="opacity:0;">
@@ -307,6 +315,13 @@
       <span class="convites-count" id="convitesCount"></span>
       <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()">🔄</button>
     </div>
+
+    <!-- Tabs (visíveis só quando mesa_ativa=true) -->
+    <div id="convitesTabs" style="display:none;display:none;gap:6px;flex-direction:row;">
+      <button id="tabLista" class="tab-btn tab-active" onclick="mudarTab('lista')">📋 Lista</button>
+      <button id="tabMesas" class="tab-btn" onclick="mudarTab('mesas')">🪑 Por Mesa</button>
+    </div>
+
     <input type="text" class="convites-search" id="convitesSearch"
            placeholder="🔍 Pesquisar por nome..."
            autocorrect="off" spellcheck="false"
@@ -363,7 +378,7 @@ const RETRY_DELAY    = 2000;
 const RATE_LIMIT_MS  = 3000;
 // ▼ ALTERADO: inclui convites_gerados, remove scans_usados da leitura
 const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade';
-const CONVITE_COLS   = 'id,nome,codigo,created_at';
+const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at';
 const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
 const SS_OFFLINE_KEY = 'adkira_offline_fila';
@@ -379,7 +394,6 @@ let realtimeChannel    = null;
 let todosConvites      = [];
 let validadeTimer      = null;
 let ultimoContextoNome = null;
-let ultimoContextoMesa = '';
 let realtimeOk         = false;
 let realtimeReconTimer = null;
 let convitesSessao     = 0;
@@ -388,6 +402,7 @@ let filaOffline        = [];
 let ultimaGeracao      = 0;
 let rateLockTimer      = null;
 let rateBarTimer       = null;
+let tabAtual           = 'lista'; // 'lista' ou 'mesas'
 
 /* ══════════════════════════════════��════════
    HELPER — lê o nº de convites gerados do
@@ -480,7 +495,7 @@ function guardarFilaOffline(token) {
     sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: filaOffline }));
   } catch(e) {
     try {
-      const semPdf = filaOffline.map(({ id_local, nome, mesa, codigo, created_at }) => ({ id_local, nome, mesa, codigo, created_at }));
+      const semPdf = filaOffline.map(({ id_local, nome, codigo, created_at }) => ({ id_local, nome, codigo, created_at }));
       sessionStorage.setItem(SS_OFFLINE_KEY, JSON.stringify({ token, fila: semPdf }));
       console.warn('sessionStorage cheio: PDFs offline não persistidos.');
     } catch(e2) { console.warn('sessionStorage completamente cheio:', e2); }
@@ -519,27 +534,6 @@ function limparCache() {
    MODO OFFLINE
 ═══════════════════════════════════════════ */
 function modoOfflinePermitido() { return configData && configData.qr_ativo === false; }
-function configPermiteMesa(cfg = configData) {
-  const elementos = cfg?.elementos || {};
-  return Object.values(elementos).some(lista => Array.isArray(lista) && lista.some(el =>
-    el?.elementType === 'table' || String(el?.content || '').includes('{MESA}')
-  ));
-}
-function aplicarOpcaoMesa() {
-  const field = document.getElementById('mesaField');
-  if (!field) return;
-  const ativo = configPermiteMesa();
-  field.style.display = ativo ? 'block' : 'none';
-  if (!ativo) limparMesaInput();
-}
-function limparMesaInput() {
-  const input = document.getElementById('mesaInput'), hint = document.getElementById('mesaHint');
-  if (input) { input.value = ''; input.className = ''; }
-  if (hint) { hint.textContent = 'Introduza a mesa do convidado'; hint.className = 'nome-hint'; }
-}
-function obterMesaInput() {
-  return configPermiteMesa() ? document.getElementById('mesaInput').value.trim() : '';
-}
 function creditosOfflineRestantes() { return Math.max(0, MAX_OFFLINE - filaOffline.length); }
 
 /* ═══════════════════════════════════════════
@@ -671,14 +665,7 @@ async function sincronizarFila() {
       } else if (!eRpc) {
         clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
       }
-      let payload = { token_cliente: clienteData.token, codigo: item.codigo, nome: item.nome, status: 'convite_gerado' };
-      if (item.mesa) payload.mesa = item.mesa;
-      let { error: eIns } = await DB.from('convidados').insert([payload]);
-      if (eIns && item.mesa && /mesa|column|schema|cache/i.test(eIns.message || '')) {
-        delete payload.mesa;
-        ({ error: eIns } = await DB.from('convidados').insert([payload]));
-      }
-      if (eIns) throw eIns;
+      await DB.from('convidados').insert([{ token_cliente: clienteData.token, codigo: item.codigo, nome: item.nome, status: 'convite_gerado' }]);
     } catch(e) { falhados.push(item); }
   }
   filaOffline = falhados;
@@ -715,14 +702,19 @@ function iniciarRealtime(token) {
     })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, (p) => {
       if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
-      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, created_at:p.new.created_at });
-      renderizarConvites([...filaOffline, ...todosConvites]);
+      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at });
+      if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
+      else renderizarConvites([...filaOffline, ...todosConvites]);
       // ▼ ALTERADO: incrementa convites_gerados localmente (não scans_usados)
       clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
       actualizarContador();
     })
     .on('postgres_changes', { event:'DELETE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, async (p) => {
-      if (p.old?.id) { todosConvites = todosConvites.filter(c => c.id !== p.old.id); renderizarConvites([...filaOffline, ...todosConvites]); }
+      if (p.old?.id) {
+        todosConvites = todosConvites.filter(c => c.id !== p.old.id);
+        if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
+        else renderizarConvites([...filaOffline, ...todosConvites]);
+      }
       // ▼ ALTERADO: relê apenas convites_gerados e limite_scans
       const { data } = await DB.from('clientes').select('convites_gerados,limite_scans').eq('token', token).single();
       if (data) { clienteData.convites_gerados = data.convites_gerados; clienteData.limite_scans = data.limite_scans; actualizarContador(); }
@@ -796,8 +788,8 @@ async function tentarRestaurarSessao(token) {
     }
     clienteData = cli; configData = cfg;
     lerEstadoSessao(token); carregarFilaOffline(token);
-    aplicarOpcaoMesa();
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    activarMesaUI(cfg);
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
     iniciarRealtime(token); iniciarTimerValidade();
@@ -827,16 +819,17 @@ function setLoading(msg){const el=document.getElementById('loadingMsg');if(el)el
 function limparTudo() {
   pararRealtime(); pararTimerValidade(); cancelarRateLimit();
   localStorage.removeItem('adkira_token'); limparCache();
-  clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null; ultimoContextoMesa='';
+  clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
   convitesSessao=0; downloadsSessao=new Set(); filaOffline=[];
-  ultimaGeracao=0;
+  ultimaGeracao=0; tabAtual='lista';
   document.getElementById('tokenInput').value='';
   document.getElementById('nomeInput').value='';
-  limparMesaInput();
-  aplicarOpcaoMesa();
   document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
   document.getElementById('nomeHint').className='nome-hint';
   document.getElementById('nomeInput').className='';
+  const mi=document.getElementById('mesaInput'); if(mi) mi.value='';
+  document.getElementById('mesaInputBox').style.display='none';
+  document.getElementById('convitesTabs').style.display='none';
   document.getElementById('convitesSearch').style.display='none';
   document.getElementById('iosHint').style.display='none';
   document.getElementById('offlineModeBanner').classList.remove('visible');
@@ -844,7 +837,7 @@ function limparTudo() {
   hideInfo('step1Info'); hideInfo('expiradoBox'); hideInfo('limiteProximoBox');
 }
 function voltarStep1() { limparTudo(); showStep('step1'); }
-function voltarPainel() { document.getElementById('nomeInput').value=''; limparMesaInput(); hideInfo('step2Info'); actualizarContador(); carregarConvitesGerados(); showStep('step2'); }
+function voltarPainel() { document.getElementById('nomeInput').value=''; hideInfo('step2Info'); actualizarContador(); carregarConvitesGerados(); showStep('step2'); }
 function pedirConfirmacaoSair() {
   haptic('light');
   const temPendentes = filaOffline.length > 0;
@@ -858,7 +851,7 @@ function pedirConfirmacaoSair() {
     ]
   });
 }
-function tentarRetry() { if (ultimoContextoNome) gerarConvite(ultimoContextoNome, ultimoContextoMesa); else voltarPainel(); }
+function tentarRetry() { if (ultimoContextoNome) gerarConvite(ultimoContextoNome); else voltarPainel(); }
 
 /* ═══════════════════════════════════════════
    TIMER VALIDADE
@@ -891,8 +884,8 @@ async function validarToken() {
     clienteData = cli; configData = cfg;
     localStorage.setItem('adkira_token', token);
     lerEstadoSessao(token); carregarFilaOffline(token);
-    aplicarOpcaoMesa();
     document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    activarMesaUI(cfg);
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
     iniciarRealtime(token); iniciarTimerValidade();
@@ -920,23 +913,6 @@ function validarNomeInput() {
   const input=document.getElementById('nomeInput'), hint=document.getElementById('nomeHint'), v=input.value;
   if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Introduza o nome próprio e apelido'; return; }
   const { ok, msg } = validarNome(v);
-  input.className = ok ? 'input-ok' : 'input-error';
-  hint.className  = 'nome-hint ' + (ok ? 'ok' : 'err');
-  hint.textContent = msg;
-}
-function validarMesa(mesa) {
-  const m = mesa.trim();
-  if (!configPermiteMesa()) return { ok:true, msg:'' };
-  if (!m) return { ok:false, msg:'Introduza a mesa do convidado' };
-  if (m.length > 40) return { ok:false, msg:'A mesa deve ter no máximo 40 caracteres' };
-  return { ok:true, msg:'✓ Mesa válida' };
-}
-function validarMesaInput() {
-  const input=document.getElementById('mesaInput'), hint=document.getElementById('mesaHint');
-  if (!input || !hint) return;
-  const v=input.value;
-  if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Introduza a mesa do convidado'; return; }
-  const { ok, msg } = validarMesa(v);
   input.className = ok ? 'input-ok' : 'input-error';
   hint.className  = 'nome-hint ' + (ok ? 'ok' : 'err');
   hint.textContent = msg;
@@ -992,9 +968,16 @@ async function carregarConvitesGerados() {
     }
     document.getElementById('convitesSearch').value = '';
     const total = [...filaOffline, ...todosConvites];
-    if (total.length === 0) { document.getElementById('convitesSearch').style.display='none'; document.getElementById('convitesCount').textContent=''; lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>'; return; }
-    document.getElementById('convitesSearch').style.display = 'block';
-    renderizarConvites(total);
+    const hasMesa = configData?.mesa_ativa;
+    if (total.length === 0) {
+      if (!hasMesa) document.getElementById('convitesSearch').style.display='none';
+      document.getElementById('convitesCount').textContent='';
+      lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';
+      return;
+    }
+    if (!hasMesa) document.getElementById('convitesSearch').style.display = 'block';
+    if (tabAtual === 'mesas' && hasMesa) renderizarPorMesas();
+    else renderizarConvites(total);
   } catch(e) { lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${navigator.onLine ? e.message : 'Sem ligação à internet'}</div>`; }
 }
 async function recarregarLista() { const btn=document.getElementById('btnRecarregar'); btn.disabled=true; btn.textContent='⏳'; await carregarConvitesGerados(); btn.disabled=false; btn.textContent='🔄'; }
@@ -1003,10 +986,84 @@ async function recarregarLista() { const btn=document.getElementById('btnRecarre
    FILTRAR / RENDERIZAR
 ═══════════════════════════════════════════ */
 function filtrarConvites() {
+  if (tabAtual === 'mesas') { renderizarPorMesas(); return; }
   const t = document.getElementById('convitesSearch').value.trim().toLowerCase();
   const todos = [...filaOffline, ...todosConvites];
   renderizarConvites(t ? todos.filter(c => c.nome.toLowerCase().includes(t)) : todos, t || null);
 }
+
+function mudarTab(tab) {
+  tabAtual = tab;
+  document.getElementById('tabLista').className = 'tab-btn' + (tab==='lista' ? ' tab-active' : '');
+  document.getElementById('tabMesas').className  = 'tab-btn' + (tab==='mesas' ? ' tab-active' : '');
+  const search = document.getElementById('convitesSearch');
+  if (tab === 'mesas') {
+    search.style.display = 'none';
+    renderizarPorMesas();
+  } else {
+    const total = [...filaOffline, ...todosConvites];
+    if (total.length > 0) search.style.display = 'block';
+    renderizarConvites(total);
+  }
+}
+
+function renderizarPorMesas() {
+  const el = document.getElementById('convitesLista');
+  const todos = [...filaOffline, ...todosConvites];
+  if (todos.length === 0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum convite gerado ainda.</div>'; return; }
+  // Group by mesa
+  const grupos = {};
+  todos.forEach(conv => {
+    const m = conv.mesa || '(sem mesa)';
+    if (!grupos[m]) grupos[m] = [];
+    grupos[m].push(conv);
+  });
+  // Sort keys: numeric first, then alphabetic, sem mesa last
+  const keys = Object.keys(grupos).sort((a,b) => {
+    if (a==='(sem mesa)') return 1;
+    if (b==='(sem mesa)') return -1;
+    const na=parseInt(a), nb=parseInt(b);
+    if (!isNaN(na)&&!isNaN(nb)) return na-nb;
+    return a.localeCompare(b);
+  });
+  const total = todos.length;
+  document.getElementById('convitesCount').textContent = `${total} convite${total===1?'':'s'} · ${keys.length} mesa${keys.length===1?'':'s'}`;
+  el.innerHTML = '';
+  keys.forEach(mesa => {
+    const convs = grupos[mesa];
+    const grp = document.createElement('div'); grp.className = 'mesa-group';
+    grp.innerHTML = `<div class="mesa-group-title">🪑 ${escHtml(mesa)}<span class="mesa-group-count">${convs.length}</span></div>`;
+    convs.forEach(conv => {
+      const isPend = !!conv.id_local;
+      const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
+      const item   = document.createElement('div');
+      item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
+      let tag='', btnCls='btn-dl', btnTxt = isIOS ? '📤' : '📥';
+      if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline</div>'; btnCls='btn-dl pendente'; }
+      else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
+      item.innerHTML=`
+        <div class="convite-item-info">
+          <div class="convite-item-nome">${escHtml(conv.nome)}</div>${tag}
+        </div>
+        <button class="${btnCls}"
+          onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
+          ${btnTxt}
+        </button>`;
+      grp.appendChild(item);
+    });
+    el.appendChild(grp);
+  });
+}
+
+function activarMesaUI(cfg) {
+  const ativa = cfg?.mesa_ativa === true;
+  const mesaBox = document.getElementById('mesaInputBox');
+  const tabs    = document.getElementById('convitesTabs');
+  if (mesaBox) mesaBox.style.display = ativa ? 'block' : 'none';
+  if (tabs)    tabs.style.display    = ativa ? 'flex'  : 'none';
+  if (!ativa && tabAtual === 'mesas') { tabAtual = 'lista'; }
+}
+
 function renderizarConvites(lista, termo) {
   const el=document.getElementById('convitesLista'), totalOnline=todosConvites.length, totalPend=filaOffline.length, total=totalOnline+totalPend;
   document.getElementById('convitesCount').textContent = termo ? `${lista.length} de ${total}` : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}`;
@@ -1018,11 +1075,12 @@ function renderizarConvites(lista, termo) {
     const item   = document.createElement('div');
     item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
     let tag='', btnCls='btn-dl', btnTxt = isIOS ? '📤' : '📥';
+    const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#7c3aed;font-weight:600;">🪑 ${escHtml(conv.mesa)}</div>` : '';
     if (isPend) { tag='<div class="convite-item-tag roxo">⏳ offline — por sincronizar</div>'; btnCls='btn-dl pendente'; }
     else if (jaDl) { tag='<div class="convite-item-tag verde">✓ descarregado nesta sessão</div>'; btnCls='btn-dl ja-dl'; btnTxt='✓'; }
     item.innerHTML=`
       <div class="convite-item-info">
-        <div class="convite-item-nome">${escHtml(conv.nome)}${conv.mesa ? ' · ' + escHtml(conv.mesa) : ''}</div>${tag}
+        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${tag}
       </div>
       <button class="${btnCls}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
@@ -1062,11 +1120,10 @@ function pedirConfirmacaoGerar() {
     return;
   }
   const nomeRaw = document.getElementById('nomeInput').value.trim();
+  const mesaRaw = (configData?.mesa_ativa ? document.getElementById('mesaInput')?.value.trim() : '') || '';
   const { ok, msg } = validarNome(nomeRaw);
   if (!ok) { haptic('warning'); showInfo('step2Info', msg, 'yellow'); validarNomeInput(); return; }
-  const mesaRaw = obterMesaInput();
-  const mesaVal = validarMesa(mesaRaw);
-  if (!mesaVal.ok) { haptic('warning'); showInfo('step2Info', mesaVal.msg, 'yellow'); validarMesaInput(); return; }
+  if (configData?.mesa_ativa && !mesaRaw) { haptic('warning'); showInfo('step2Info', '⚠️ Introduza a mesa do convidado.', 'yellow'); return; }
   if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada.','red'); return; }
   if (!navigator.onLine) {
     if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
@@ -1077,10 +1134,9 @@ function pedirConfirmacaoGerar() {
   if (limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} atingido.`,'red'); actualizarContador(); return; }
   haptic('light');
   const dup = encontrarDuplicado(nomeRaw);
-  const nomeModal = mesaRaw ? `${nomeRaw} · ${mesaRaw}` : nomeRaw;
   if (dup) {
     const isPend = !!dup.id_local;
-    abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeModal, nomeCls:'duplicado',
+    abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeRaw, nomeCls:'duplicado',
       acoes:[
         { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
         { label: isIOS ? '📤 Partilhar existente' : '📥 Re-download existente', cls:'btn-outline', fn:()=>{
@@ -1093,10 +1149,13 @@ function pedirConfirmacaoGerar() {
   } else {
     const modoOff = !navigator.onLine && modoOfflinePermitido();
     const creditos = creditosOfflineRestantes();
+    const corpoModal = modoOff
+      ? `Sem internet. O convite será gerado localmente e sincronizado quando ligar à rede. Restam ${creditos-1} crédito${creditos-1===1?'':'s'} offline após este.`
+      : (configData?.mesa_ativa ? `Convite para ${nomeRaw} — ${mesaRaw}` : 'Vai gerar um convite para:');
     abrirModal({
       titulo: modoOff ? '📴 Gerar offline' : '✅ Confirmar Convite',
-      corpo:  modoOff ? `Sem internet. O convite será gerado localmente e sincronizado quando ligar à rede. Restam ${creditos-1} crédito${creditos-1===1?'':'s'} offline após este.` : 'Vai gerar um convite para:',
-      nome:nomeModal, nomeCls:'',
+      corpo:  corpoModal,
+      nome: configData?.mesa_ativa ? nomeRaw : nomeRaw, nomeCls:'',
       acoes:[
         { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
@@ -1117,10 +1176,17 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
   }
   const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
   try {
+    // Find mesa from loaded convites list
+    const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
+    const mesaConv = convObj?.mesa || '';
     let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
-    const blob=await gerarPDF(nome,codigo,qr,configData);
+    const blob=await gerarPDF(nome,codigo,qr,configData,mesaConv);
     await triggerDownload(blob, nome);
-    if(!isIOS && id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); renderizarConvites([...filaOffline,...todosConvites]); }
+    if(!isIOS && id){
+      downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token);
+      if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
+      else renderizarConvites([...filaOffline,...todosConvites]);
+    }
     haptic('success');
     showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
   } catch(e) { haptic('error'); alert('Erro: '+e.message); }
@@ -1148,11 +1214,11 @@ function gerarQRDataURL(codigo, tamanho) {
    GERAR CONVITE
    ── chama incrementar_convites (novo RPC)
 ═══════════════════════════════════════════ */
-async function gerarConvite(nome, mesa = '') {
+async function gerarConvite(nome, mesa) {
+  mesa = mesa || '';
   const modoOff = !navigator.onLine && modoOfflinePermitido();
   if (!navigator.onLine && !modoOff) { haptic('error'); mostrarErro(new Error('failed to fetch')); return; }
   ultimoContextoNome = nome;
-  ultimoContextoMesa = mesa || '';
   hideInfo('step2Info'); showStep('step3');
   if (!modoOff) iniciarProgressBar(TIMEOUT_MS * (MAX_RETRIES + 1));
   try {
@@ -1167,16 +1233,14 @@ async function gerarConvite(nome, mesa = '') {
       const item = { id_local, nome, mesa, codigo, created_at: new Date().toISOString(), pdf_b64 };
       filaOffline.push(item);
       guardarFilaOffline(clienteData.token);
-      ultimoContextoNome = null;
-      ultimoContextoMesa = '';
       convitesSessao++;
       guardarEstadoSessaoComToken(clienteData.token);
       await triggerDownload(pdfBlob, nome);
       document.getElementById('nomeInput').value='';
-      limparMesaInput();
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
+      if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
       iniciarRateLimit();
       actualizarContador(); actualizarBannersOffline(); haptic('success'); showStep('step2');
       const restam = creditosOfflineRestantes();
@@ -1208,28 +1272,23 @@ async function gerarConvite(nome, mesa = '') {
         setLoading('A personalizar o convite...');
         const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData, mesa);
         setLoading('A registar o convidado...');
-        let payload = { token_cliente:clienteData.token, codigo, nome, status:'convite_gerado' };
-        if (mesa) payload.mesa = mesa;
-        let { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([payload]).select('id').single());
-        if (eIns && mesa && /mesa|column|schema|cache/i.test(eIns.message || '')) {
-          delete payload.mesa;
-          ({ data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([payload]).select('id').single()));
-        }
+        const insertPayload = { token_cliente:clienteData.token, codigo, nome, status:'convite_gerado' };
+        if (mesa) insertPayload.mesa = mesa;
+        const { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([insertPayload]).select('id').single());
         if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
         conviteId = inserted?.id || null;
         pararProgressBar();
         await triggerDownload(pdfBlob, nome);
       });
       ultimoContextoNome = null;
-      ultimoContextoMesa = '';
       convitesSessao++;
       if (!isIOS && conviteId) { downloadsSessao.add(conviteId); }
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
-      limparMesaInput();
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
+      if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
       iniciarRateLimit();
       actualizarContador(); haptic('success'); showStep('step2');
       if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#667eea'); }
@@ -1247,11 +1306,14 @@ async function baixarConviteExistente(nome, codigo, id, btn) {
   if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
   const orig=btn.textContent; btn.disabled=true; btn.textContent='⏳';
   try {
+    const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
+    const mesaConv = convObj?.mesa || '';
     let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
-    const blob=await gerarPDF(nome,codigo,qr,configData);
+    const blob=await gerarPDF(nome,codigo,qr,configData,mesaConv);
     await triggerDownload(blob, nome);
     if(!isIOS && id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); }
-    renderizarConvites([...filaOffline,...todosConvites]);
+    if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
+    else renderizarConvites([...filaOffline,...todosConvites]);
     haptic('success');
     showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
   } catch(e) { haptic('error'); alert('Erro: '+e.message); }
@@ -1270,7 +1332,8 @@ async function gerarCodigoUnico(tokenCliente) {
 /* ═══════════════════════════════════════════
    GERAR PDF
 ═══════════════════════════════════════════ */
-async function gerarPDF(nome,codigo,qrDataUrl,config,mesa=''){
+async function gerarPDF(nome,codigo,qrDataUrl,config,mesa){
+  mesa=mesa||'';
   const{PDFDocument,StandardFonts,rgb}=window.PDFLib;
   const pdfBytes=Uint8Array.from(atob(config.pdf_base),c=>c.charCodeAt(0));
   const pdfDoc=await PDFDocument.load(pdfBytes);
@@ -1286,10 +1349,13 @@ async function gerarPDF(nome,codigo,qrDataUrl,config,mesa=''){
     for(const el of els){
       if(el.type==='text'){
         let text=el.content||'';
-        if(text.includes('{NOME}'))text=text.split('{NOME}').join(config.maiusculas?nome.toUpperCase():nome);
-        if(text.includes('{MESA}'))text=text.split('{MESA}').join(mesa || '');
-        const fontSize=(parseFloat(el.fontSize)||config.tamanho_nome||16)*scaleX;
-        const cor=hexToRgb(normalizarCor(el.elementType==='table'?(el.color||config.cor_mesa||'#1a1a2e'):(el.color||config.cor_nome||'#1a1a2e')));
+        if(text.includes('{NOME}'))text=text.replace('{NOME}',config.maiusculas?nome.toUpperCase():nome);
+        if(text.includes('{MESA}'))text=text.replace('{MESA}',mesa||'');
+        // Mesa element: use mesa size/color from config
+        const isMesaEl = el.elementType==='mesa';
+        const fontSize=(parseFloat(el.fontSize)||(isMesaEl?config.tamanho_mesa:config.tamanho_nome)||16)*scaleX;
+        const corHex = isMesaEl ? (el.color||config.cor_mesa||'#7c3aed') : (el.color||config.cor_nome||'#1a1a2e');
+        const cor=hexToRgb(normalizarCor(corHex));
         let font;
         if(customFont)font=customFont;
         else{const b=el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito,i=el.fontStyle==='italic'||config.italico;if(b&&i)font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);else if(b)font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);else if(i)font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);else font=await pdfDoc.embedFont(StandardFonts.Helvetica);}
