@@ -61,7 +61,12 @@
   async function cifrarCodigoQR(codigo, tokenEvento) {
     const key = await obterChaveQR();
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const payloadBytes = new TextEncoder().encode(JSON.stringify({ c: codigo, t: tokenEvento }));
+    // ▼ ALTERADO: cifra só o código (sem envolver em JSON nem incluir o
+    // token) — o texto do QR fica bem mais curto, o que o torna mais denso
+    // de ler à distância se for grande. O evento já fica garantido de
+    // qualquer forma, porque o código só é procurado dentro da lista de
+    // convidados já carregada para este evento específico.
+    const payloadBytes = new TextEncoder().encode(codigo);
     const cifrado = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, payloadBytes));
     const b64 = arr => btoa(String.fromCharCode(...arr));
     return `AK1.${b64(iv)}.${b64(cifrado)}`;
@@ -74,8 +79,8 @@
       const iv = bytes(partes[1]), dados = bytes(partes[2]);
       const key = await obterChaveQR();
       const claro = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, dados);
-      const json = JSON.parse(new TextDecoder().decode(claro));
-      return (json && json.c) ? json : null;
+      const codigo = new TextDecoder().decode(claro);
+      return codigo ? { c: codigo } : null;
     } catch (e) {
       return null; // corrompido, adulterado, ou fabricado sem a chave certa
     }
@@ -3561,20 +3566,39 @@ async function startScanner() {
     try {
         html5QrCode = new Html5Qrcode('scannerContainer');
         await html5QrCode.start(
-            { facingMode: 'environment' },
-            { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, disableFlip: false },
+            // ▼ NOVO: pedir resolução mais alta à câmara. Sem isto, o browser
+            // escolhe uma resolução baixa por defeito, e um QR mais afastado
+            // não tem pixels suficientes para ser lido — obrigando a
+            // aproximar demasiado. Com mais resolução, o mesmo QR code é
+            // legível a uma distância bem maior, sem mexer em mais nada.
+            { facingMode: 'environment', width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 } },
+            { fps: 12, qrbox: { width: 260, height: 260 }, aspectRatio: 1.0, disableFlip: false },
             onScanSuccess,
             () => {}
         );
         isScanning = true;
     } catch(err) {
-        document.getElementById('scannerContainer').innerHTML = `
-            <div class="text-center text-red-400 px-6">
-                <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
-                <p class="text-lg font-medium">Erro ao aceder à câmara</p>
-                <p class="text-sm mt-2">Verifique as permissões da câmara</p>
-                <button onclick="startScanner()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg">Tentar novamente</button>
-            </div>`;
+        // Fallback: se o dispositivo não aceitar essas restrições, tenta com
+        // pedido simples (câmaras mais antigas/limitadas)
+        try {
+            html5QrCode = new Html5Qrcode('scannerContainer');
+            await html5QrCode.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, disableFlip: false },
+                onScanSuccess,
+                () => {}
+            );
+            isScanning = true;
+            return;
+        } catch (err2) {
+            document.getElementById('scannerContainer').innerHTML = `
+                <div class="text-center text-red-400 px-6">
+                    <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
+                    <p class="text-lg font-medium">Erro ao aceder à câmara</p>
+                    <p class="text-sm mt-2">Verifique as permissões da câmara</p>
+                    <button onclick="startScanner()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg">Tentar novamente</button>
+                </div>`;
+        }
     }
 }
 
