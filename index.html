@@ -2062,12 +2062,12 @@ function baixarRelatorioConfirmados() {
     y = 24;
   }
 
-  function desenharSeccao(titulo, lista, corPill, corTextoPill, icone) {
+  function desenharSeccao(titulo, lista, corPill, corTextoPill) {
     novaPaginaSeNecessario(16);
     doc.setFillColor(...corPill);
     doc.roundedRect(margemX, y, pageW - margemX * 2, 10, 3, 3, 'F');
     doc.setTextColor(...corTextoPill); doc.setFont(undefined,'bold'); doc.setFontSize(11);
-    doc.text(`${icone}  ${titulo}  (${lista.length})`, margemX + 5, y + 6.8);
+    doc.text(`${titulo}  (${lista.length})`, margemX + 5, y + 6.8);
     doc.setTextColor(...corTextoEscuro);
     y += 15;
 
@@ -2084,7 +2084,7 @@ function baixarRelatorioConfirmados() {
       const criancas = nomesPipe(r.kids);
       const ladoLbl = labelLado(r.side, eventoRsvpCache);
       const extras = [];
-      if (acomp.length) extras.push(`👥 ${acomp.join(', ')}`);
+      if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
       if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
       if (ladoLbl) extras.push(ladoLbl);
       const linhaAltura = extras.length ? 13 : 9;
@@ -2118,8 +2118,8 @@ function baixarRelatorioConfirmados() {
   }
 
   desenharCabecalho();
-  desenharSeccao('Convite já gerado', comConvite, [214, 237, 229], [40, 90, 72], '✔');
-  desenharSeccao('Convite por gerar', semConvite, [255, 243, 205], [146, 90, 8], '○');
+  desenharSeccao('Convite já gerado', comConvite, [214, 237, 229], [40, 90, 72]);
+  desenharSeccao('Convite por gerar', semConvite, [255, 243, 205], [146, 90, 8]);
   desenharRodape();
 
 
@@ -2890,13 +2890,13 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
             <i class="fas fa-user-friends text-white text-2xl"></i>
         </div>
         <h2 class="text-xl font-bold text-gray-800 mb-1">Convidado com Acompanhante</h2>
-        <div class="text-sm text-gray-500 mb-3">Confirme quem entrou:</div>
-        <div class="flex gap-2 justify-center mb-4">
-            <span class="px-3 py-1 rounded-full text-sm font-semibold" style="background:rgba(90,161,137,0.12);color:#5aa189;" id="companionTitularName"></span>
-            <span class="text-gray-400 flex items-center text-sm">e</span>
-            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-purple-50 text-purple-700" id="companionAcompName"></span>
+        <div class="text-xs text-gray-400 mb-3">Confirme quem entrou:</div>
+        <div class="flex gap-2 justify-center items-center mb-4 flex-wrap">
+            <span class="px-4 py-2 rounded-full text-lg font-extrabold" style="background:rgba(90,161,137,0.12);color:#5aa189;" id="companionTitularName"></span>
+            <span class="text-gray-400 text-sm">e</span>
+            <span class="px-4 py-2 rounded-full text-lg font-extrabold bg-purple-50 text-purple-700" id="companionAcompName"></span>
         </div>
-        <p class="font-medium text-gray-700 mb-4">O acompanhante veio junto?</p>
+        <p class="text-sm text-gray-500 mb-4">O acompanhante veio junto?</p>
         <div class="flex gap-3">
             <button id="companionYes" class="flex-1 py-3 rounded-xl text-white font-bold text-base transition-all" style="background:linear-gradient(135deg,#5aa189,#4a9d7a);">
                 <i class="fas fa-check mr-2"></i>Sim
@@ -3878,28 +3878,28 @@ function showScanResult(status, guestName, type) {
 
     let msg = '';
     if (type === 'success' && guestName && status === 'ENTRADA CONFIRMADA (+ACOMPANHANTE)')
-        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA</div><div class="text-base">${guestName}</div><div class="text-sm mt-1 opacity-80">👥 Titular + Acompanhante</div>`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Entrada confirmada</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div><div class="text-sm mt-1 opacity-80">👥 Titular + Acompanhante</div>`;
     else if (type === 'success' && guestName && status === 'PERMITIDO (ACOMPANHANTE PENDENTE)')
-        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA</div><div class="text-base">${guestName}</div><div class="text-sm mt-1 opacity-80">⏳ Acompanhante pode entrar depois</div>`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Entrada confirmada</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div><div class="text-sm mt-1 opacity-80">⏳ Acompanhante pode entrar depois</div>`;
     else if (type === 'success' && guestName && status === 'ACOMPANHANTE CONFIRMADO') {
         const acomp = _lastCompanionName || guestName;
-        msg = `<div class="text-lg font-bold mb-2">ACOMPANHANTE CONFIRMADO</div><div class="text-base">${acomp}</div>`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Acompanhante confirmado</div><div class="text-2xl font-extrabold leading-tight">${acomp}</div>`;
     }
     else if (type === 'success' && guestName) {
         const gObj = guests.find(g => nomeTitular(g) === guestName || g.nome === guestName);
         const mesaTag = gObj?.mesa ? `<div class="text-sm mt-2 font-semibold" style="color:#7c3aed;">🪑 ${gObj.mesa}</div>` : '';
-        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA PARA</div><div class="text-base">${guestName}</div>${mesaTag}`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Entrada confirmada para</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div>${mesaTag}`;
     }
     else if (type === 'warning' && guestName) {
         const gObj = guests.find(g => nomeTitular(g) === guestName || g.nome === guestName);
         const mesaTag = gObj?.mesa ? `<div class="text-sm mt-1 font-semibold" style="color:#7c3aed;">🪑 ${gObj.mesa}</div>` : '';
-        msg = `<div class="text-lg font-bold mb-2">JÁ ENTROU ANTERIORMENTE</div><div class="text-base">${guestName}</div>${mesaTag}`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Já entrou anteriormente</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div>${mesaTag}`;
     }
     else if (status === 'CÓDIGO INVÁLIDO')    msg = '❌ QR inválido — verifique novamente';
     else if (status === 'LIMITE ATINGIDO')    msg = '🚫 Limite de entradas atingido';
     else msg = status;
 
-    el.innerHTML = `<div class="flex items-center justify-center mb-3"><i class="${s.icon} text-3xl"></i></div><div class="text-lg font-bold">${msg}</div>`;
+    el.innerHTML = `<div class="flex items-center justify-center mb-3"><i class="${s.icon} text-3xl"></i></div><div class="text-base">${msg}</div>`;
     el.classList.remove('hidden');
 }
 
@@ -4219,12 +4219,12 @@ async function generateRelatorioAusentesPDF() {
 
   function novaPaginaSeNecessario(altura) { if (y + altura > pageH - 16) { doc.addPage(); y = 20; } }
 
-  function secao(titulo, lista, corPill, corTextoPill, icone) {
+  function secao(titulo, lista, corPill, corTextoPill) {
     novaPaginaSeNecessario(16);
     doc.setFillColor(...corPill);
     doc.roundedRect(margemX, y, pageW - margemX * 2, 10, 3, 3, 'F');
     doc.setTextColor(...corTextoPill); doc.setFont(undefined, 'bold'); doc.setFontSize(11);
-    doc.text(`${icone}  ${titulo}  (${lista.length})`, margemX + 5, y + 6.8);
+    doc.text(`${titulo}  (${lista.length})`, margemX + 5, y + 6.8);
     doc.setTextColor(0, 0, 0);
     y += 15;
     if (lista.length === 0) {
@@ -4236,7 +4236,7 @@ async function generateRelatorioAusentesPDF() {
       const acomp = nomesPipeLocal(r.companions);
       const criancas = nomesPipeLocal(r.kids);
       const extras = [];
-      if (acomp.length) extras.push(`👥 ${acomp.join(', ')}`);
+      if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
       if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
       const altura = extras.length ? 13 : 9;
       novaPaginaSeNecessario(altura + 2);
@@ -4253,8 +4253,8 @@ async function generateRelatorioAusentesPDF() {
     y += 6;
   }
 
-  secao('Confirmou e apareceu', presentes, [214, 237, 229], [40, 90, 72], '✔');
-  secao('Confirmou e NÃO apareceu', ausentes, [254, 226, 226], [153, 27, 27], '⚠');
+  secao('Confirmou e apareceu', presentes, [214, 237, 229], [40, 90, 72]);
+  secao('Confirmou e NÃO apareceu', ausentes, [254, 226, 226], [153, 27, 27]);
 
   const totalPaginas = doc.internal.getNumberOfPages();
   for (let p = 1; p <= totalPaginas; p++) {
