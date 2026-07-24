@@ -21,6 +21,80 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" rel="stylesheet">
+  <script>
+  /* ═══════════════════════════════════════════════════════════
+     CIFRA DOS QR CODES (AES-256-GCM, Web Crypto API)
+     ── Partilhado entre o Gerador e o Leitor (mesmo ficheiro).
+     O Gerador cifra {código, evento} com esta chave antes de
+     desenhar o QR. O Leitor decifra localmente com a MESMA
+     chave — sem internet, sem Supabase — e só depois disso
+     confirma o convidado na lista já carregada em memória.
+     A etiqueta de autenticação do modo GCM garante que ninguém
+     sem esta chave consegue fabricar um QR que passe na
+     verificação, mesmo conhecendo o código impresso.
+
+     AVISO HONESTO (para o Bruce, não apagar): esta chave vive
+     dentro do código-fonte deste ficheiro HTML, tal como tudo
+     o resto na app. Não é literalmente "inquebrável" como o
+     cofre de um banco — um banco nunca expõe a chave a
+     ninguém, nem sequer aos seus próprios dispositivos; aqui,
+     qualquer pessoa com acesso técnico a este ficheiro e
+     alguma paciência consegue encontrá-la. O que este esquema
+     garante na prática: alguém que apenas veja o código
+     impresso no convite, ou copie a base de dados de
+     convidados, NÃO consegue fabricar um convite falso sem
+     também ter este ficheiro. É uma barreira real e séria
+     contra falsificação, mas não é magia — se um dia quiseres
+     segurança ao nível bancário a sério, isso exige um
+     servidor próprio a validar, o que por definição deixa de
+     funcionar 100% offline como pediste.
+  ═══════════════════════════════════════════════════════════ */
+  const QR_KEY_B64 = 'aXQbJrHg+9t5c67+tVN8623L7szWqbroC/iuXzAK3To=';
+  let _qrKeyPromise = null;
+  function obterChaveQR() {
+    if (!_qrKeyPromise) {
+      const raw = Uint8Array.from(atob(QR_KEY_B64), c => c.charCodeAt(0));
+      _qrKeyPromise = crypto.subtle.importKey('raw', raw, { name:'AES-GCM' }, false, ['encrypt','decrypt']);
+    }
+    return _qrKeyPromise;
+  }
+  async function cifrarCodigoQR(codigo, tokenEvento) {
+    const key = await obterChaveQR();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    // ▼ ALTERADO: cifra só o código (sem envolver em JSON nem incluir o
+    // token) — o texto do QR fica bem mais curto, o que o torna mais denso
+    // de ler à distância se for grande. O evento já fica garantido de
+    // qualquer forma, porque o código só é procurado dentro da lista de
+    // convidados já carregada para este evento específico.
+    const payloadBytes = new TextEncoder().encode(codigo);
+    const cifrado = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, payloadBytes));
+    const b64 = arr => btoa(String.fromCharCode(...arr));
+    return `AK1.${b64(iv)}.${b64(cifrado)}`;
+  }
+  async function decifrarCodigoQR(textoLido) {
+    try {
+      const partes = String(textoLido).trim().split('.');
+      if (partes.length !== 3 || partes[0] !== 'AK1') return null;
+      const bytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      const iv = bytes(partes[1]), dados = bytes(partes[2]);
+      const key = await obterChaveQR();
+      const claro = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, key, dados);
+      const codigo = new TextDecoder().decode(claro);
+      return codigo ? { c: codigo } : null;
+    } catch (e) {
+      return null; // corrompido, adulterado, ou fabricado sem a chave certa
+    }
+  }
+  window.cifrarCodigoQR = cifrarCodigoQR;
+  window.decifrarCodigoQR = decifrarCodigoQR;
+
+  /* ▼ Ligação (só-leitura) ao site de Confirmação de Presença, partilhada
+     entre o Gerador e o Leitor (mesmo ficheiro, projectos Supabase
+     diferentes). Nenhum dado é escrito neste projecto a partir daqui. */
+  const RSVP_SUPABASE_URL = 'https://sjjezhvfdblilqqthxtl.supabase.co';
+  const RSVP_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqamV6aHZmZGJsaWxxcXRoeHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMzgzMTEsImV4cCI6MjA4ODgxNDMxMX0.SdZ6MdXHJs8mYOoANBK9Yg386L9CB7STtgrofJtgEhI';
+  window.DB_RSVP = supabase.createClient(RSVP_SUPABASE_URL, RSVP_SUPABASE_KEY);
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -186,15 +260,33 @@
     .uso-bar   { height: 100%; border-radius: 99px; background: #5ba189; transition: width .5s cubic-bezier(.4,0,.2,1); min-width: 4px; }
     .counter-box.warning .uso-bar { background: #f59e0b; }
 
-    .comprar-convites-box {
-      background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 16px;
-      padding: 16px 14px; display: flex; flex-direction: column; gap: 12px;
+    .modal-box.comprar-convites-box {
+      background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 24px 24px 0 0;
+      padding: 20px 16px; padding-bottom: max(24px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px;
     }
+    @media (min-width: 540px) { .modal-box.comprar-convites-box { border-radius: 24px; padding-bottom: 24px; } }
+    .cc-alerta {
+      background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 12px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px; font-size: 13px; color: #92400e; font-weight: 500;
+    }
+    .cc-alerta i { font-size: 16px; flex-shrink: 0; }
+    .cc-alerta span { flex: 1; }
+    .cc-alerta-btn {
+      width: auto; flex: 0 0 auto; min-height: 0; background: #92400e; color: white; border: none;
+      border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .cc-alerta-btn:active { background: #78350f; transform: scale(0.96); }
     .cc-header { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: #92400e; line-height: 1.4; }
+    .cc-header span { flex: 1; }
+    .cc-fechar-btn {
+      width: 26px; height: 26px; min-height: 0; flex: 0 0 auto; padding: 0; background: transparent;
+      border: none; color: #b45309; font-size: 14px; cursor: pointer; border-radius: 8px;
+    }
+    .cc-fechar-btn:active { background: #fef3c7; }
     .cc-header i { font-size: 18px; flex-shrink: 0; }
     .cc-qtd-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
     .cc-qtd-btn {
-      width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid #fcd34d; background: white;
+      width: 38px; height: 38px; min-height: 0; border-radius: 50%; border: 1.5px solid #fcd34d; background: white;
       color: #92400e; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center;
       cursor: pointer; user-select: none; flex-shrink: 0;
     }
@@ -213,7 +305,7 @@
     .cc-preco-sub { text-align: center; font-size: 11.5px; color: #b45309; margin-top: -8px; }
     .cc-quick-row { display: flex; gap: 6px; }
     .cc-quick-btn {
-      flex: 1; background: white; border: 1.5px solid #fcd34d; color: #92400e; border-radius: 10px;
+      flex: 1; min-height: 0; background: white; border: 1.5px solid #fcd34d; color: #92400e; border-radius: 10px;
       padding: 8px 4px; font-size: 12px; font-weight: 600; cursor: pointer;
     }
     .cc-quick-btn:active { background: #fff7e0; transform: scale(0.97); }
@@ -224,8 +316,8 @@
     .cc-pagamento-linha span { color: #9ca3af; min-width: 130px; }
     .cc-pagamento-linha b { color: #1c1917; letter-spacing: .3px; }
     .cc-copy {
-      margin-left: auto; background: #f5f5f4; border: none; border-radius: 8px; padding: 4px 10px;
-      font-size: 11px; font-weight: 600; color: #57534e; cursor: pointer;
+      width: auto; flex: 0 0 auto; margin-left: auto; background: #f5f5f4; border: none; border-radius: 8px; padding: 4px 10px;
+      font-size: 11px; font-weight: 600; color: #57534e; cursor: pointer; min-height: 0;
     }
     .cc-copy:active { background: #e7e5e4; }
     .cc-copy.copiado { background: #5ba189; color: white; }
@@ -233,27 +325,53 @@
     .cc-btn-whatsapp:active { background: #1ea952; }
     .cc-nota { font-size: 11px; color: #b45309; text-align: center; line-height: 1.5; }
 
-    .confirmados-badge { background: #5ba189; color: white; border-radius: 99px; padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 4px; }
-    .tab-btn.tab-active .confirmados-badge { background: white; color: #5ba189; }
+    .confirmados-secao {
+      background: #f8fffe; border: 1.5px solid #d0ede6; border-radius: 16px; padding: 14px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .confirmados-secao-header { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: #2f6b58; }
+    .confirmados-badge { background: #5ba189; color: white; border-radius: 99px; padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 2px; }
     .confirmados-lista { display: flex; flex-direction: column; gap: 8px; max-height: 400px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .confirmado-card {
-      background: #f8fffe; border: 1.5px solid #d0ede6; border-radius: 12px; padding: 10px 12px;
-      display: flex; align-items: center; gap: 10px;
+      background: white; border: 1.5px solid #d0ede6; border-radius: 12px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
     }
-    .confirmado-card.ja-gerado { opacity: .55; }
-    .confirmado-info { flex: 1; min-width: 0; }
+    .confirmado-card.ja-gerado { opacity: .7; }
+    .confirmado-info { flex: 1 1 auto; min-width: 0; }
     .confirmado-nome { font-size: 14px; font-weight: 600; color: #1c1917; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .confirmado-meta { font-size: 11.5px; color: #9ca3af; margin-top: 2px; }
+    .confirmado-meta { font-size: 11.5px; color: #9ca3af; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .confirmado-acoes { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
     .confirmado-btn {
-      flex-shrink: 0; background: #5ba189; color: white; border: none; border-radius: 10px;
-      padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;
+      width: auto; flex: 0 0 auto; min-height: 0; background: #5ba189; color: white; border: none; border-radius: 10px;
+      padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;
     }
     .confirmado-btn:active { transform: scale(0.95); background: #4a9073; }
     .confirmado-btn.gerado { background: #d0ede6; color: #5ba189; }
     .confirmados-vazio { text-align: center; color: #9ca3af; font-size: 13px; padding: 20px 10px; }
+    .admin-cliente-card {
+      background: #f8fffe; border: 1.5px solid #d0ede6; border-radius: 12px; padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .admin-cliente-nome { font-size: 14px; font-weight: 700; color: #1c1917; }
+    .admin-cliente-token { font-size: 11.5px; color: #9ca3af; }
+    .admin-cliente-stats { font-size: 12px; color: #5ba189; font-weight: 600; }
+    .admin-cliente-row { display: flex; align-items: center; gap: 8px; }
+    .admin-cliente-row input {
+      flex: 1; min-height: 40px; padding: 8px 12px; border: 1.5px solid #d0ede6; border-radius: 10px; font-size: 14px;
+    }
+    .admin-cliente-row button {
+      width: auto; flex: 0 0 auto; min-height: 40px; padding: 8px 14px; font-size: 13px;
+    }
     .confirmados-erro { text-align: center; color: #b45309; font-size: 12.5px; padding: 16px 10px; background: #fffbeb; border-radius: 12px; }
+    .convite-edit-btn {
+      width: 40px; height: 40px; min-height: 0; flex: 0 0 auto; padding: 0; background: #edf7f3; color: #5ba189;
+      border: none; border-radius: 10px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .convite-edit-btn:active { background: #d0ede6; transform: scale(0.93); }
+    .convite-edit-btn:disabled { opacity: .35; cursor: not-allowed; }
     .sessao-badge, .offline-creditos-badge {
       display: flex; align-items: center; justify-content: center; gap: 6px;
+
       background: #edf7f3; border-radius: 10px;
       padding: 7px 12px; font-size: 12px; color: #3d8a6e; font-weight: 600;
     }
@@ -481,6 +599,118 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="editarConviteOverlay">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✏️ Corrigir convite</div>
+    <div class="modal-body" style="text-align:center;color:#9ca3af;font-size:12.5px;">Só é possível editar uma vez. O código e o QR do convite mantêm-se iguais.</div>
+    <div>
+      <label for="editarConviteNomeInput">Nome completo do convidado</label>
+      <input type="text" id="editarConviteNomeInput" placeholder="Ex: Maria Silva"
+             autocapitalize="words" autocorrect="off" spellcheck="false">
+      <div class="nome-hint" id="editarConviteHint">Introduza o nome próprio e apelido</div>
+    </div>
+    <div id="editarConviteMesaBox" style="display:none;">
+      <label for="editarConviteMesaInput">🪑 Mesa do convidado</label>
+      <input type="text" id="editarConviteMesaInput" placeholder="Ex: Mesa 5 ou VIP"
+             autocapitalize="words" autocorrect="off" spellcheck="false">
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" onclick="fecharEdicaoConvite()">Cancelar</button>
+      <button type="button" class="btn-main" id="btnGuardarEdicaoConvite" onclick="guardarEdicaoConvite()"><i class="ti ti-check" aria-hidden="true"></i> Guardar correção</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="comprarConvitesOverlay">
+  <div class="modal-box comprar-convites-box">
+    <div class="modal-handle"></div>
+    <div class="cc-header">
+      <i class="ti ti-ticket" aria-hidden="true"></i>
+      <span>Adicionar convites a este evento</span>
+      <button type="button" class="cc-fechar-btn" onclick="fecharCompraManual()" aria-label="Fechar" title="Fechar">✕</button>
+    </div>
+
+    <div class="cc-qtd-row">
+      <button type="button" class="cc-qtd-btn" onclick="ajustarQtdExtra(-5)">−</button>
+      <div class="cc-qtd-input-wrap">
+        <input type="number" id="qtdExtraInput" value="20" min="20" step="5" inputmode="numeric"
+               oninput="atualizarPrecoExtra()" onblur="clamparQtdExtra()">
+        <span class="cc-qtd-lbl">convites</span>
+      </div>
+      <button type="button" class="cc-qtd-btn" onclick="ajustarQtdExtra(5)">+</button>
+    </div>
+
+    <div class="cc-preco" id="ccPrecoTexto">12.000 Kz</div>
+    <div class="cc-preco-sub" id="ccPrecoSub">600 Kz por convite · mínimo 20 convites</div>
+
+    <div class="cc-quick-row">
+      <button type="button" class="cc-quick-btn" onclick="definirQtdExtra(20)">+20 · 12.000 Kz</button>
+      <button type="button" class="cc-quick-btn" onclick="definirQtdExtra(50)">+50 · 30.000 Kz</button>
+      <button type="button" class="cc-quick-btn" onclick="definirQtdExtra(100)">+100 · 60.000 Kz</button>
+    </div>
+
+    <div class="cc-pagamento">
+      <div class="cc-pagamento-titulo"><i class="ti ti-credit-card" aria-hidden="true"></i> Dados para pagamento</div>
+      <div class="cc-pagamento-linha"><span>Transferência Express</span><b>959 823 409</b> <button type="button" class="cc-copy" onclick="copiarTexto('959823409', this)">Copiar</button></div>
+      <div class="cc-pagamento-linha"><span>IBAN BAI</span><b>0040 0000 3066 6927 1014 1</b> <button type="button" class="cc-copy" onclick="copiarTexto('004000003066692710141', this)">Copiar</button></div>
+      <div class="cc-pagamento-linha"><span>Titular</span><b>Araújo Artur Cataca</b></div>
+    </div>
+
+    <button type="button" class="btn-main cc-btn-whatsapp" onclick="pedirConvitesExtra()">
+      <i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Enviar comprovativo e pedir convites
+    </button>
+    <div class="cc-nota">Após o pagamento, envie o comprovativo pelo WhatsApp. Os convites extra são liberados após confirmação.</div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="adminAcessoOverlay">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔧 Acesso de administrador</div>
+    <div class="modal-body" style="text-align:center;color:#9ca3af;font-size:12.5px;">Introduza o token de administrador.</div>
+    <div>
+      <label for="adminTokenInput">Token</label>
+      <input type="password" id="adminTokenInput" placeholder="••••••••••"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+             onkeydown="if(event.key==='Enter'){this.blur();confirmarAdminAcesso();}">
+      <div class="nome-hint" id="adminTokenHint">&nbsp;</div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" onclick="fecharAdminAcesso()">Cancelar</button>
+      <button type="button" class="btn-main" id="btnConfirmarAdminAcesso" onclick="confirmarAdminAcesso()"><i class="ti ti-lock-open" aria-hidden="true"></i> Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="adminPainelOverlay">
+  <div class="modal-box" style="max-height:85vh;">
+    <div class="modal-handle"></div>
+    <div class="cc-header" style="color:#1c1917;">
+      <i class="ti ti-shield-lock" aria-hidden="true"></i>
+      <span>Administração</span>
+      <button type="button" class="cc-fechar-btn" onclick="fecharAdminPainel()" aria-label="Fechar" title="Fechar">✕</button>
+    </div>
+
+    <div class="convites-header" style="margin-top:4px;">
+      <div class="section-label" style="white-space:nowrap;">🔔 Pedidos de convites</div>
+      <span id="adminPedidosBadge" class="confirmados-badge" style="display:none;"></span>
+      <button class="btn-outline" style="width:auto;margin-left:auto;" onclick="carregarPedidosAdmin()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+    </div>
+    <div id="adminPedidos" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+    <div class="divider"></div>
+    <div class="section-label">🔍 Aumentar convites de um cliente</div>
+    <div>
+      <label for="adminBuscaInput">Procurar por token ou nome do cliente</label>
+      <input type="text" id="adminBuscaInput" placeholder="Ex: evt-bmh6x7 ou Araújo Cataca"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+             onkeydown="if(event.key==='Enter'){this.blur();buscarClienteAdmin();}">
+    </div>
+    <button type="button" class="btn-outline" onclick="buscarClienteAdmin()"><i class="ti ti-search" aria-hidden="true"></i> Procurar</button>
+    <div id="adminResultados" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;"></div>
+  </div>
+</div>
 <div class="card">
   <div class="logo">
     <div class="logo-icon"><i class="ti ti-ticket" aria-hidden="true"></i></div>
@@ -505,6 +735,7 @@
     </div>
     <div class="info blue" id="step1Info" style="display:none;"></div>
     <button class="btn-main" onclick="validarToken()"><i class="ti ti-arrow-right" aria-hidden="true"></i> Continuar</button>
+    <button type="button" class="btn-ghost" onclick="abrirAdminAcesso()" style="margin-top:4px;"><i class="ti ti-shield-lock" aria-hidden="true"></i> Sou administrador</button>
   </div>
 
   <div class="step" id="step2">
@@ -512,41 +743,10 @@
     <div class="info red"   id="expiradoBox"   style="display:none;">⏰ Este evento expirou. Já não é possível gerar convites.</div>
     <div class="info orange" id="limiteProximoBox" style="display:none;"></div>
 
-    <div class="comprar-convites-box" id="comprarConvitesBox" style="display:none;">
-      <div class="cc-header">
-        <i class="ti ti-ticket" aria-hidden="true"></i>
-        <span>Está a ficar sem convites. Pode adicionar mais a este evento.</span>
-      </div>
-
-      <div class="cc-qtd-row">
-        <button type="button" class="cc-qtd-btn" onclick="ajustarQtdExtra(-5)">−</button>
-        <div class="cc-qtd-input-wrap">
-          <input type="number" id="qtdExtraInput" value="20" min="20" step="5" oninput="atualizarPrecoExtra()">
-          <span class="cc-qtd-lbl">convites</span>
-        </div>
-        <button type="button" class="cc-qtd-btn" onclick="ajustarQtdExtra(5)">+</button>
-      </div>
-
-      <div class="cc-preco" id="ccPrecoTexto">10.000 Kz</div>
-      <div class="cc-preco-sub">500 Kz por convite · mínimo 20 convites</div>
-
-      <div class="cc-quick-row">
-        <button type="button" class="cc-quick-btn" onclick="definirQtdExtra(20)">+20 · 10.000 Kz</button>
-        <button type="button" class="cc-quick-btn" onclick="definirQtdExtra(50)">+50 · 25.000 Kz</button>
-        <button type="button" class="cc-quick-btn" onclick="definirQtdExtra(100)">+100 · 50.000 Kz</button>
-      </div>
-
-      <div class="cc-pagamento">
-        <div class="cc-pagamento-titulo"><i class="ti ti-credit-card" aria-hidden="true"></i> Dados para pagamento</div>
-        <div class="cc-pagamento-linha"><span>Transferência Express</span><b>959 823 409</b> <button type="button" class="cc-copy" onclick="copiarTexto('959823409', this)">Copiar</button></div>
-        <div class="cc-pagamento-linha"><span>IBAN BAI</span><b>0040 0000 3066 6927 1014 1</b> <button type="button" class="cc-copy" onclick="copiarTexto('004000003066692710141', this)">Copiar</button></div>
-        <div class="cc-pagamento-linha"><span>Titular</span><b>Araújo Artur Cataca</b></div>
-      </div>
-
-      <button type="button" class="btn-main cc-btn-whatsapp" onclick="pedirConvitesExtra()">
-        <i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Enviar comprovativo e pedir convites
-      </button>
-      <div class="cc-nota">Após o pagamento, envie o comprovativo pelo WhatsApp. Os convites extra são liberados após confirmação.</div>
+    <div class="cc-alerta" id="ccAlerta" style="display:none;">
+      <i class="ti ti-ticket" aria-hidden="true"></i>
+      <span id="ccAlertaTexto">Está a ficar sem convites.</span>
+      <button type="button" class="cc-alerta-btn" onclick="abrirCompraConvitesManual()">Adicionar convites</button>
     </div>
 
     <div class="sync-pendente" id="syncPendente" style="display:none;">
@@ -577,61 +777,83 @@
     </div>
 
     <div class="divider"></div>
-    <div class="section-label">✨ Gerar Novo Convite</div>
-    <div>
-      <label for="nomeInput">Nome completo do convidado</label>
-      <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
-             autocapitalize="words" autocorrect="off" spellcheck="false"
-             oninput="validarNomeInput()"
-             onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
-      <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
-    </div>
 
-    <!-- Campo Mesa (visível só quando mesa_ativa=true) -->
-    <div id="mesaInputBox" style="display:none;">
-      <label for="mesaInput">🪑 Mesa do convidado</label>
-      <input type="text" id="mesaInput" placeholder="Ex: Mesa 5 ou VIP"
-             autocapitalize="words" autocorrect="off" spellcheck="false"
-             onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
-    </div>
-
-    <div class="rate-bar-wrap" id="rateBarWrap" style="opacity:0;">
-      <div class="rate-bar" id="rateBar"></div>
-    </div>
-
-    <div class="info yellow" id="step2Info" style="display:none;"></div>
-    <div class="ios-hint" id="iosHint">
-      📱 No seu dispositivo, escolha <strong>WhatsApp</strong> ou <strong>Guardar em Ficheiros</strong> para guardar o PDF.
-    </div>
-    <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
-
-    <div class="divider"></div>
-    <div class="convites-header">
-      <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
-      <span class="convites-count" id="convitesCount"></span>
-      <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
-    </div>
-
-    <!-- Tabs (visíveis só quando mesa_ativa=true) -->
-    <div id="convitesTabs" style="display:none;display:none;gap:6px;flex-direction:row;">
-      <button id="tabLista" class="tab-btn tab-active" onclick="mudarTab('lista')"><i class="ti ti-list" aria-hidden="true"></i> Lista</button>
-      <button id="tabMesas" class="tab-btn" onclick="mudarTab('mesas')"><i class="ti ti-layout-grid" aria-hidden="true"></i> Por Mesa</button>
-    </div>
-
-    <!-- Tab de confirmados via site de Confirmação de Presença -->
-    <div id="confirmadosTabsWrap" style="display:none;gap:6px;flex-direction:row;margin-top:6px;">
-      <button id="tabConfirmados" class="tab-btn" onclick="mudarTab('confirmados')">
-        <i class="ti ti-user-check" aria-hidden="true"></i> Confirmados <span id="confirmadosBadge" class="confirmados-badge" style="display:none;"></span>
+    <!-- ▼ NOVO: duas abas principais — Confirmações (dados do site de
+         Confirmação de Presença) e Convites (geração manual + já gerados) -->
+    <div id="mainTabsWrap" style="display:none;gap:6px;flex-direction:row;">
+      <button id="mainTabConfirmacoes" class="tab-btn" onclick="mudarMainTab('confirmacoes')">
+        <i class="ti ti-user-check" aria-hidden="true"></i> Confirmações <span id="confirmadosBadge" class="confirmados-badge" style="display:none;" title="Por gerar"></span>
+      </button>
+      <button id="mainTabConvites" class="tab-btn tab-active" onclick="mudarMainTab('convites')">
+        <i class="ti ti-ticket" aria-hidden="true"></i> Convites
       </button>
     </div>
-    <div class="confirmados-lista" id="confirmadosLista" style="display:none;"></div>
 
-    <input type="text" class="convites-search" id="convitesSearch"
-           placeholder="🔍 Pesquisar por nome..."
-           autocorrect="off" spellcheck="false"
-           oninput="filtrarConvites()" style="display:none;">
-    <div class="convites-lista" id="convitesLista">
-      <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
+    <!-- ═══ ABA: CONFIRMAÇÕES DE PRESENÇA ═══ -->
+    <div id="confirmacoesTabContent" style="display:none;">
+      <button type="button" class="btn-outline" id="btnPdfConfirmados" onclick="baixarRelatorioConfirmados()" style="margin-top:10px;">
+        <i class="ti ti-file-download" aria-hidden="true"></i> Baixar PDF de todas as confirmações
+      </button>
+      <input type="text" class="convites-search" id="confirmacoesSearch"
+             placeholder="🔍 Pesquisar por nome..."
+             autocorrect="off" spellcheck="false"
+             oninput="filtrarConfirmacoes()" style="margin-top:10px;">
+      <div class="convites-lista" id="confirmacoesLista" style="margin-top:10px;">
+        <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Este evento não está ligado à Confirmação de Presença.</div>
+      </div>
+    </div>
+
+    <!-- ═══ ABA: CONVITES (geração manual + lista gerada) ═══ -->
+    <div id="convitesTabContent">
+      <div class="section-label" style="margin-top:10px;">✨ Gerar Novo Convite</div>
+      <div>
+        <label for="nomeInput">Nome completo do convidado</label>
+        <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
+               autocapitalize="words" autocorrect="off" spellcheck="false"
+               oninput="validarNomeInput()"
+               onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
+        <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
+      </div>
+
+      <!-- Campo Mesa (visível só quando mesa_ativa=true) -->
+      <div id="mesaInputBox" style="display:none;">
+        <label for="mesaInput">🪑 Mesa do convidado</label>
+        <input type="text" id="mesaInput" placeholder="Ex: Mesa 5 ou VIP"
+               autocapitalize="words" autocorrect="off" spellcheck="false"
+               onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
+      </div>
+
+      <div class="rate-bar-wrap" id="rateBarWrap" style="opacity:0;">
+        <div class="rate-bar" id="rateBar"></div>
+      </div>
+
+      <div class="info yellow" id="step2Info" style="display:none;"></div>
+      <div class="ios-hint" id="iosHint">
+        📱 No seu dispositivo, escolha <strong>WhatsApp</strong> ou <strong>Guardar em Ficheiros</strong> para guardar o PDF.
+      </div>
+      <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
+      <button type="button" class="btn-outline" id="btnAderirMais" onclick="abrirCompraConvitesManual()"><i class="ti ti-square-rounded-plus" aria-hidden="true"></i> Aderir mais convites</button>
+
+      <div class="divider"></div>
+      <div class="convites-header">
+        <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
+        <span class="convites-count" id="convitesCount"></span>
+        <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+      </div>
+
+      <!-- Tabs (visíveis só quando mesa_ativa=true) -->
+      <div id="convitesTabs" style="display:none;display:none;gap:6px;flex-direction:row;">
+        <button id="tabLista" class="tab-btn tab-active" onclick="mudarTab('lista')"><i class="ti ti-list" aria-hidden="true"></i> Lista</button>
+        <button id="tabMesas" class="tab-btn" onclick="mudarTab('mesas')"><i class="ti ti-layout-grid" aria-hidden="true"></i> Por Mesa</button>
+      </div>
+
+      <input type="text" class="convites-search" id="convitesSearch"
+             placeholder="🔍 Pesquisar por nome..."
+             autocorrect="off" spellcheck="false"
+             oninput="filtrarConvites()" style="display:none;">
+      <div class="convites-lista" id="convitesLista">
+        <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
+      </div>
     </div>
     <button class="btn-ghost" onclick="pedirConfirmacaoSair()"><i class="ti ti-logout" aria-hidden="true"></i> Sair</button>
   </div>
@@ -670,14 +892,10 @@ const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
 const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ▼ NOVO: ligação (só-leitura) ao site de Confirmação de Presença.
-   Projecto Supabase diferente e independente — usado apenas para
-   consultar os convidados que já confirmaram presença, através do
-   event_code do evento, que deve ser igual ao token/código deste
-   evento no gerador. Nenhum dado é escrito neste projecto. */
-const RSVP_SUPABASE_URL = 'https://sjjezhvfdblilqqthxtl.supabase.co';
-const RSVP_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqamV6aHZmZGJsaWxxcXRoeHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMzgzMTEsImV4cCI6MjA4ODgxNDMxMX0.SdZ6MdXHJs8mYOoANBK9Yg386L9CB7STtgrofJtgEhI';
-const DB_RSVP = supabase.createClient(RSVP_SUPABASE_URL, RSVP_SUPABASE_KEY);
+/* ▼ Ligação (só-leitura) ao site de Confirmação de Presença — definida uma
+   única vez no <script> global partilhado (para o Leitor também conseguir
+   usá-la), aqui só referenciamos essa mesma ligação. */
+const DB_RSVP = window.DB_RSVP;
 
 /* ═══════════════════════════════════════════
    CONSTANTES
@@ -692,15 +910,15 @@ const MAX_RETRIES    = 2;
 const RETRY_DELAY    = 2000;
 const RATE_LIMIT_MS  = 3000;
 // ▼ ALTERADO: inclui convites_gerados, remove scans_usados da leitura
-const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade';
-const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at';
+const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade,event_code_confirmacao';
+const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at,editado,rsvp_id';
 const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
 const SS_OFFLINE_KEY = 'adkira_offline_fila';
 const MAX_OFFLINE    = 5;
 // ▼ NOVO: compra de convites extra
 const LIMIAR_COMPRA_EXTRA = 15;   // mostra a opção quando restam <= 15
-const PRECO_POR_CONVITE   = 500;  // Kz por convite (20 convites = 10.000 Kz)
+const PRECO_POR_CONVITE   = 600;  // Kz por convite (20 convites = 12.000 Kz)
 const QTD_MINIMA_EXTRA    = 20;   // não é possível pedir menos que isto
 const WHATSAPP_EMPRESA    = '244959823409';
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -723,6 +941,8 @@ let ultimaGeracao      = 0;
 let rateLockTimer      = null;
 let rateBarTimer       = null;
 let tabAtual           = 'lista'; // 'lista' ou 'mesas'
+let origemConfirmado   = false; // ▼ NOVO: true quando o "Gerar" veio da lista de confirmados — salta a confirmação genérica
+let rsvpIdEmGeracao    = null;  // ▼ NOVO: id estável do rsvp (imune a mudanças de nome), para ligar o convite ao confirmado certo
 
 /* ══════════════════════════════════��════════
    HELPER — lê o nº de convites gerados do
@@ -1018,22 +1238,25 @@ function iniciarRealtime(token) {
       clienteData.nome         = p.new.nome;
       clienteData.validade     = p.new.validade;
       document.getElementById('eventoNomeBox').textContent = '🎉 ' + p.new.nome;
-      actualizarContador(); iniciarTimerValidade(); haptic('light'); showToast('🔄 Evento actualizado!', '#5ba189');
+      actualizarContador(); iniciarTimerValidade(); haptic('light');
+      // ▼ NOVO: pode ser exactamente esta actualização a aprovação de um pedido de convites — se for, mostra confirmação clara; senão, o toast genérico de sempre
+      verificarPedidosAprovados().then(mostrou => { if (!mostrou) showToast('🔄 Evento actualizado!', '#5ba189'); });
     })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, (p) => {
       if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
-      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at });
+      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at, editado:p.new.editado||false, rsvp_id:p.new.rsvp_id||null });
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
-      else renderizarConvites([...filaOffline, ...todosConvites]);
+      else renderizarConvites(obterListaCompletaConvites());
       // ▼ ALTERADO: incrementa convites_gerados localmente (não scans_usados)
       clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
       actualizarContador();
+      if (typeof atualizarSecaoConfirmados === 'function') atualizarSecaoConfirmados();
     })
     .on('postgres_changes', { event:'DELETE', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, async (p) => {
       if (p.old?.id) {
         todosConvites = todosConvites.filter(c => c.id !== p.old.id);
         if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
-        else renderizarConvites([...filaOffline, ...todosConvites]);
+        else renderizarConvites(obterListaCompletaConvites());
       }
       // ▼ ALTERADO: relê apenas convites_gerados e limite_scans
       const { data } = await DB.from('clientes').select('convites_gerados,limite_scans').eq('token', token).single();
@@ -1114,6 +1337,7 @@ async function tentarRestaurarSessao(token) {
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
     iniciarRealtime(token); iniciarTimerValidade();
+    verificarPedidosAprovados(); // ▼ NOVO
     if (navigator.onLine && filaOffline.length > 0) setTimeout(() => sincronizarFila(), 2000);
     showStep('step2'); return true;
   } catch(e) { return false; }
@@ -1210,6 +1434,7 @@ async function validarToken() {
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
     iniciarRealtime(token); iniciarTimerValidade();
+    verificarPedidosAprovados(); // ▼ NOVO
     hideInfo('step1Info'); haptic('success'); showStep('step2');
   } catch(e) { haptic('error'); showInfo('step1Info','❌ ' + (navigator.onLine ? e.message : 'Sem ligação à internet.'), 'red'); }
 }
@@ -1268,15 +1493,19 @@ function actualizarContador() {
   const limBox = document.getElementById('limiteProximoBox');
   if (perto) { limBox.textContent = `⚠️ Restam apenas ${restantes} convite${restantes===1?'':'s'}.`; limBox.style.display = 'block'; } else limBox.style.display = 'none';
 
-  // ▼ NOVO: mostra opção de comprar convites extra quando restam poucos (≤15)
-  const ccBox = document.getElementById('comprarConvitesBox');
-  if (ccBox) {
-    const mostrarCompra = limite > 0 && restantes <= LIMIAR_COMPRA_EXTRA && !expirado;
-    ccBox.style.display = mostrarCompra ? 'flex' : 'none';
-    if (mostrarCompra) atualizarPrecoExtra();
+  // ▼ NOVO: aviso discreto quando restam poucos convites (≤15) — abre o modal só se pedido
+  const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
+  const ccAlerta = document.getElementById('ccAlerta');
+  if (ccAlerta) {
+    const mostrarAviso = limite > 0 && restantes <= LIMIAR_COMPRA_EXTRA && !expirado;
+    ccAlerta.style.display = mostrarAviso ? 'flex' : 'none';
+    if (mostrarAviso) {
+      document.getElementById('ccAlertaTexto').textContent = restantes > 0
+        ? `Restam apenas ${restantes} convite${restantes===1?'':'s'}.`
+        : 'Atingiu o limite de convites deste evento.';
+    }
   }
   const btnGerar = document.getElementById('btnGerar');
-  const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
   if (expirado) { btnGerar.disabled=true; btnGerar.innerHTML='<i class="ti ti-clock-off" aria-hidden="true"></i> Evento expirado'; document.getElementById('expiradoBox').style.display='block'; }
   else if (limite && gerados >= limite) { btnGerar.disabled=true; btnGerar.innerHTML='<i class="ti ti-ban" aria-hidden="true"></i> Limite atingido'; showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red'); }
   else if (!estaEmCooldown()) { btnGerar.disabled=false; btnGerar.innerHTML='<i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite'; hideInfo('step2Info'); }
@@ -1289,6 +1518,17 @@ function formatarKz(v) { return v.toLocaleString('pt-PT') + ' Kz'; }
 
 function precoExtra(qtd) { return Math.max(QTD_MINIMA_EXTRA, qtd) * PRECO_POR_CONVITE; }
 
+// Lê o valor actual do campo sem o reescrever — usado só para pré-visualização
+// do preço enquanto a pessoa ainda está a escrever (não interrompe a digitação).
+function lerQtdExtraBruto() {
+  const input = document.getElementById('qtdExtraInput');
+  const qtd = parseInt(input.value, 10);
+  return Number.isFinite(qtd) && qtd > 0 ? qtd : QTD_MINIMA_EXTRA;
+}
+
+// Confirma e corrige o valor final — chamado ao sair do campo (blur) e sempre
+// antes de enviar o pedido, para GARANTIR que nunca é possível pedir menos
+// de QTD_MINIMA_EXTRA convites, aconteça o que acontecer durante a digitação.
 function lerQtdExtra() {
   const input = document.getElementById('qtdExtraInput');
   let qtd = parseInt(input.value, 10);
@@ -1297,8 +1537,13 @@ function lerQtdExtra() {
   return qtd;
 }
 
+function clamparQtdExtra() {
+  lerQtdExtra();
+  atualizarPrecoExtra();
+}
+
 function atualizarPrecoExtra() {
-  const qtd = lerQtdExtra();
+  const qtd = lerQtdExtraBruto();
   document.getElementById('ccPrecoTexto').textContent = formatarKz(precoExtra(qtd));
   document.querySelectorAll('.cc-quick-btn').forEach(b => b.classList.remove('activo'));
   const idx = [20,50,100].indexOf(qtd);
@@ -1308,7 +1553,7 @@ function atualizarPrecoExtra() {
 function ajustarQtdExtra(delta) {
   haptic('light');
   const input = document.getElementById('qtdExtraInput');
-  const novo = Math.max(QTD_MINIMA_EXTRA, (parseInt(input.value,10) || QTD_MINIMA_EXTRA) + delta);
+  const novo = Math.max(QTD_MINIMA_EXTRA, lerQtdExtraBruto() + delta);
   input.value = novo;
   atualizarPrecoExtra();
 }
@@ -1337,12 +1582,53 @@ function copiarTexto(texto, btnEl) {
   }
 }
 
-function pedirConvitesExtra() {
+/* ▼ NOVO: notificação clara quando um pedido de convites é aprovado.
+   Não depende só de estar online no momento exacto da aprovação — fica
+   marcado como "aprovado, mas ainda não visto" na base de dados, por isso
+   aparece sempre, mesmo que o cliente só reabra a app horas depois. */
+async function verificarPedidosAprovados() {
+  if (!clienteData?.token) return false;
+  try {
+    const { data, error } = await comTimeout(
+      DB.from('pedidos_convites').select('id,quantidade,valor')
+        .eq('token_cliente', clienteData.token).eq('status', 'aprovado').eq('visto', false)
+        .order('created_at', { ascending: true })
+    );
+    if (error || !data || data.length === 0) return false;
+    for (const pedido of data) {
+      mostrarAprovacaoConvites(pedido);
+      await comTimeout(DB.from('pedidos_convites').update({ visto: true }).eq('id', pedido.id));
+    }
+    return true;
+  } catch (e) {
+    return false; // sem internet ou tabela indisponível — não bloqueia mais nada
+  }
+}
+
+function mostrarAprovacaoConvites(pedido) {
+  haptic('success');
+  abrirModal({
+    titulo: '🎉 Pedido aprovado!',
+    corpo: `O seu pedido de ${pedido.quantidade} convite${pedido.quantidade===1?'':'s'} extra (${formatarKz(pedido.valor)}) foi aprovado. Já pode gerar mais convites para este evento.`,
+    nome: '', nomeCls: '',
+    acoes: [ { label: 'Óptimo!', cls: 'btn-main', fn: () => {} } ]
+  });
+}
+
+async function pedirConvitesExtra() {
   haptic('medium');
   const qtd = lerQtdExtra();
   const preco = precoExtra(qtd);
   const nomeEvento = clienteData?.nome || 'Evento';
   const token = clienteData?.token || '';
+  // ▼ NOVO: regista o pedido na base de dados para apareceres a aprovar no
+  // painel de administração. Se falhar (ex: sem internet), continua na
+  // mesma para o WhatsApp — o pedido não fica perdido para o cliente.
+  try {
+    await comTimeout(DB.from('pedidos_convites').insert([{
+      token_cliente: token, nome_cliente: nomeEvento, quantidade: qtd, valor: preco, status: 'pendente'
+    }]));
+  } catch (e) { console.warn('Não foi possível registar o pedido:', e); }
   const msg = `Olá! Quero comprar mais convites para o meu evento.\n\n` +
               `Evento: ${nomeEvento}\n` +
               `Código: ${token}\n` +
@@ -1352,12 +1638,247 @@ function pedirConvitesExtra() {
   window.open(`https://wa.me/${WHATSAPP_EMPRESA}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+function abrirCompraConvitesManual() {
+  haptic('light');
+  document.getElementById('qtdExtraInput').value = QTD_MINIMA_EXTRA;
+  atualizarPrecoExtra();
+  document.getElementById('comprarConvitesOverlay').classList.remove('hidden');
+}
+
+function fecharCompraManual() {
+  haptic('light');
+  document.getElementById('comprarConvitesOverlay').classList.add('hidden');
+}
+document.getElementById('comprarConvitesOverlay').addEventListener('click', function(e) { if (e.target === this) fecharCompraManual(); });
+
+/* ═══════════════════════════════════════════
+   ADMINISTRAÇÃO
+   ── acesso por TOKEN verificado directamente no Supabase — o
+      token em si nunca fica escrito neste ficheiro. Mostra os
+      pedidos de compra de convites por aprovar, e permite
+      pesquisar e aumentar o limite de qualquer cliente.
+═══════════════════════════════════════════ */
+function abrirAdminAcesso() {
+  haptic('light');
+  document.getElementById('adminTokenInput').value = '';
+  document.getElementById('adminTokenHint').textContent = '\u00a0';
+  document.getElementById('adminAcessoOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('adminTokenInput').focus(), 150);
+}
+
+function fecharAdminAcesso() {
+  haptic('light');
+  document.getElementById('adminAcessoOverlay').classList.add('hidden');
+}
+document.getElementById('adminAcessoOverlay').addEventListener('click', function(e) { if (e.target === this) fecharAdminAcesso(); });
+
+async function confirmarAdminAcesso() {
+  const tokenDigitado = document.getElementById('adminTokenInput').value.trim();
+  const hint = document.getElementById('adminTokenHint');
+  if (!tokenDigitado) return;
+  const btn = document.getElementById('btnConfirmarAdminAcesso');
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+  try {
+    // ▼ A verificação acontece na base de dados: só passa quem tiver
+    // is_admin = true nessa linha da tabela clientes. Nada disto está
+    // escrito aqui no ficheiro. Só pode existir uma conta admin de cada
+    // vez — isso é garantido a nível da base de dados (ver índice único),
+    // não aqui — por isso este token pode ser usado sempre que precisares.
+    const { data, error } = await comTimeout(
+      DB.from('clientes').select('token').eq('token', tokenDigitado).eq('is_admin', true).maybeSingle()
+    );
+    if (error) throw error;
+    if (!data) {
+      haptic('error');
+      hint.className = 'nome-hint err';
+      hint.textContent = '❌ Token inválido.';
+      return;
+    }
+    haptic('success');
+    document.getElementById('adminAcessoOverlay').classList.add('hidden');
+    document.getElementById('adminPainelOverlay').classList.remove('hidden');
+    document.getElementById('adminBuscaInput').value = '';
+    document.getElementById('adminResultados').innerHTML = '';
+    carregarPedidosAdmin();
+  } catch (e) {
+    haptic('error');
+    hint.className = 'nome-hint err';
+    hint.textContent = '❌ Não foi possível verificar agora. Verifique a internet.';
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
+function fecharAdminPainel() {
+  haptic('light');
+  document.getElementById('adminPainelOverlay').classList.add('hidden');
+}
+document.getElementById('adminPainelOverlay').addEventListener('click', function(e) { if (e.target === this) fecharAdminPainel(); });
+
+async function carregarPedidosAdmin() {
+  const el = document.getElementById('adminPedidos');
+  const badge = document.getElementById('adminPedidosBadge');
+  el.innerHTML = '<div class="confirmados-vazio">A carregar pedidos...</div>';
+  try {
+    const { data, error } = await comTimeout(
+      DB.from('pedidos_convites').select('id,token_cliente,nome_cliente,quantidade,valor,created_at')
+        .eq('status', 'pendente').order('created_at', { ascending: false })
+    );
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      badge.style.display = 'none';
+      el.innerHTML = '<div class="confirmados-vazio">Sem pedidos pendentes.</div>';
+      return;
+    }
+    badge.textContent = data.length; badge.style.display = 'inline-block';
+    el.innerHTML = '';
+    data.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'admin-cliente-card';
+      const dataFmt = new Date(p.created_at).toLocaleString('pt-PT');
+      card.innerHTML = `
+        <div>
+          <div class="admin-cliente-nome"></div>
+          <div class="admin-cliente-token"></div>
+        </div>
+        <div class="admin-cliente-stats">+${p.quantidade} convites · ${formatarKz(p.valor)} · ${dataFmt}</div>
+        <div class="admin-cliente-row">
+          <button type="button" class="btn-main" style="flex:1;"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>
+          <button type="button" class="btn-ghost" style="flex:0 0 auto;">Rejeitar</button>
+        </div>`;
+      card.querySelector('.admin-cliente-nome').textContent = p.nome_cliente || p.token_cliente;
+      card.querySelector('.admin-cliente-token').textContent = p.token_cliente;
+      const [btnAprovar, btnRejeitar] = card.querySelectorAll('.admin-cliente-row button');
+      btnAprovar.onclick = () => aprovarPedidoAdmin(p, btnAprovar, card);
+      btnRejeitar.onclick = () => rejeitarPedidoAdmin(p, btnRejeitar, card);
+      el.appendChild(card);
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="confirmados-erro">❌ ${e.message}</div>`;
+  }
+}
+
+function atualizarBadgePedidosApos(remover) {
+  const restantes = document.querySelectorAll('#adminPedidos .admin-cliente-card').length - (remover ? 1 : 0);
+  const badge = document.getElementById('adminPedidosBadge');
+  if (restantes <= 0) { badge.style.display = 'none'; document.getElementById('adminPedidos').innerHTML = '<div class="confirmados-vazio">Sem pedidos pendentes.</div>'; }
+  else badge.textContent = restantes;
+}
+
+async function aprovarPedidoAdmin(pedido, btn, card) {
+  haptic('medium');
+  btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+  try {
+    const { data: cli, error: eCli } = await comTimeout(
+      DB.from('clientes').select('limite_scans').eq('token', pedido.token_cliente).single()
+    );
+    if (eCli) throw eCli;
+    const novoLimite = (cli.limite_scans || 0) + pedido.quantidade;
+    const { error: eUpd } = await comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', pedido.token_cliente));
+    if (eUpd) throw eUpd;
+    const { error: eStatus } = await comTimeout(DB.from('pedidos_convites').update({ status: 'aprovado' }).eq('id', pedido.id));
+    if (eStatus) throw eStatus;
+    haptic('success');
+    showToast(`✅ Aprovado! Novo limite: ${novoLimite}`);
+    card.remove();
+    atualizarBadgePedidosApos(false);
+    if (clienteData && clienteData.token === pedido.token_cliente) { clienteData.limite_scans = novoLimite; actualizarContador(); }
+  } catch (e) {
+    haptic('error'); btn.disabled = false; btn.innerHTML = orig;
+    showToast('❌ Não foi possível aprovar: ' + e.message, '#ef4444');
+  }
+}
+
+async function rejeitarPedidoAdmin(pedido, btn, card) {
+  haptic('light');
+  btn.disabled = true;
+  try {
+    const { error } = await comTimeout(DB.from('pedidos_convites').update({ status: 'rejeitado' }).eq('id', pedido.id));
+    if (error) throw error;
+    haptic('warning');
+    card.remove();
+    atualizarBadgePedidosApos(false);
+  } catch (e) {
+    haptic('error'); btn.disabled = false;
+    showToast('❌ Não foi possível rejeitar: ' + e.message, '#ef4444');
+  }
+}
+
+async function buscarClienteAdmin() {
+  const termo = document.getElementById('adminBuscaInput').value.trim();
+  const el = document.getElementById('adminResultados');
+  if (!termo) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="confirmados-vazio">A procurar...</div>';
+  try {
+    const { data, error } = await comTimeout(
+      DB.from('clientes').select('token,nome,limite_scans,convites_gerados')
+        .or(`token.ilike.%${termo}%,nome.ilike.%${termo}%`)
+        .limit(15)
+    );
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div class="confirmados-vazio">Nenhum cliente encontrado.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    data.forEach(cli => {
+      const card = document.createElement('div');
+      card.className = 'admin-cliente-card';
+      card.innerHTML = `
+        <div>
+          <div class="admin-cliente-nome"></div>
+          <div class="admin-cliente-token"></div>
+        </div>
+        <div class="admin-cliente-stats">${cli.convites_gerados || 0} gerados de ${cli.limite_scans || 0}</div>
+        <div class="admin-cliente-row">
+          <input type="number" min="0" value="${cli.limite_scans || 0}">
+          <button type="button" class="btn-main"><i class="ti ti-check" aria-hidden="true"></i> Actualizar</button>
+        </div>`;
+      card.querySelector('.admin-cliente-nome').textContent = cli.nome;
+      card.querySelector('.admin-cliente-token').textContent = cli.token;
+      const input = card.querySelector('input');
+      const btn = card.querySelector('button');
+      btn.onclick = () => actualizarLimiteAdmin(cli.token, input, btn, card);
+      el.appendChild(card);
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="confirmados-erro">❌ ${e.message}</div>`;
+  }
+}
+
+async function actualizarLimiteAdmin(token, input, btn, card) {
+  const novoLimite = parseInt(input.value, 10);
+  if (!Number.isFinite(novoLimite) || novoLimite < 0) { haptic('warning'); return; }
+  haptic('medium');
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+  try {
+    const { error } = await comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', token));
+    if (error) throw error;
+    haptic('success');
+    showToast('✅ Limite actualizado!');
+    const stats = card.querySelector('.admin-cliente-stats');
+    if (stats) stats.textContent = stats.textContent.replace(/de \d+$/, `de ${novoLimite}`);
+    // Se este for o cliente actualmente autenticado, actualiza logo o contador visível
+    if (clienteData && clienteData.token === token) {
+      clienteData.limite_scans = novoLimite;
+      actualizarContador();
+    }
+  } catch (e) {
+    haptic('error');
+    showToast('❌ Não foi possível actualizar: ' + e.message, '#ef4444');
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
 /* ═══════════════════════════════════════════
    CARREGAR CONVITES
 ═══════════════════════════════════════════ */
 async function carregarConvitesGerados() {
   if (!clienteData) return;
-  verificarLigacaoRsvp(); // ▼ NOVO: verifica em paralelo se há um evento ligado no site de Confirmação de Presença
+  const rsvpPromise = verificarLigacaoRsvp(); // corre em paralelo com o fetch principal
   const lista = document.getElementById('convitesLista');
   lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
   try {
@@ -1366,10 +1887,11 @@ async function carregarConvitesGerados() {
       if (error) throw error;
       todosConvites = data || [];
     }
+    await rsvpPromise; // garante que a etiqueta "Confirmou presença" já sabe a resposta certa antes de desenhar
     document.getElementById('convitesSearch').value = '';
-    const total = [...filaOffline, ...todosConvites];
+    const completa = obterListaCompletaConvites();
     const hasMesa = configData?.mesa_ativa;
-    if (total.length === 0) {
+    if (completa.length === 0) {
       if (!hasMesa) document.getElementById('convitesSearch').style.display='none';
       document.getElementById('convitesCount').textContent='';
       lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';
@@ -1377,7 +1899,7 @@ async function carregarConvitesGerados() {
     }
     if (!hasMesa) document.getElementById('convitesSearch').style.display = 'block';
     if (tabAtual === 'mesas' && hasMesa) renderizarPorMesas();
-    else renderizarConvites(total);
+    else renderizarConvites(completa);
   } catch(e) { lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${navigator.onLine ? e.message : 'Sem ligação à internet'}</div>`; }
 }
 async function recarregarLista() { const btn=document.getElementById('btnRecarregar'); btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i>'; await carregarConvitesGerados(); btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh" aria-hidden="true"></i>'; }
@@ -1388,7 +1910,7 @@ async function recarregarLista() { const btn=document.getElementById('btnRecarre
 function filtrarConvites() {
   if (tabAtual === 'mesas') { renderizarPorMesas(); return; }
   const t = document.getElementById('convitesSearch').value.trim().toLowerCase();
-  const todos = [...filaOffline, ...todosConvites];
+  const todos = obterListaCompletaConvites();
   renderizarConvites(t ? todos.filter(c => c.nome.toLowerCase().includes(t)) : todos, t || null);
 }
 
@@ -1396,27 +1918,13 @@ function mudarTab(tab) {
   tabAtual = tab;
   document.getElementById('tabLista').className = 'tab-btn' + (tab==='lista' ? ' tab-active' : '');
   document.getElementById('tabMesas').className  = 'tab-btn' + (tab==='mesas' ? ' tab-active' : '');
-  const tabConf = document.getElementById('tabConfirmados');
-  if (tabConf) tabConf.className = 'tab-btn' + (tab==='confirmados' ? ' tab-active' : '');
   const search = document.getElementById('convitesSearch');
-  const lista  = document.getElementById('convitesLista');
-  const confL  = document.getElementById('confirmadosLista');
-
-  if (tab === 'confirmados') {
-    search.style.display = 'none';
-    lista.style.display  = 'none';
-    confL.style.display  = 'flex';
-    carregarConfirmados();
-    return;
-  }
-  lista.style.display = 'block';
-  confL.style.display = 'none';
 
   if (tab === 'mesas') {
     search.style.display = 'none';
     renderizarPorMesas();
   } else {
-    const total = [...filaOffline, ...todosConvites];
+    const total = obterListaCompletaConvites();
     if (total.length > 0) search.style.display = 'block';
     renderizarConvites(total);
   }
@@ -1424,100 +1932,351 @@ function mudarTab(tab) {
 
 /* ═══════════════════════════════════════════
    CONFIRMADOS (ponte com o site de Confirmação de Presença)
-   ── consulta, em tempo real, os convidados que confirmaram
-      presença no outro sistema (evento com o mesmo event_code
-      do token deste cliente) e permite gerar o convite direto
-      a partir daí. Se o evento não existir do outro lado, ou
-      se a ligação falhar, a aba fica simplesmente vazia — o
-      dono do evento continua a poder gerar convites manualmente
-      como sempre fez.
+   ── secção sempre visível (não é uma aba) que mostra, em
+      tempo real, os convidados que confirmaram presença no
+      outro sistema (evento com o mesmo event_code deste
+      cliente) e permite gerar o convite direto a partir daí,
+      sem sair do local onde já está. Se o evento não existir
+      do outro lado, ou se a ligação falhar, a secção fica
+      simplesmente escondida — o dono do evento continua a
+      poder gerar convites manualmente como sempre fez.
 ═══════════════════════════════════════════ */
 let eventoRsvpCache = undefined; // undefined = ainda não verificado, null = não existe ligação
+const RSVP_COLS = 'id,title,event_code,side1_name,side2_name,rsvps(id,guest_name,attending,side,companions,kids,wants_gift,created_at)';
+
+function labelLado(sideValue, evento) {
+  if (!sideValue) return '';
+  const v = String(sideValue).toLowerCase();
+  if (v === 'side1' || v === 'noivo') return evento?.side1_name || 'Noivo';
+  if (v === 'side2' || v === 'noiva') return evento?.side2_name || 'Noiva';
+  return sideValue;
+}
 
 async function verificarLigacaoRsvp() {
-  const wrap = document.getElementById('confirmadosTabsWrap');
-  if (!clienteData?.token) { wrap.style.display = 'none'; return; }
+  await atualizarSecaoConfirmados();
+}
+
+async function atualizarSecaoConfirmados() {
+  const tabsWrap = document.getElementById('mainTabsWrap');
+  if (!clienteData?.event_code_confirmacao) {
+    tabsWrap.style.display = 'none';
+    eventoRsvpCache = null;
+    if (mainTabAtual === 'confirmacoes') mudarMainTab('convites');
+    return;
+  }
   try {
     const { data, error } = await comTimeout(
-      DB_RSVP.from('events').select('id,title,event_code,rsvps(guest_name,attending,side,companions,kids,wants_gift,created_at)')
-        .eq('event_code', clienteData.token).limit(1)
+      DB_RSVP.from('events').select(RSVP_COLS).eq('event_code', clienteData.event_code_confirmacao).limit(1)
     );
     if (error) throw error;
     eventoRsvpCache = (data && data[0]) ? data[0] : null;
   } catch (e) {
     eventoRsvpCache = null; // sem ligação disponível agora — não bloqueia o resto da app
+    tabsWrap.style.display = 'none';
+    return;
   }
-  if (eventoRsvpCache) {
-    wrap.style.display = 'flex';
-    const confirmados = (eventoRsvpCache.rsvps || []).filter(r => r.attending);
-    const badge = document.getElementById('confirmadosBadge');
-    if (confirmados.length > 0) { badge.textContent = confirmados.length; badge.style.display = 'inline-block'; }
-    else badge.style.display = 'none';
-  } else {
-    wrap.style.display = 'none';
-  }
+  if (!eventoRsvpCache) { tabsWrap.style.display = 'none'; return; }
+
+  tabsWrap.style.display = 'flex';
+  const confirmados = (eventoRsvpCache.rsvps || []).filter(rsvpConfirmou);
+  const pendentes = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
+
+  const badge = document.getElementById('confirmadosBadge');
+  if (pendentes.length > 0) { badge.textContent = pendentes.length; badge.style.display = 'inline-block'; }
+  else badge.style.display = 'none';
+
+  if (mainTabAtual === 'confirmacoes') renderizarConfirmacoes();
 }
 
-async function carregarConfirmados() {
-  const el = document.getElementById('confirmadosLista');
-  el.innerHTML = '<div class="confirmados-vazio">A carregar confirmações...</div>';
-  try {
-    const { data, error } = await comTimeout(
-      DB_RSVP.from('events').select('id,title,event_code,rsvps(guest_name,attending,side,companions,kids,wants_gift,created_at)')
-        .eq('event_code', clienteData.token).limit(1)
-    );
-    if (error) throw error;
-    eventoRsvpCache = (data && data[0]) ? data[0] : null;
-  } catch (e) {
-    el.innerHTML = '<div class="confirmados-erro">⚠️ Não foi possível ligar ao site de Confirmação de Presença agora. Pode continuar a gerar convites manualmente na aba "Lista".</div>';
-    return;
-  }
-  if (!eventoRsvpCache) {
-    el.innerHTML = '<div class="confirmados-vazio">Este evento ainda não está ligado a nenhum evento no site de Confirmação de Presença.</div>';
-    return;
-  }
-  const confirmados = (eventoRsvpCache.rsvps || []).filter(r => r.attending)
-    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
-  if (confirmados.length === 0) {
-    el.innerHTML = '<div class="confirmados-vazio">Ainda ninguém confirmou presença para este evento.</div>';
-    return;
-  }
-  renderizarConfirmados(confirmados);
+/* ═══════════════════════════════════════════
+   ABA "CONFIRMAÇÕES" — todas as respostas do site de Confirmação de
+   Presença (quem confirmou e quem declinou), separada da aba "Convites".
+═══════════════════════════════════════════ */
+let mainTabAtual = 'convites'; // 'convites' ou 'confirmacoes'
+
+function mudarMainTab(tab) {
+  mainTabAtual = tab;
+  document.getElementById('mainTabConfirmacoes').className = 'tab-btn' + (tab==='confirmacoes' ? ' tab-active' : '');
+  document.getElementById('mainTabConvites').className = 'tab-btn' + (tab==='convites' ? ' tab-active' : '');
+  document.getElementById('confirmacoesTabContent').style.display = tab === 'confirmacoes' ? 'block' : 'none';
+  document.getElementById('convitesTabContent').style.display = tab === 'convites' ? 'block' : 'none';
+  if (tab === 'confirmacoes') renderizarConfirmacoes();
 }
 
-function renderizarConfirmados(confirmados) {
-  const el = document.getElementById('confirmadosLista');
+function filtrarConfirmacoes() {
+  const t = document.getElementById('confirmacoesSearch').value.trim().toLowerCase();
+  renderizarConfirmacoes(t || null);
+}
+
+function renderizarConfirmacoes(termo) {
+  const el = document.getElementById('confirmacoesLista');
+  if (!eventoRsvpCache?.rsvps) {
+    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Este evento não está ligado à Confirmação de Presença.</div>';
+    return;
+  }
+  let lista = [...eventoRsvpCache.rsvps].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  if (termo) lista = lista.filter(r => (r.guest_name || '').toLowerCase().includes(termo));
+
+  if (lista.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhuma confirmação ainda.</div>';
+    return;
+  }
+
   el.innerHTML = '';
-  confirmados.forEach(r => {
-    const jaGerado = !!encontrarDuplicado(r.guest_name);
+  lista.forEach(r => {
+    const confirmou = rsvpConfirmou(r);
+    const acompanhantes = nomesPipe(r.companions);
+    const criancas = nomesPipe(r.kids);
+    const ladoLbl = labelLado(r.side, eventoRsvpCache);
     const extras = [];
-    if (r.companions) extras.push(`+${r.companions} acompanhante${r.companions===1?'':'s'}`);
-    if (r.kids) extras.push(`${r.kids} criança${r.kids===1?'':'s'}`);
-    if (r.side) extras.push(r.side);
-    const card = document.createElement('div');
-    card.className = 'confirmado-card' + (jaGerado ? ' ja-gerado' : '');
-    card.innerHTML = `
-      <div class="confirmado-info">
-        <div class="confirmado-nome"></div>
-        <div class="confirmado-meta">${extras.length ? extras.join(' · ') : 'Confirmou presença'}</div>
+    if (acompanhantes.length) extras.push(`👥 ${acompanhantes.join(', ')}`);
+    if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
+    if (ladoLbl) extras.push(ladoLbl);
+
+    const jaGerado = confirmou ? encontrarConviteDoRsvp(r.guest_name, r.id) : null;
+
+    const item = document.createElement('div');
+    item.className = 'convite-item';
+    const initials = (r.guest_name||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+    let statusTag;
+    if (!confirmou) statusTag = `<div class="convite-item-tag" style="color:#b91c1c;"><i class="ti ti-x" aria-hidden="true"></i> Declinou</div>`;
+    else if (jaGerado) statusTag = `<div class="convite-item-tag verde"><i class="ti ti-check" aria-hidden="true"></i> Convite gerado</div>`;
+    else statusTag = `<div class="convite-item-tag" style="color:#b45309;"><i class="ti ti-clock" aria-hidden="true"></i> Por gerar</div>`;
+    const extrasTag = extras.length ? `<div class="convite-item-tag" style="color:#9ca3af;">${escHtml(extras.join(' · '))}</div>` : '';
+
+    item.innerHTML = `
+      <div class="convite-avatar" style="${!confirmou ? 'background:#fee2e2;color:#b91c1c;' : ''}">${initials}</div>
+      <div class="convite-item-info">
+        <div class="convite-item-nome">${escHtml(r.guest_name || '')}</div>${statusTag}${extrasTag}
       </div>
-      <button type="button" class="confirmado-btn ${jaGerado ? 'gerado' : ''}">
-        <i class="ti ${jaGerado ? 'ti-check' : 'ti-ticket'}" aria-hidden="true"></i> ${jaGerado ? 'Gerado' : 'Gerar'}
-      </button>`;
-    card.querySelector('.confirmado-nome').textContent = r.guest_name;
-    const btn = card.querySelector('.confirmado-btn');
-    if (!jaGerado) btn.onclick = () => gerarConviteDeConfirmado(r.guest_name);
-    el.appendChild(card);
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        ${(confirmou && !jaGerado) ? `<button class="btn-dl" style="background:#5ba189;color:white;" title="Gerar convite" aria-label="Gerar convite de ${escHtml(r.guest_name)}"><i class="ti ti-ticket" aria-hidden="true"></i></button>` : ''}
+        <button class="btn-dl" style="background:#fef2f2;color:#b91c1c;" title="Eliminar confirmação" aria-label="Eliminar confirmação de ${escHtml(r.guest_name)}"><i class="ti ti-trash" aria-hidden="true"></i></button>
+      </div>`;
+
+    const btns = item.querySelectorAll('button');
+    if (confirmou && !jaGerado) {
+      btns[0].onclick = () => gerarConviteDeConfirmado(r.guest_name, acompanhantes, r.id);
+      btns[1].onclick = () => pedirConfirmacaoEliminarRsvp(r);
+    } else {
+      btns[0].onclick = () => pedirConfirmacaoEliminarRsvp(r);
+    }
+    el.appendChild(item);
   });
 }
 
-function gerarConviteDeConfirmado(nome) {
+// ▼ NOVO: eliminar uma confirmação de presença (linha da tabela rsvps no
+// site de Confirmação de Presença). Isto NÃO apaga um convite já gerado —
+// só remove o registo da confirmação em si; por isso o aviso é claro sobre
+// o que acontece em cada caso.
+function pedirConfirmacaoEliminarRsvp(r) {
   haptic('light');
-  mudarTab('lista');
-  document.getElementById('nomeInput').value = nome;
+  const jaGerado = rsvpConfirmou(r) ? encontrarConviteDoRsvp(r.guest_name, r.id) : null;
+  const aviso = jaGerado
+    ? 'Este convidado já tem convite gerado. Eliminar a confirmação NÃO apaga esse convite — só remove o registo da confirmação de presença.'
+    : 'Isto remove a confirmação de presença desta pessoa. Não é possível recuperar depois.';
+  abrirModal({
+    titulo: '🗑️ Eliminar confirmação?',
+    corpo: aviso,
+    nome: r.guest_name, nomeCls: 'duplicado',
+    acoes: [
+      { label:'🗑️ Eliminar', cls:'btn-warning', fn:()=>confirmarEliminarRsvp(r) },
+      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
+    ]
+  });
+}
+
+async function confirmarEliminarRsvp(r) {
+  try {
+    const { error } = await comTimeout(DB_RSVP.from('rsvps').delete().eq('id', r.id));
+    if (error) throw error;
+    if (eventoRsvpCache?.rsvps) eventoRsvpCache.rsvps = eventoRsvpCache.rsvps.filter(x => x.id !== r.id);
+    haptic('success');
+    showToast('✅ Confirmação eliminada.');
+    renderizarConfirmacoes();
+    atualizarSecaoConfirmados();
+  } catch (e) {
+    haptic('error');
+    showToast('❌ Não foi possível eliminar. Verifique a internet.', '#ef4444');
+  }
+}
+
+function nomesPipe(str) {
+  return str ? String(str).split('|').map(s => s.trim()).filter(Boolean) : [];
+}
+
+// Compara o nome de um convite com o nome de um convidado da Confirmação de
+// Presença. Não exige igualdade exacta porque o convite pode ter o nome do
+// acompanhante junto ao do titular (ex: "Araújo Artur e Marlene").
+// ▼ NOVO/CORRIGIDO: o campo "attending" no site de Confirmação de Presença é
+// TEXTO ("yes"/"no"), não verdadeiro/falso. Um simples `if (r.attending)`
+// dá sempre verdadeiro mesmo para "no", porque é uma string não-vazia —
+// e por isso é que quem tinha DECLINADO estava a aparecer como confirmado.
+function rsvpConfirmou(r) {
+  return r?.attending === true || r?.attending === 'yes';
+}
+
+function nomeCorrespondeARsvp(nomeConvite, guestName) {
+  const nc = normalizarNome(nomeConvite || '');
+  const ng = normalizarNome(guestName || '');
+  if (!nc || !ng) return false;
+  return nc === ng || nc.startsWith(ng + ' e ') || nc.startsWith(ng + ', ');
+}
+
+// ▼ CORRIGIDO: a ligação entre um confirmado e o convite já não depende só
+// do nome — usa o "id" estável da linha em rsvps (nunca muda, mesmo que o
+// convidado ou o acompanhante mudem de nome depois). Isto evita que uma
+// edição de nome na Confirmação de Presença faça o gerador "esquecer-se"
+// de que já foi gerado convite, e criar um duplicado por engano.
+function encontrarConviteDoRsvp(guestName, rsvpId) {
+  const todos = [...filaOffline, ...todosConvites];
+  if (rsvpId) {
+    const porId = todos.find(c => c.rsvp_id && String(c.rsvp_id) === String(rsvpId));
+    if (porId) return porId;
+  }
+  // Compatibilidade: convites antigos (gerados antes de guardarmos o rsvp_id)
+  // ou criados manualmente ainda são reconhecidos pelo nome.
+  return todos.find(c => !c.rsvp_id && nomeCorrespondeARsvp(c.nome, guestName)) || null;
+}
+
+function estaConfirmadoRSVP(nomeConvite, rsvpId) {
+  if (!eventoRsvpCache?.rsvps) return false;
+  if (rsvpId) {
+    const porId = eventoRsvpCache.rsvps.find(r => String(r.id) === String(rsvpId));
+    if (porId) return rsvpConfirmou(porId);
+  }
+  return eventoRsvpCache.rsvps.some(r => rsvpConfirmou(r) && nomeCorrespondeARsvp(nomeConvite, r.guest_name));
+}
+
+function combinarNomeComAcompanhantes(nome, acompanhantes) {
+  if (!acompanhantes || acompanhantes.length === 0) return nome;
+  // Sem vírgulas propositadamente: a validação do nome não permite símbolos.
+  return [nome, ...acompanhantes].join(' e ');
+}
+
+function gerarConviteDeConfirmado(nome, acompanhantes, rsvpId) {
+  haptic('light');
+  document.getElementById('nomeInput').value = combinarNomeComAcompanhantes(nome, acompanhantes);
   validarNomeInput();
+  origemConfirmado = true; // salta a confirmação genérica "Vai gerar um convite para..."
+  rsvpIdEmGeracao = rsvpId || null;
   document.getElementById('nomeInput').scrollIntoView({ behavior:'smooth', block:'center' });
   pedirConfirmacaoGerar();
+}
+
+/* ▼ NOVO: relatório em PDF com todos os confirmados — separados entre
+   quem já tem convite gerado e quem ainda não tem. */
+function baixarRelatorioConfirmados() {
+  if (!eventoRsvpCache) return;
+  haptic('light');
+  const todasRespostas = eventoRsvpCache.rsvps || [];
+  const confirmados = todasRespostas.filter(rsvpConfirmou);
+  const declinaram = todasRespostas.filter(r => !rsvpConfirmou(r));
+  const comConvite = confirmados.filter(r => !!encontrarConviteDoRsvp(r.guest_name, r.id));
+  const semConvite = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
+  const nomeEvento = clienteData?.nome || eventoRsvpCache.title || 'Evento';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margemX = 16;
+  const corMarca = [91, 161, 137];   // #5ba189
+  const corTextoClaro = [255, 255, 255];
+  const corCinza = [148, 163, 163];
+  const corTextoEscuro = [28, 25, 23];
+  let y;
+
+  function desenharCabecalho() {
+    doc.setFillColor(...corMarca);
+    doc.rect(0, 0, pageW, 34, 'F');
+    doc.setTextColor(...corTextoClaro);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(17);
+    doc.text(nomeEvento, margemX, 16);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+    doc.text(`Confirmações de presença · gerado em ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
+    doc.setFontSize(9);
+    doc.text(`${todasRespostas.length} resposta${todasRespostas.length===1?'':'s'} no total  ·  ${comConvite.length} com convite  ·  ${semConvite.length} por gerar  ·  ${declinaram.length} declinaram`, margemX, 30);
+    doc.setTextColor(...corTextoEscuro);
+    y = 46;
+  }
+
+  function novaPaginaSeNecessario(alturaNecessaria) {
+    if (y + alturaNecessaria > pageH - 16) { doc.addPage(); desenharCabecalhoContinuacao(); }
+  }
+
+  function desenharCabecalhoContinuacao() {
+    doc.setFillColor(...corMarca);
+    doc.rect(0, 0, pageW, 14, 'F');
+    doc.setTextColor(...corTextoClaro); doc.setFont(undefined,'bold'); doc.setFontSize(10);
+    doc.text(nomeEvento, margemX, 9.5);
+    doc.setTextColor(...corTextoEscuro);
+    y = 24;
+  }
+
+  function desenharSeccao(titulo, lista, corPill, corTextoPill) {
+    novaPaginaSeNecessario(16);
+    doc.setFillColor(...corPill);
+    doc.roundedRect(margemX, y, pageW - margemX * 2, 10, 3, 3, 'F');
+    doc.setTextColor(...corTextoPill); doc.setFont(undefined,'bold'); doc.setFontSize(11);
+    doc.text(`${titulo}  (${lista.length})`, margemX + 5, y + 6.8);
+    doc.setTextColor(...corTextoEscuro);
+    y += 15;
+
+    if (lista.length === 0) {
+      doc.setFont(undefined,'italic'); doc.setFontSize(10); doc.setTextColor(...corCinza);
+      doc.text('— nenhum —', margemX + 2, y);
+      doc.setTextColor(...corTextoEscuro);
+      y += 10;
+      return;
+    }
+
+    lista.forEach((r, i) => {
+      const acomp = nomesPipe(r.companions);
+      const criancas = nomesPipe(r.kids);
+      const ladoLbl = labelLado(r.side, eventoRsvpCache);
+      const extras = [];
+      if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
+      if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
+      if (ladoLbl) extras.push(ladoLbl);
+      const linhaAltura = extras.length ? 13 : 9;
+
+      novaPaginaSeNecessario(linhaAltura + 2);
+
+      if (i % 2 === 0) { doc.setFillColor(248, 250, 249); doc.rect(margemX, y - 5.5, pageW - margemX * 2, linhaAltura, 'F'); }
+
+      doc.setFont(undefined, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...corTextoEscuro);
+      doc.text(r.guest_name, margemX + 3, y);
+      if (extras.length) {
+        doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(...corCinza);
+        doc.text(extras.join('   ·   '), margemX + 3, y + 5);
+        doc.setTextColor(...corTextoEscuro);
+      }
+      y += linhaAltura;
+    });
+    y += 6;
+  }
+
+  function desenharRodape() {
+    const totalPaginas = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPaginas; p++) {
+      doc.setPage(p);
+      doc.setDrawColor(230, 230, 230);
+      doc.line(margemX, pageH - 12, pageW - margemX, pageH - 12);
+      doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(...corCinza);
+      doc.text('Invites Adkira', margemX, pageH - 7);
+      doc.text(`Página ${p} de ${totalPaginas}`, pageW - margemX, pageH - 7, { align: 'right' });
+    }
+  }
+
+  desenharCabecalho();
+  desenharSeccao('Convite já gerado', comConvite, [214, 237, 229], [40, 90, 72]);
+  desenharSeccao('Convite por gerar', semConvite, [255, 243, 205], [146, 90, 8]);
+  desenharSeccao('Declinaram', declinaram, [254, 226, 226], [153, 27, 27]);
+  desenharRodape();
+
+
+  doc.save(`confirmados-${(clienteData?.nome||'evento').toLowerCase().replace(/\s+/g,'-')}.pdf`);
 }
 
 function renderizarPorMesas() {
@@ -1579,12 +2338,46 @@ function activarMesaUI(cfg) {
   if (!ativa && tabAtual === 'mesas') { tabAtual = 'lista'; }
 }
 
+/* ▼ NOVO: lista única — junta os convites já gerados com quem confirmou
+   presença mas ainda não tem convite, para ficar tudo no mesmo local em
+   vez de duas secções separadas. */
+function obterListaCompletaConvites() {
+  // ▼ ALTERADO: as confirmações por gerar já não entram nesta lista — têm
+  // agora a própria aba "Confirmações". Esta função devolve só o que foi
+  // mesmo gerado (mantém o nome por compatibilidade com quem já a chama).
+  return [...filaOffline, ...todosConvites];
+}
+
 function renderizarConvites(lista, termo) {
   const el=document.getElementById('convitesLista'), totalOnline=todosConvites.length, totalPend=filaOffline.length, total=totalOnline+totalPend;
-  document.getElementById('convitesCount').textContent = termo ? `${lista.length} de ${total}` : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}`;
+  const totalPorGerar = lista.filter(c => c.isRsvpPendente).length;
+  document.getElementById('convitesCount').textContent = termo
+    ? `${lista.length} de ${total + totalPorGerar}`
+    : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}${totalPorGerar>0?' · '+totalPorGerar+' por gerar':''}`;
   if (lista.length === 0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>'; return; }
   el.innerHTML = '';
   lista.forEach(conv => {
+    if (conv.isRsvpPendente) {
+      const item = document.createElement('div');
+      item.className = 'convite-item';
+      const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+      const extras = [];
+      if (conv.acompanhantes.length) extras.push(`👥 ${conv.acompanhantes.join(', ')}`);
+      if (conv.ladoLbl) extras.push(conv.ladoLbl);
+      item.innerHTML = `
+        <div class="convite-avatar" style="background:#fef3c7;color:#92400e;">${initials}</div>
+        <div class="convite-item-info">
+          <div class="convite-item-nome">${escHtml(conv.nome)}</div>
+          <div class="convite-item-tag" style="color:#b45309;"><i class="ti ti-user-check" aria-hidden="true"></i> Confirmou presença · por gerar</div>
+          ${extras.length ? `<div class="convite-item-tag" style="color:#9ca3af;">${escHtml(extras.join(' · '))}</div>` : ''}
+        </div>
+        <button class="btn-dl" style="background:#5ba189;color:white;" aria-label="Gerar convite de ${escHtml(conv.nome)}" title="Gerar convite">
+          <i class="ti ti-ticket" aria-hidden="true"></i>
+        </button>`;
+      item.querySelector('button').onclick = () => gerarConviteDeConfirmado(conv.nome, conv.acompanhantes, conv.rsvpId);
+      el.appendChild(item);
+      return;
+    }
     const isPend = !!conv.id_local;
     const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
     const item   = document.createElement('div');
@@ -1592,12 +2385,16 @@ function renderizarConvites(lista, termo) {
     const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
     let tag='', btnCls='btn-dl', btnIcon = isIOS ? '<i class="ti ti-share-2" aria-hidden="true"></i>' : '<i class="ti ti-download" aria-hidden="true"></i>';
     const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#5ba189;">Mesa ${escHtml(conv.mesa)}</div>` : '';
+    const confirmadoTag = estaConfirmadoRSVP(conv.nome, conv.rsvp_id) ? `<div class="convite-item-tag" style="color:#5ba189;"><i class="ti ti-user-check" aria-hidden="true"></i> Confirmou presença</div>` : '';
+    const nomeAtualRsvp = conv.rsvp_id ? sugerirNomeComAcompanhantes(conv) : conv.nome;
+    const nomeMudouTag = (conv.rsvp_id && nomeAtualRsvp !== conv.nome)
+      ? `<div class="convite-item-tag" style="color:#b45309;" title="Nome actual na confirmação: ${escHtml(nomeAtualRsvp)}"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Nome mudou na confirmação</div>` : '';
     if (isPend) { tag='<div class="convite-item-tag roxo">Offline — a aguardar sync</div>'; btnCls='btn-dl pendente'; btnIcon='<i class="ti ti-clock" aria-hidden="true"></i>'; }
     else if (jaDl) { tag='<div class="convite-item-tag verde">Descarregado</div>'; btnCls='btn-dl ja-dl'; btnIcon='<i class="ti ti-check" aria-hidden="true"></i>'; }
     item.innerHTML=`
       <div class="convite-avatar">${initials}</div>
       <div class="convite-item-info">
-        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${tag}
+        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${nomeMudouTag}${tag}
       </div>
       <button class="${btnCls}" aria-label="Descarregar convite de ${escHtml(conv.nome)}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
@@ -1630,6 +2427,8 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) { 
    CONFIRMAÇÃO GERAR
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
+  const veioDeConfirmado = origemConfirmado; origemConfirmado = false;
+  const rsvpParaGuardar = rsvpIdEmGeracao; rsvpIdEmGeracao = null;
   if (estaEmCooldown()) {
     const restam = Math.ceil((RATE_LIMIT_MS - (Date.now() - ultimaGeracao)) / 1000);
     haptic('warning');
@@ -1640,7 +2439,7 @@ function pedirConfirmacaoGerar() {
   const mesaRaw = (configData?.mesa_ativa ? document.getElementById('mesaInput')?.value.trim() : '') || '';
   const { ok, msg } = validarNome(nomeRaw);
   if (!ok) { haptic('warning'); showInfo('step2Info', msg, 'yellow'); validarNomeInput(); return; }
-  if (configData?.mesa_ativa && !mesaRaw) { haptic('warning'); showInfo('step2Info', '⚠️ Introduza a mesa do convidado.', 'yellow'); return; }
+  if (configData?.mesa_ativa && !mesaRaw && !veioDeConfirmado) { haptic('warning'); showInfo('step2Info', '⚠️ Introduza a mesa do convidado.', 'yellow'); return; }
   if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada.','red'); return; }
   if (!navigator.onLine) {
     if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
@@ -1655,7 +2454,7 @@ function pedirConfirmacaoGerar() {
     const isPend = !!dup.id_local;
     abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeRaw, nomeCls:'duplicado',
       acoes:[
-        { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
+        { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw, mesaRaw, rsvpParaGuardar) },
         { label: isIOS ? '📤 Partilhar existente' : '📥 Re-download existente', cls:'btn-outline', fn:()=>{
           if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob, dup.nome); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
           else baixarConviteExistente(dup.nome, dup.codigo, dup.id, { textContent: isIOS?'📤':'📥', disabled:false });
@@ -1663,6 +2462,12 @@ function pedirConfirmacaoGerar() {
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
+  } else if (veioDeConfirmado) {
+    // ▼ NOVO: já se confirmou a intenção ao clicar "Gerar" na lista de
+    // confirmados — não faz sentido perguntar outra vez "quer mesmo gerar?".
+    // Vai direto para a geração; a única pergunta que falta (editar antes
+    // de baixar) acontece a seguir, dentro de gerarConvite.
+    gerarConvite(nomeRaw, mesaRaw, rsvpParaGuardar);
   } else {
     const modoOff = !navigator.onLine && modoOfflinePermitido();
     const creditos = creditosOfflineRestantes();
@@ -1674,7 +2479,7 @@ function pedirConfirmacaoGerar() {
       corpo:  corpoModal,
       nome: configData?.mesa_ativa ? nomeRaw : nomeRaw, nomeCls:'',
       acoes:[
-        { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
+        { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw, mesaRaw, rsvpParaGuardar) },
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
@@ -1682,6 +2487,111 @@ function pedirConfirmacaoGerar() {
 }
 
 /* Botão na lista de convites */
+/* ▼ NOVO: editar o nome de um convite já gerado — permitido apenas 1 vez,
+   e apenas para convites de quem confirmou presença na Confirmação de
+   Presença (é aí que erros de digitação vindos de fora podem acontecer).
+   O PDF do convite é sempre gerado na hora a partir do nome guardado na
+   base de dados, por isso corrigir aqui já chega: os downloads seguintes
+   (ilimitados) saem automaticamente com o nome corrigido. */
+let conviteEmEdicao = null;
+let acaoAposEdicao = null; // callback a correr depois de guardar (ex: continuar o download)
+
+// ▼ NOVO: sugere sempre o nome mais actualizado (convidado + acompanhantes),
+// comparando com os dados mais recentes da Confirmação de Presença — cobre
+// o caso de um convite ter sido gerado sem o acompanhante (ex: porque foi
+// criado antes de a pessoa o inserir, ou gerado manualmente sem passar pela
+// secção "Confirmados").
+function sugerirNomeComAcompanhantes(conv) {
+  if (!conv) return '';
+  if (!eventoRsvpCache?.rsvps) return conv.nome;
+  const match = conv.rsvp_id
+    ? eventoRsvpCache.rsvps.find(r => String(r.id) === String(conv.rsvp_id))
+    : eventoRsvpCache.rsvps.find(r => rsvpConfirmou(r) && nomeCorrespondeARsvp(conv.nome, r.guest_name));
+  if (!match || !rsvpConfirmou(match)) return conv.nome;
+  const acompanhantes = nomesPipe(match.companions);
+  return combinarNomeComAcompanhantes(match.guest_name, acompanhantes);
+}
+
+function pedirEdicaoConvite(conv, aposGuardar) {
+  haptic('light');
+  conviteEmEdicao = conv;
+  acaoAposEdicao = aposGuardar || null;
+  const input = document.getElementById('editarConviteNomeInput');
+  input.value = sugerirNomeComAcompanhantes(conv);
+  input.className = '';
+  document.getElementById('editarConviteHint').textContent = 'Introduza o nome próprio e apelido';
+  document.getElementById('editarConviteHint').className = 'nome-hint';
+  const mesaBox = document.getElementById('editarConviteMesaBox');
+  if (configData?.mesa_ativa) {
+    mesaBox.style.display = 'block';
+    document.getElementById('editarConviteMesaInput').value = conv.mesa || '';
+  } else {
+    mesaBox.style.display = 'none';
+  }
+  document.getElementById('editarConviteOverlay').classList.remove('hidden');
+  setTimeout(() => input.focus(), 150);
+}
+
+function fecharEdicaoConvite() {
+  haptic('light');
+  conviteEmEdicao = null;
+  acaoAposEdicao = null;
+  document.getElementById('editarConviteOverlay').classList.add('hidden');
+}
+
+// ▼ NOVO: marca a "oportunidade de editar" como usada mesmo quando a pessoa
+// escolhe baixar sem editar — sem isto, a pergunta "Editar antes de
+// baixar?" voltava a aparecer em todos os downloads seguintes.
+async function marcarDecisaoEdicao(id) {
+  try {
+    await comTimeout(DB.from('convidados').update({ editado: true }).eq('id', id));
+    const local = todosConvites.find(c => c.id === id || c.id === Number(id));
+    if (local) local.editado = true;
+  } catch (e) { /* não é crítico — na pior das hipóteses pergunta outra vez */ }
+}
+
+async function guardarEdicaoConvite() {
+  if (!conviteEmEdicao) return;
+  const input = document.getElementById('editarConviteNomeInput');
+  const novoNome = input.value.trim();
+  const { ok, msg } = validarNome(novoNome);
+  const hint = document.getElementById('editarConviteHint');
+  if (!ok) { haptic('warning'); input.className = 'input-error'; hint.className = 'nome-hint err'; hint.textContent = msg; return; }
+
+  let novaMesa = conviteEmEdicao.mesa || '';
+  if (configData?.mesa_ativa) {
+    const mesaInput = document.getElementById('editarConviteMesaInput');
+    novaMesa = mesaInput.value.trim();
+    if (!novaMesa) { haptic('warning'); mesaInput.className = 'input-error'; showToast('⚠️ Introduza a mesa do convidado.', '#f59e0b'); return; }
+    mesaInput.className = '';
+  }
+
+  const btn = document.getElementById('btnGuardarEdicaoConvite');
+  const origHtml = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A guardar...';
+  try {
+    const updatePayload = { nome: novoNome, editado: true };
+    if (configData?.mesa_ativa) updatePayload.mesa = novaMesa;
+    const { error } = await comTimeout(DB.from('convidados').update(updatePayload).eq('id', conviteEmEdicao.id));
+    if (error) throw error;
+    const local = todosConvites.find(c => c.id === conviteEmEdicao.id);
+    if (local) { local.nome = novoNome; local.editado = true; if (configData?.mesa_ativa) local.mesa = novaMesa; }
+    haptic('success');
+    document.getElementById('editarConviteOverlay').classList.add('hidden');
+    conviteEmEdicao = null;
+    showToast('✅ Convite corrigido!');
+    if (tabAtual === 'mesas' && configData?.mesa_ativa) renderizarPorMesas();
+    else renderizarConvites(obterListaCompletaConvites());
+    const callback = acaoAposEdicao; acaoAposEdicao = null;
+    if (callback) callback();
+  } catch (e) {
+    haptic('error');
+    hint.className = 'nome-hint err'; hint.textContent = '❌ Não foi possível guardar. Verifique a internet e tente novamente.';
+  } finally {
+    btn.disabled = false; btn.innerHTML = origHtml;
+  }
+}
+
 async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
   haptic('light');
   if (isPendente) {
@@ -1691,18 +2601,51 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
     else showToast('⚠️ PDF não disponível. Feche e reabra a página para regenerar.','#f59e0b');
     return;
   }
+
+  // ▼ NOVO: só os convites de quem confirmou presença na Confirmação de
+  // Presença podem ser editados, e só uma vez — pergunta-se isso mesmo
+  // antes de baixar, nunca depois.
+  const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
+  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
+  if (podeEditar) {
+    const mesaObrigatoria = !!configData?.mesa_ativa;
+    const acoesEdicao = [
+      { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
+        const atual = todosConvites.find(c => c.id === id || c.id === Number(id));
+        executarDownload(atual?.nome || nome, codigo, id, btn);
+      }) }
+    ];
+    if (!mesaObrigatoria) {
+      acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:()=>{ marcarDecisaoEdicao(id); executarDownload(nome, codigo, id, btn); } });
+    }
+    acoesEdicao.push({ label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} });
+    abrirModal({
+      titulo: '✏️ Editar antes de baixar?',
+      corpo: mesaObrigatoria
+        ? `Este evento usa mesas — é preciso indicar a mesa de "${convObj.nome}" antes de baixar. Só é possível editar uma vez.`
+        : sugerirNomeComAcompanhantes(convObj) !== convObj.nome
+        ? `Detectámos acompanhante(s) na confirmação de presença que ainda não estão neste convite ('${sugerirNomeComAcompanhantes(convObj)}'). Pode corrigir antes de baixar — só é possível editar uma vez.`
+        : 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
+      nome: convObj.nome, nomeCls: '',
+      acoes: acoesEdicao
+    });
+    return;
+  }
+  await executarDownload(nome, codigo, id, btn);
+}
+
+async function executarDownload(nome, codigo, id, btn) {
   const orig=btn.textContent; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i>';
   try {
-    // Find mesa from loaded convites list
     const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
     const mesaConv = convObj?.mesa || '';
-    let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
+    let qr=null; if(configData?.qr_ativo!==false) { const qrTexto = await cifrarCodigoQR(codigo, clienteData.token); qr=await gerarQRDataURL(qrTexto,300); }
     const blob=await gerarPDF(nome,codigo,qr,configData,mesaConv);
     await triggerDownload(blob, nome);
     if(!isIOS && id){
       downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token);
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
-      else renderizarConvites([...filaOffline,...todosConvites]);
+      else renderizarConvites(obterListaCompletaConvites());
     }
     haptic('success');
     showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
@@ -1731,8 +2674,9 @@ function gerarQRDataURL(codigo, tamanho) {
    GERAR CONVITE
    ── chama incrementar_convites (novo RPC)
 ═══════════════════════════════════════════ */
-async function gerarConvite(nome, mesa) {
+async function gerarConvite(nome, mesa, rsvpId) {
   mesa = mesa || '';
+  rsvpId = rsvpId || null;
   const modoOff = !navigator.onLine && modoOfflinePermitido();
   if (!navigator.onLine && !modoOff) { haptic('error'); mostrarErro(new Error('failed to fetch')); return; }
   ultimoContextoNome = nome;
@@ -1747,7 +2691,7 @@ async function gerarConvite(nome, mesa) {
       setLoading('A guardar offline...');
       const pdf_b64 = await blobParaBase64(pdfBlob);
       const id_local = 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-      const item = { id_local, nome, mesa, codigo, created_at: new Date().toISOString(), pdf_b64 };
+      const item = { id_local, nome, mesa, codigo, rsvp_id: rsvpId, created_at: new Date().toISOString(), pdf_b64 };
       filaOffline.push(item);
       guardarFilaOffline(clienteData.token);
       convitesSessao++;
@@ -1765,6 +2709,8 @@ async function gerarConvite(nome, mesa) {
       await carregarConvitesGerados();
     } else {
       let conviteId = null;
+      let codigoGerado = null;
+      let pdfBlobGerado = null;
       await comRetry(async () => {
         setLoading('A verificar disponibilidade...');
         // ▼ ALTERADO: chama incrementar_convites em vez de incrementar_scans
@@ -1785,21 +2731,30 @@ async function gerarConvite(nome, mesa) {
         setLoading('A gerar o código único...');
         const codigo = await comTimeout(gerarCodigoUnico(clienteData.token));
         let qrDataUrl = null;
-        if (configData.qr_ativo !== false) { setLoading('A criar o QR Code...'); qrDataUrl = await gerarQRDataURL(codigo, 300); }
+        if (configData.qr_ativo !== false) {
+          setLoading('A criar o QR Code...');
+          const qrTexto = await cifrarCodigoQR(codigo, clienteData.token);
+          qrDataUrl = await gerarQRDataURL(qrTexto, 300);
+        }
         setLoading('A personalizar o convite...');
         const pdfBlob = await gerarPDF(nome, codigo, qrDataUrl, configData, mesa);
         setLoading('A registar o convidado...');
         const insertPayload = { token_cliente:clienteData.token, codigo, nome, status:'convite_gerado' };
         if (mesa) insertPayload.mesa = mesa;
+        if (rsvpId) insertPayload.rsvp_id = rsvpId;
         const { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([insertPayload]).select('id').single());
         if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
         conviteId = inserted?.id || null;
+        codigoGerado = codigo;
+        pdfBlobGerado = pdfBlob;
         pararProgressBar();
-        await triggerDownload(pdfBlob, nome);
+        // ▼ ALTERADO: já não descarrega aqui automaticamente — ver decisão
+        // logo a seguir, depois de sair do ecrã de carregamento (para os
+        // convites de quem confirmou presença, primeiro pergunta-se se quer
+        // editar, antes do primeiro download).
       });
       ultimoContextoNome = null;
       convitesSessao++;
-      if (!isIOS && conviteId) { downloadsSessao.add(conviteId); }
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
@@ -1808,12 +2763,63 @@ async function gerarConvite(nome, mesa) {
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
       iniciarRateLimit();
       actualizarContador(); haptic('success'); showStep('step2');
-      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
-      else showToast(`✅ Convite de ${nome} gerado!`);
+      // ▼ NOVO: acrescenta já à lista local (não espera pelo realtime), para
+      // a pergunta de editar e a etiqueta "Confirmou presença" funcionarem
+      // já com este convite incluído.
+      if (conviteId && !todosConvites.find(c => c.id === conviteId)) {
+        todosConvites.unshift({ id: conviteId, nome, mesa, codigo: codigoGerado, created_at: new Date().toISOString(), editado: false, rsvp_id: rsvpId });
+      }
+      atualizarSecaoConfirmados();
+      if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
+      else renderizarConvites(obterListaCompletaConvites());
+
+      await decidirPrimeiroDownload(nome, codigoGerado, conviteId, pdfBlobGerado);
+      if (!isIOS && conviteId) downloadsSessao.add(conviteId);
     }
   } catch(e) {
     pararProgressBar(); haptic('error'); console.error(e); mostrarErro(e);
   }
+}
+
+/* ▼ NOVO: decide se pergunta "editar antes de baixar?" logo no primeiro
+   download (mesmo instante da geração) para convites de quem confirmou
+   presença — antes, isto só acontecia em downloads seguintes, o que
+   deixava passar a única oportunidade de editar sem nunca ser oferecida. */
+async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
+  const convObj = todosConvites.find(c => c.id === id) || { id, nome, editado: false };
+  const podeEditar = !!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
+  if (!podeEditar) {
+    if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
+    else showToast(`✅ Convite de ${nome} gerado!`);
+    await triggerDownload(pdfBlobPronto, nome);
+    return;
+  }
+  const sugerido = sugerirNomeComAcompanhantes(convObj);
+  const mesaObrigatoria = !!configData?.mesa_ativa;
+  const acoesEdicao = [
+    { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
+      const atual = todosConvites.find(c => c.id === id) || convObj;
+      showToast(`✅ Convite de ${atual.nome} gerado!`);
+      executarDownload(atual.nome, codigo, id, { disabled:false, textContent:'', innerHTML:'' });
+    }) }
+  ];
+  if (!mesaObrigatoria) {
+    acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:async ()=>{
+      marcarDecisaoEdicao(id);
+      showToast(`✅ Convite de ${nome} gerado!`);
+      await triggerDownload(pdfBlobPronto, nome);
+    } });
+  }
+  abrirModal({
+    titulo: '✏️ Editar antes de baixar?',
+    corpo: mesaObrigatoria
+      ? `Este evento usa mesas — é preciso indicar a mesa de "${convObj.nome}" antes de baixar. Só é possível editar uma vez.`
+      : sugerido !== convObj.nome
+      ? `Detectámos acompanhante(s) na confirmação de presença que ainda não estão neste convite ('${sugerido}'). Pode corrigir antes de baixar — só é possível editar uma vez.`
+      : 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
+    nome: convObj.nome, nomeCls: '',
+    acoes: acoesEdicao
+  });
 }
 
 /* ═══════════════════════════════════════════
@@ -1821,20 +2827,33 @@ async function gerarConvite(nome, mesa) {
 ═══════════════════════════════════════════ */
 async function baixarConviteExistente(nome, codigo, id, btn) {
   if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
-  const orig=btn.textContent; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i>';
-  try {
-    const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
-    const mesaConv = convObj?.mesa || '';
-    let qr=null; if(configData?.qr_ativo!==false) qr=await gerarQRDataURL(codigo,300);
-    const blob=await gerarPDF(nome,codigo,qr,configData,mesaConv);
-    await triggerDownload(blob, nome);
-    if(!isIOS && id){ downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token); }
-    if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
-    else renderizarConvites([...filaOffline,...todosConvites]);
-    haptic('success');
-    showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
-  } catch(e) { haptic('error'); alert('Erro: '+e.message); }
-  finally { btn.disabled=false; btn.textContent=orig; }
+  const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
+  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
+  if (podeEditar) {
+    const mesaObrigatoria = !!configData?.mesa_ativa;
+    const acoesEdicao = [
+      { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
+        const atual = todosConvites.find(c => c.id === id || c.id === Number(id));
+        executarDownload(atual?.nome || nome, codigo, id, btn);
+      }) }
+    ];
+    if (!mesaObrigatoria) {
+      acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:()=>{ marcarDecisaoEdicao(id); executarDownload(nome, codigo, id, btn); } });
+    }
+    acoesEdicao.push({ label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} });
+    abrirModal({
+      titulo: '✏️ Editar antes de baixar?',
+      corpo: mesaObrigatoria
+        ? `Este evento usa mesas — é preciso indicar a mesa de "${convObj.nome}" antes de baixar. Só é possível editar uma vez.`
+        : sugerirNomeComAcompanhantes(convObj) !== convObj.nome
+        ? `Detectámos acompanhante(s) na confirmação de presença que ainda não estão neste convite ('${sugerirNomeComAcompanhantes(convObj)}'). Pode corrigir antes de baixar — só é possível editar uma vez.`
+        : 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
+      nome: convObj.nome, nomeCls: '',
+      acoes: acoesEdicao
+    });
+    return;
+  }
+  await executarDownload(nome, codigo, id, btn);
 }
 
 /* ═══════════════════════════════════════════
@@ -1897,6 +2916,10 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 // Expose to global scope
   window.baixarOuPartilhar = typeof baixarOuPartilhar !== "undefined" ? baixarOuPartilhar : window.baixarOuPartilhar;
   window.filtrarConvites = typeof filtrarConvites !== "undefined" ? filtrarConvites : window.filtrarConvites;
+  window.atualizarPrecoExtra = typeof atualizarPrecoExtra !== "undefined" ? atualizarPrecoExtra : window.atualizarPrecoExtra;
+  window.clamparQtdExtra = typeof clamparQtdExtra !== "undefined" ? clamparQtdExtra : window.clamparQtdExtra;
+  window.mudarMainTab = typeof mudarMainTab !== "undefined" ? mudarMainTab : window.mudarMainTab;
+  window.filtrarConfirmacoes = typeof filtrarConfirmacoes !== "undefined" ? filtrarConfirmacoes : window.filtrarConfirmacoes;
   window.mudarTab = typeof mudarTab !== "undefined" ? mudarTab : window.mudarTab;
   window.pedirConfirmacaoGerar = typeof pedirConfirmacaoGerar !== "undefined" ? pedirConfirmacaoGerar : window.pedirConfirmacaoGerar;
   window.pedirConfirmacaoSair = typeof pedirConfirmacaoSair !== "undefined" ? pedirConfirmacaoSair : window.pedirConfirmacaoSair;
@@ -1910,6 +2933,21 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
   window.voltarStep1 = typeof voltarStep1 !== "undefined" ? voltarStep1 : window.voltarStep1;
   window.baixarConviteExistente = typeof baixarConviteExistente !== "undefined" ? baixarConviteExistente : window.baixarConviteExistente;
   window.pedirConfirmacaoSair = typeof pedirConfirmacaoSair !== "undefined" ? pedirConfirmacaoSair : window.pedirConfirmacaoSair;
+  window.abrirCompraConvitesManual = typeof abrirCompraConvitesManual !== "undefined" ? abrirCompraConvitesManual : window.abrirCompraConvitesManual;
+  window.abrirAdminAcesso = typeof abrirAdminAcesso !== "undefined" ? abrirAdminAcesso : window.abrirAdminAcesso;
+  window.buscarClienteAdmin = typeof buscarClienteAdmin !== "undefined" ? buscarClienteAdmin : window.buscarClienteAdmin;
+  window.carregarPedidosAdmin = typeof carregarPedidosAdmin !== "undefined" ? carregarPedidosAdmin : window.carregarPedidosAdmin;
+  window.confirmarAdminAcesso = typeof confirmarAdminAcesso !== "undefined" ? confirmarAdminAcesso : window.confirmarAdminAcesso;
+  window.fecharAdminPainel = typeof fecharAdminPainel !== "undefined" ? fecharAdminPainel : window.fecharAdminPainel;
+  window.fecharAdminAcesso = typeof fecharAdminAcesso !== "undefined" ? fecharAdminAcesso : window.fecharAdminAcesso;
+  window.ajustarQtdExtra = typeof ajustarQtdExtra !== "undefined" ? ajustarQtdExtra : window.ajustarQtdExtra;
+  window.baixarRelatorioConfirmados = typeof baixarRelatorioConfirmados !== "undefined" ? baixarRelatorioConfirmados : window.baixarRelatorioConfirmados;
+  window.copiarTexto = typeof copiarTexto !== "undefined" ? copiarTexto : window.copiarTexto;
+  window.definirQtdExtra = typeof definirQtdExtra !== "undefined" ? definirQtdExtra : window.definirQtdExtra;
+  window.fecharCompraManual = typeof fecharCompraManual !== "undefined" ? fecharCompraManual : window.fecharCompraManual;
+  window.fecharEdicaoConvite = typeof fecharEdicaoConvite !== "undefined" ? fecharEdicaoConvite : window.fecharEdicaoConvite;
+  window.guardarEdicaoConvite = typeof guardarEdicaoConvite !== "undefined" ? guardarEdicaoConvite : window.guardarEdicaoConvite;
+  window.pedirConvitesExtra = typeof pedirConvitesExtra !== "undefined" ? pedirConvitesExtra : window.pedirConvitesExtra;
 })();
 </script>
   </div>
@@ -2005,13 +3043,13 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
             <i class="fas fa-user-friends text-white text-2xl"></i>
         </div>
         <h2 class="text-xl font-bold text-gray-800 mb-1">Convidado com Acompanhante</h2>
-        <div class="text-sm text-gray-500 mb-3">Confirme quem entrou:</div>
-        <div class="flex gap-2 justify-center mb-4">
-            <span class="px-3 py-1 rounded-full text-sm font-semibold" style="background:rgba(90,161,137,0.12);color:#5aa189;" id="companionTitularName"></span>
-            <span class="text-gray-400 flex items-center text-sm">e</span>
-            <span class="px-3 py-1 rounded-full text-sm font-semibold bg-purple-50 text-purple-700" id="companionAcompName"></span>
+        <div class="text-xs text-gray-400 mb-3">Confirme quem entrou:</div>
+        <div class="flex gap-2 justify-center items-center mb-4 flex-wrap">
+            <span class="px-4 py-2 rounded-full text-lg font-extrabold" style="background:rgba(90,161,137,0.12);color:#5aa189;" id="companionTitularName"></span>
+            <span class="text-gray-400 text-sm">e</span>
+            <span class="px-4 py-2 rounded-full text-lg font-extrabold bg-purple-50 text-purple-700" id="companionAcompName"></span>
         </div>
-        <p class="font-medium text-gray-700 mb-4">O acompanhante veio junto?</p>
+        <p class="text-sm text-gray-500 mb-4">O acompanhante veio junto?</p>
         <div class="flex gap-3">
             <button id="companionYes" class="flex-1 py-3 rounded-xl text-white font-bold text-base transition-all" style="background:linear-gradient(135deg,#5aa189,#4a9d7a);">
                 <i class="fas fa-check mr-2"></i>Sim
@@ -2044,29 +3082,32 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
         <!-- Scanner Tab -->
         <div id="scannerTabContent" class="tab-content">
             <div style="padding-bottom:100px;">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-6">
                     <div class="lg:col-span-2">
-                        <div class="bg-white rounded-xl shadow-sm p-6">
+                        <div class="bg-white rounded-xl shadow-sm p-4 lg:p-6">
                             <!-- Botão Check-in Manual -->
-                            <button id="openManualCheckinBtn" class="w-full mb-4 py-3 px-4 rounded-xl border-2 font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90"
+                            <button id="openManualCheckinBtn" class="w-full mb-3 py-3 px-4 rounded-xl border-2 font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90"
                                 style="border-color:#5aa189;color:#5aa189;background-color:rgba(90,161,137,0.07);">
                                 <i class="fas fa-search"></i>Check-in sem QR Code (pesquisar por nome)
                             </button>
-                            <div id="scannerContainer" class="scanner-container scanner-no-zoom bg-gray-900 rounded-2xl h-[300px] flex items-center justify-center mx-auto border-4 border-gray-300 shadow-2xl">
+                            <div id="scannerContainer" class="scanner-container scanner-no-zoom bg-gray-900 rounded-2xl h-[240px] lg:h-[300px] flex items-center justify-center mx-auto border-4 border-gray-300 shadow-2xl">
                                 <div class="text-center text-gray-400 px-6">
                                     <i class="fas fa-qrcode text-5xl mb-4 text-gray-500"></i>
                                     <p class="text-lg font-medium">A inicializar scanner...</p>
                                 </div>
                             </div>
+                            <button id="btnReiniciarCamera" onclick="reiniciarCameraManual()" class="w-full mt-3 py-2.5 px-4 rounded-xl border-2 font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90" style="border-color:#9ca3af;color:#6b7280;">
+                                <i class="fas fa-sync-alt"></i>Câmara preta ou presa? Toque para reiniciar
+                            </button>
                         </div>
                     </div>
                     <div class="lg:col-span-1">
-                        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-                            <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                        <div class="bg-white rounded-xl shadow-sm p-4 mb-3 lg:p-6 lg:mb-6">
+                            <h3 class="font-semibold text-gray-800 mb-2 lg:mb-4 flex items-center">
                                 <i class="fas fa-clipboard-check mr-2" style="color:#5aa189;"></i>Resultado
                             </h3>
                             <div id="scanResult" class="hidden p-4 rounded-lg text-center border-l-4 transform transition-all duration-300"></div>
-                            <div id="scanResultPlaceholder" class="text-center text-gray-400 py-8">
+                            <div id="scanResultPlaceholder" class="text-center text-gray-400 py-4 lg:py-8">
                                 <i class="fas fa-qrcode text-3xl mb-2"></i>
                                 <p class="text-sm">Aguardando scan...</p>
                             </div>
@@ -2269,6 +3310,9 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
                         </button>
                         <button id="exportBtn" class="bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
                             <i class="fas fa-download mr-3"></i>Exportar
+                        </button>
+                        <button id="ausentesBtn" class="bg-orange-600 text-white py-4 px-6 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
+                            <i class="fas fa-user-clock mr-3"></i>Confirmou e não veio
                         </button>
                         <button id="undoScansBtn" class="bg-red-600 text-white py-4 px-6 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
                             <i class="fas fa-undo mr-3"></i>Desfazer
@@ -2524,7 +3568,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
         const { data: client, error } = await DB_LEITOR
             .from('clientes')
-            .select('id,nome,token,validade,limite_scans,scans_usados,undo_usages_remaining')
+            .select('id,nome,token,validade,limite_scans,scans_usados,undo_usages_remaining,event_code_confirmacao')
             .eq('token', token)
             .single();
 
@@ -2639,6 +3683,27 @@ function mostrarApp() {
     setTimeout(() => startScanner(), 300);
 }
 
+// Botão manual — sempre disponível, para reiniciar a câmara com um toque
+// se alguma vez for preciso, sem dar refresh à página inteira.
+async function reiniciarCameraManual() {
+    haptic('light');
+    const btn = document.getElementById('btnReiniciarCamera');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A reiniciar...';
+    btn.disabled = true;
+    try {
+        if (html5QrCode && isScanning) { await html5QrCode.stop().catch(() => {}); }
+        isScanning = false;
+        await startScanner();
+        showNotification('Câmara reiniciada!', 'success');
+    } catch (e) {
+        showNotification('Não foi possível reiniciar a câmara', 'error');
+    } finally {
+        btn.innerHTML = orig;
+        btn.disabled = false;
+    }
+}
+
 /* ═══════════════════════════════════════════
    SCANNER
 ═══════════════════════════════════════════ */
@@ -2664,6 +3729,40 @@ async function startScanner() {
     }
 }
 
+/* ▼ NOVO: quando o ecrã bloqueia/o telemóvel entra em suspensão, ou a app
+   fica em segundo plano, o browser corta a câmara por baixo do tapete —
+   e simplesmente voltar a mexer no telemóvel não a liga sozinha outra
+   vez, ficando presa até haver um refresh. Aqui detecta-se essa
+   transição e a câmara é desligada de forma limpa ao esconder, e
+   reiniciada automaticamente ao voltar a ficar visível. */
+let scannerActivoAntesDeEsconder = false;
+
+async function pausarScannerPorInvisibilidade() {
+    scannerActivoAntesDeEsconder = isScanning;
+    if (html5QrCode && isScanning) {
+        try { await html5QrCode.stop(); } catch (e) {}
+        isScanning = false;
+    }
+}
+
+function retomarScannerAoFicarVisivel() {
+    if (!scannerActivoAntesDeEsconder) return;
+    scannerActivoAntesDeEsconder = false;
+    const scannerTabAtiva = document.getElementById('scannerTab')?.classList.contains('active');
+    if (scannerTabAtiva && !isScanning) {
+        setTimeout(() => startScanner(), 400);
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pausarScannerPorInvisibilidade();
+    else retomarScannerAoFicarVisivel();
+});
+// Reforço para browsers/telemóveis onde o visibilitychange não é sempre fiável
+window.addEventListener('pageshow', retomarScannerAoFicarVisivel);
+window.addEventListener('focus', retomarScannerAoFicarVisivel);
+window.addEventListener('pagehide', pausarScannerPorInvisibilidade);
+
 /* ═══════════════════════════════════════════
    PROCESSAR SCAN — 100% local, rápido
 ═══════════════════════════════════════════ */
@@ -2671,7 +3770,23 @@ async function onScanSuccess(decodedText) {
     if (scanPaused) return;
     scanPaused = true;
 
-    const codigo = decodedText.trim().split(/[_|:]/)[0];
+    // ▼ NOVO: tenta decifrar o QR localmente (AES-256-GCM, sem internet).
+    // Convites gerados antes desta actualização ainda têm o código em
+    // texto simples — por compatibilidade, se a decifra falhar, cai
+    // no comportamento antigo em vez de rejeitar o convite.
+    let codigo;
+    const decifrado = await decifrarCodigoQR(decodedText);
+    if (decifrado) {
+        if (currentClient && decifrado.t && decifrado.t !== currentClient.token) {
+            showScanResult('CÓDIGO INVÁLIDO', '', 'error');
+            playFeedback('error');
+            showNextScanButton();
+            return;
+        }
+        codigo = decifrado.c;
+    } else {
+        codigo = decodedText.trim().split(/[_|:]/)[0];
+    }
     const guest  = guests.find(g => g.codigo && g.codigo.trim().split(/[_|:]/)[0].toLowerCase() === codigo.toLowerCase());
 
     if (!guest) {
@@ -2974,28 +4089,28 @@ function showScanResult(status, guestName, type) {
 
     let msg = '';
     if (type === 'success' && guestName && status === 'ENTRADA CONFIRMADA (+ACOMPANHANTE)')
-        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA</div><div class="text-base">${guestName}</div><div class="text-sm mt-1 opacity-80">👥 Titular + Acompanhante</div>`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Entrada confirmada</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div><div class="text-sm mt-1 opacity-80">👥 Titular + Acompanhante</div>`;
     else if (type === 'success' && guestName && status === 'PERMITIDO (ACOMPANHANTE PENDENTE)')
-        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA</div><div class="text-base">${guestName}</div><div class="text-sm mt-1 opacity-80">⏳ Acompanhante pode entrar depois</div>`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Entrada confirmada</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div><div class="text-sm mt-1 opacity-80">⏳ Acompanhante pode entrar depois</div>`;
     else if (type === 'success' && guestName && status === 'ACOMPANHANTE CONFIRMADO') {
         const acomp = _lastCompanionName || guestName;
-        msg = `<div class="text-lg font-bold mb-2">ACOMPANHANTE CONFIRMADO</div><div class="text-base">${acomp}</div>`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Acompanhante confirmado</div><div class="text-2xl font-extrabold leading-tight">${acomp}</div>`;
     }
     else if (type === 'success' && guestName) {
         const gObj = guests.find(g => nomeTitular(g) === guestName || g.nome === guestName);
         const mesaTag = gObj?.mesa ? `<div class="text-sm mt-2 font-semibold" style="color:#7c3aed;">🪑 ${gObj.mesa}</div>` : '';
-        msg = `<div class="text-lg font-bold mb-2">ENTRADA CONFIRMADA PARA</div><div class="text-base">${guestName}</div>${mesaTag}`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Entrada confirmada para</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div>${mesaTag}`;
     }
     else if (type === 'warning' && guestName) {
         const gObj = guests.find(g => nomeTitular(g) === guestName || g.nome === guestName);
         const mesaTag = gObj?.mesa ? `<div class="text-sm mt-1 font-semibold" style="color:#7c3aed;">🪑 ${gObj.mesa}</div>` : '';
-        msg = `<div class="text-lg font-bold mb-2">JÁ ENTROU ANTERIORMENTE</div><div class="text-base">${guestName}</div>${mesaTag}`;
+        msg = `<div class="text-xs font-bold uppercase tracking-wide mb-1 opacity-70">Já entrou anteriormente</div><div class="text-2xl font-extrabold leading-tight">${guestName}</div>${mesaTag}`;
     }
     else if (status === 'CÓDIGO INVÁLIDO')    msg = '❌ QR inválido — verifique novamente';
     else if (status === 'LIMITE ATINGIDO')    msg = '🚫 Limite de entradas atingido';
     else msg = status;
 
-    el.innerHTML = `<div class="flex items-center justify-center mb-3"><i class="${s.icon} text-3xl"></i></div><div class="text-lg font-bold">${msg}</div>`;
+    el.innerHTML = `<div class="flex items-center justify-center mb-3"><i class="${s.icon} text-3xl"></i></div><div class="text-base">${msg}</div>`;
     el.classList.remove('hidden');
 }
 
@@ -3046,6 +4161,7 @@ function switchTab(tab) {
         sTab.style.borderColor = '#5aa189';
         sCnt.classList.remove('hidden');
         showNextScanButton();
+        if (!isScanning) setTimeout(() => startScanner(), 200);
     } else {
         oTab.classList.add('active');
         oTab.classList.remove('text-gray-500', 'border-transparent');
@@ -3205,6 +4321,16 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
     finally { btn.innerHTML = '<i class="fas fa-download mr-3"></i>Exportar'; btn.disabled = false; }
 });
 
+document.getElementById('ausentesBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('ausentesBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i>A cruzar dados...';
+    btn.disabled = true;
+    try { await generateRelatorioAusentesPDF(); showNotification('PDF gerado!', 'success'); }
+    catch(e) { showNotification(e.message || 'Erro ao gerar relatório', 'error'); }
+    finally { btn.innerHTML = orig; btn.disabled = false; }
+});
+
 document.getElementById('logoutBtn').addEventListener('click', () => {
     if (html5QrCode && isScanning) html5QrCode.stop().catch(()=>{});
     pararRealtime();
@@ -3244,6 +4370,117 @@ function getDeviceInfo() {
 /* ═══════════════════════════════════════════
    EXPORTAR PDF
 ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   RELATÓRIO: CONFIRMOU PRESENÇA MAS NÃO APARECEU
+   ── cruza quem disse "sim" no site de Confirmação de Presença
+      com quem foi realmente escaneado à entrada deste evento.
+═══════════════════════════════════════════ */
+function normalizarNomeLeitor(n) { return (n || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+
+function nomeCombinaComRsvpLeitor(nomeConvidado, guestName) {
+  const nc = normalizarNomeLeitor(nomeConvidado);
+  const ng = normalizarNomeLeitor(guestName);
+  if (!nc || !ng) return false;
+  return nc === ng || nc.startsWith(ng + ' e ');
+}
+
+async function generateRelatorioAusentesPDF() {
+  if (!currentClient?.event_code_confirmacao) {
+    throw new Error('Este evento não está ligado ao site de Confirmação de Presença.');
+  }
+  if (!DB_RSVP) throw new Error('Sem ligação à Confirmação de Presença agora.');
+
+  const { data, error } = await DB_RSVP.from('events')
+    .select('title,rsvps(guest_name,attending,side,companions,kids)')
+    .eq('event_code', currentClient.event_code_confirmacao)
+    .limit(1);
+  if (error) throw error;
+  const evento = data && data[0];
+  if (!evento) throw new Error('Evento não encontrado na Confirmação de Presença.');
+
+  const confirmados = (evento.rsvps || []).filter(r => r.attending === true || r.attending === 'yes');
+  if (confirmados.length === 0) throw new Error('Ainda não há confirmações de presença para este evento.');
+
+  const presentes = [];
+  const ausentes = [];
+  confirmados.forEach(r => {
+    const convidado = guests.find(g => nomeCombinaComRsvpLeitor(g.nome, r.guest_name));
+    const veio = !!(convidado && scannedGuests.has(convidado.id));
+    (veio ? presentes : ausentes).push(r);
+  });
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margemX = 16;
+  const corMarca = [91, 161, 137];
+  let y;
+
+  function nomesPipeLocal(str) { return str ? String(str).split('|').map(s => s.trim()).filter(Boolean) : []; }
+
+  doc.setFillColor(...corMarca); doc.rect(0, 0, pageW, 34, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold'); doc.setFontSize(17);
+  doc.text(currentClient.nome || evento.title || 'Evento', margemX, 16);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+  doc.text(`Confirmou presença × apareceu no evento · ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
+  doc.setFontSize(9);
+  doc.text(`${confirmados.length} confirmações  ·  ${presentes.length} apareceram  ·  ${ausentes.length} não apareceram`, margemX, 30);
+  doc.setTextColor(0, 0, 0);
+  y = 46;
+
+  function novaPaginaSeNecessario(altura) { if (y + altura > pageH - 16) { doc.addPage(); y = 20; } }
+
+  function secao(titulo, lista, corPill, corTextoPill) {
+    novaPaginaSeNecessario(16);
+    doc.setFillColor(...corPill);
+    doc.roundedRect(margemX, y, pageW - margemX * 2, 10, 3, 3, 'F');
+    doc.setTextColor(...corTextoPill); doc.setFont(undefined, 'bold'); doc.setFontSize(11);
+    doc.text(`${titulo}  (${lista.length})`, margemX + 5, y + 6.8);
+    doc.setTextColor(0, 0, 0);
+    y += 15;
+    if (lista.length === 0) {
+      doc.setFont(undefined, 'italic'); doc.setFontSize(10); doc.setTextColor(150);
+      doc.text('— nenhum —', margemX + 2, y); doc.setTextColor(0, 0, 0);
+      y += 10; return;
+    }
+    lista.forEach((r, i) => {
+      const acomp = nomesPipeLocal(r.companions);
+      const criancas = nomesPipeLocal(r.kids);
+      const extras = [];
+      if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
+      if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
+      const altura = extras.length ? 13 : 9;
+      novaPaginaSeNecessario(altura + 2);
+      if (i % 2 === 0) { doc.setFillColor(248, 250, 249); doc.rect(margemX, y - 5.5, pageW - margemX * 2, altura, 'F'); }
+      doc.setFont(undefined, 'bold'); doc.setFontSize(10.5); doc.setTextColor(0, 0, 0);
+      doc.text(r.guest_name, margemX + 3, y);
+      if (extras.length) {
+        doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(148, 163, 163);
+        doc.text(extras.join('   ·   '), margemX + 3, y + 5);
+        doc.setTextColor(0, 0, 0);
+      }
+      y += altura;
+    });
+    y += 6;
+  }
+
+  secao('Confirmou e apareceu', presentes, [214, 237, 229], [40, 90, 72]);
+  secao('Confirmou e NÃO apareceu', ausentes, [254, 226, 226], [153, 27, 27]);
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPaginas; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(230, 230, 230);
+    doc.line(margemX, pageH - 12, pageW - margemX, pageH - 12);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(148, 163, 163);
+    doc.text('Invites Adkira', margemX, pageH - 7);
+    doc.text(`Página ${p} de ${totalPaginas}`, pageW - margemX, pageH - 7, { align: 'right' });
+  }
+
+  doc.save(`confirmou-nao-veio-${(currentClient.nome || 'evento').toLowerCase().replace(/\s+/g, '-')}.pdf`);
+}
+
 async function generatePDFReport() {
     const { jsPDF } = window.jspdf;
     const doc  = new jsPDF();
@@ -3466,6 +4703,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Expose to global scope
   window.manualCheckin = typeof manualCheckin !== "undefined" ? manualCheckin : window.manualCheckin;
   window.startScanner = typeof startScanner !== "undefined" ? startScanner : window.startScanner;
+  window.renderGuestList = typeof renderGuestList !== "undefined" ? renderGuestList : window.renderGuestList;
+  window.reiniciarCameraManual = typeof reiniciarCameraManual !== "undefined" ? reiniciarCameraManual : window.reiniciarCameraManual;
 })();
 </script>
   </div>
