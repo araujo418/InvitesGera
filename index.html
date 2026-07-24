@@ -891,7 +891,7 @@ const RETRY_DELAY    = 2000;
 const RATE_LIMIT_MS  = 3000;
 // ▼ ALTERADO: inclui convites_gerados, remove scans_usados da leitura
 const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade,event_code_confirmacao';
-const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at,editado';
+const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at,editado,rsvp_id';
 const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
 const SS_OFFLINE_KEY = 'adkira_offline_fila';
@@ -922,6 +922,7 @@ let rateLockTimer      = null;
 let rateBarTimer       = null;
 let tabAtual           = 'lista'; // 'lista' ou 'mesas'
 let origemConfirmado   = false; // ▼ NOVO: true quando o "Gerar" veio da lista de confirmados — salta a confirmação genérica
+let rsvpIdEmGeracao    = null;  // ▼ NOVO: id estável do rsvp (imune a mudanças de nome), para ligar o convite ao confirmado certo
 
 /* ══════════════════════════════════��════════
    HELPER — lê o nº de convites gerados do
@@ -1223,7 +1224,7 @@ function iniciarRealtime(token) {
     })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, (p) => {
       if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
-      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at, editado:p.new.editado||false });
+      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at, editado:p.new.editado||false, rsvp_id:p.new.rsvp_id||null });
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
       else renderizarConvites(obterListaCompletaConvites());
       // ▼ ALTERADO: incrementa convites_gerados localmente (não scans_usados)
@@ -1989,13 +1990,28 @@ function nomeCorrespondeARsvp(nomeConvite, guestName) {
   return nc === ng || nc.startsWith(ng + ' e ') || nc.startsWith(ng + ', ');
 }
 
-function encontrarConviteDoRsvp(guestName) {
+// ▼ CORRIGIDO: a ligação entre um confirmado e o convite já não depende só
+// do nome — usa o "id" estável da linha em rsvps (nunca muda, mesmo que o
+// convidado ou o acompanhante mudem de nome depois). Isto evita que uma
+// edição de nome na Confirmação de Presença faça o gerador "esquecer-se"
+// de que já foi gerado convite, e criar um duplicado por engano.
+function encontrarConviteDoRsvp(guestName, rsvpId) {
   const todos = [...filaOffline, ...todosConvites];
-  return todos.find(c => nomeCorrespondeARsvp(c.nome, guestName)) || null;
+  if (rsvpId) {
+    const porId = todos.find(c => c.rsvp_id && String(c.rsvp_id) === String(rsvpId));
+    if (porId) return porId;
+  }
+  // Compatibilidade: convites antigos (gerados antes de guardarmos o rsvp_id)
+  // ou criados manualmente ainda são reconhecidos pelo nome.
+  return todos.find(c => !c.rsvp_id && nomeCorrespondeARsvp(c.nome, guestName)) || null;
 }
 
-function estaConfirmadoRSVP(nomeConvite) {
+function estaConfirmadoRSVP(nomeConvite, rsvpId) {
   if (!eventoRsvpCache?.rsvps) return false;
+  if (rsvpId) {
+    const porId = eventoRsvpCache.rsvps.find(r => String(r.id) === String(rsvpId));
+    if (porId) return rsvpConfirmou(porId);
+  }
   return eventoRsvpCache.rsvps.some(r => rsvpConfirmou(r) && nomeCorrespondeARsvp(nomeConvite, r.guest_name));
 }
 
@@ -2005,11 +2021,12 @@ function combinarNomeComAcompanhantes(nome, acompanhantes) {
   return [nome, ...acompanhantes].join(' e ');
 }
 
-function gerarConviteDeConfirmado(nome, acompanhantes) {
+function gerarConviteDeConfirmado(nome, acompanhantes, rsvpId) {
   haptic('light');
   document.getElementById('nomeInput').value = combinarNomeComAcompanhantes(nome, acompanhantes);
   validarNomeInput();
   origemConfirmado = true; // salta a confirmação genérica "Vai gerar um convite para..."
+  rsvpIdEmGeracao = rsvpId || null;
   document.getElementById('nomeInput').scrollIntoView({ behavior:'smooth', block:'center' });
   pedirConfirmacaoGerar();
 }
@@ -2193,10 +2210,11 @@ function obterListaCompletaConvites() {
   const pendentesRsvp = [];
   if (eventoRsvpCache?.rsvps) {
     eventoRsvpCache.rsvps.filter(rsvpConfirmou).forEach(r => {
-      if (!encontrarConviteDoRsvp(r.guest_name)) {
+      if (!encontrarConviteDoRsvp(r.guest_name, r.id)) {
         pendentesRsvp.push({
           isRsvpPendente: true,
           nome: r.guest_name,
+          rsvpId: r.id,
           acompanhantes: nomesPipe(r.companions),
           ladoLbl: labelLado(r.side, eventoRsvpCache),
           created_at: r.created_at
@@ -2233,7 +2251,7 @@ function renderizarConvites(lista, termo) {
         <button class="btn-dl" style="background:#5ba189;color:white;" aria-label="Gerar convite de ${escHtml(conv.nome)}" title="Gerar convite">
           <i class="ti ti-ticket" aria-hidden="true"></i>
         </button>`;
-      item.querySelector('button').onclick = () => gerarConviteDeConfirmado(conv.nome, conv.acompanhantes);
+      item.querySelector('button').onclick = () => gerarConviteDeConfirmado(conv.nome, conv.acompanhantes, conv.rsvpId);
       el.appendChild(item);
       return;
     }
@@ -2244,13 +2262,16 @@ function renderizarConvites(lista, termo) {
     const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
     let tag='', btnCls='btn-dl', btnIcon = isIOS ? '<i class="ti ti-share-2" aria-hidden="true"></i>' : '<i class="ti ti-download" aria-hidden="true"></i>';
     const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#5ba189;">Mesa ${escHtml(conv.mesa)}</div>` : '';
-    const confirmadoTag = estaConfirmadoRSVP(conv.nome) ? `<div class="convite-item-tag" style="color:#5ba189;"><i class="ti ti-user-check" aria-hidden="true"></i> Confirmou presença</div>` : '';
+    const confirmadoTag = estaConfirmadoRSVP(conv.nome, conv.rsvp_id) ? `<div class="convite-item-tag" style="color:#5ba189;"><i class="ti ti-user-check" aria-hidden="true"></i> Confirmou presença</div>` : '';
+    const nomeAtualRsvp = conv.rsvp_id ? sugerirNomeComAcompanhantes(conv) : conv.nome;
+    const nomeMudouTag = (conv.rsvp_id && nomeAtualRsvp !== conv.nome)
+      ? `<div class="convite-item-tag" style="color:#b45309;" title="Nome actual na confirmação: ${escHtml(nomeAtualRsvp)}"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Nome mudou na confirmação</div>` : '';
     if (isPend) { tag='<div class="convite-item-tag roxo">Offline — a aguardar sync</div>'; btnCls='btn-dl pendente'; btnIcon='<i class="ti ti-clock" aria-hidden="true"></i>'; }
     else if (jaDl) { tag='<div class="convite-item-tag verde">Descarregado</div>'; btnCls='btn-dl ja-dl'; btnIcon='<i class="ti ti-check" aria-hidden="true"></i>'; }
     item.innerHTML=`
       <div class="convite-avatar">${initials}</div>
       <div class="convite-item-info">
-        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${tag}
+        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${nomeMudouTag}${tag}
       </div>
       <button class="${btnCls}" aria-label="Descarregar convite de ${escHtml(conv.nome)}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
@@ -2284,6 +2305,7 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) { 
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
   const veioDeConfirmado = origemConfirmado; origemConfirmado = false;
+  const rsvpParaGuardar = rsvpIdEmGeracao; rsvpIdEmGeracao = null;
   if (estaEmCooldown()) {
     const restam = Math.ceil((RATE_LIMIT_MS - (Date.now() - ultimaGeracao)) / 1000);
     haptic('warning');
@@ -2309,7 +2331,7 @@ function pedirConfirmacaoGerar() {
     const isPend = !!dup.id_local;
     abrirModal({ titulo:'⚠️ Nome já existe', corpo:'Já existe um convite com este nome.', nome:nomeRaw, nomeCls:'duplicado',
       acoes:[
-        { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
+        { label:'✅ Gerar mesmo assim', cls:'btn-warning', fn:()=>gerarConvite(nomeRaw, mesaRaw, rsvpParaGuardar) },
         { label: isIOS ? '📤 Partilhar existente' : '📥 Re-download existente', cls:'btn-outline', fn:()=>{
           if (isPend) { const blob=obterBlobOffline(dup); if (blob) triggerDownload(blob, dup.nome); else showToast('⚠️ PDF não disponível.','#f59e0b'); }
           else baixarConviteExistente(dup.nome, dup.codigo, dup.id, { textContent: isIOS?'📤':'📥', disabled:false });
@@ -2322,7 +2344,7 @@ function pedirConfirmacaoGerar() {
     // confirmados — não faz sentido perguntar outra vez "quer mesmo gerar?".
     // Vai direto para a geração; a única pergunta que falta (editar antes
     // de baixar) acontece a seguir, dentro de gerarConvite.
-    gerarConvite(nomeRaw, mesaRaw);
+    gerarConvite(nomeRaw, mesaRaw, rsvpParaGuardar);
   } else {
     const modoOff = !navigator.onLine && modoOfflinePermitido();
     const creditos = creditosOfflineRestantes();
@@ -2334,7 +2356,7 @@ function pedirConfirmacaoGerar() {
       corpo:  corpoModal,
       nome: configData?.mesa_ativa ? nomeRaw : nomeRaw, nomeCls:'',
       acoes:[
-        { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw, mesaRaw) },
+        { label: modoOff ? '📴 Sim, gerar offline' : '🎉 Sim, gerar convite', cls:'btn-main', fn:()=>gerarConvite(nomeRaw, mesaRaw, rsvpParaGuardar) },
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
@@ -2359,8 +2381,10 @@ let acaoAposEdicao = null; // callback a correr depois de guardar (ex: continuar
 function sugerirNomeComAcompanhantes(conv) {
   if (!conv) return '';
   if (!eventoRsvpCache?.rsvps) return conv.nome;
-  const match = eventoRsvpCache.rsvps.find(r => rsvpConfirmou(r) && nomeCorrespondeARsvp(conv.nome, r.guest_name));
-  if (!match) return conv.nome;
+  const match = conv.rsvp_id
+    ? eventoRsvpCache.rsvps.find(r => String(r.id) === String(conv.rsvp_id))
+    : eventoRsvpCache.rsvps.find(r => rsvpConfirmou(r) && nomeCorrespondeARsvp(conv.nome, r.guest_name));
+  if (!match || !rsvpConfirmou(match)) return conv.nome;
   const acompanhantes = nomesPipe(match.companions);
   return combinarNomeComAcompanhantes(match.guest_name, acompanhantes);
 }
@@ -2459,7 +2483,7 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
   // Presença podem ser editados, e só uma vez — pergunta-se isso mesmo
   // antes de baixar, nunca depois.
   const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
-  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome);
+  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
   if (podeEditar) {
     const mesaObrigatoria = !!configData?.mesa_ativa;
     const acoesEdicao = [
@@ -2527,8 +2551,9 @@ function gerarQRDataURL(codigo, tamanho) {
    GERAR CONVITE
    ── chama incrementar_convites (novo RPC)
 ═══════════════════════════════════════════ */
-async function gerarConvite(nome, mesa) {
+async function gerarConvite(nome, mesa, rsvpId) {
   mesa = mesa || '';
+  rsvpId = rsvpId || null;
   const modoOff = !navigator.onLine && modoOfflinePermitido();
   if (!navigator.onLine && !modoOff) { haptic('error'); mostrarErro(new Error('failed to fetch')); return; }
   ultimoContextoNome = nome;
@@ -2543,7 +2568,7 @@ async function gerarConvite(nome, mesa) {
       setLoading('A guardar offline...');
       const pdf_b64 = await blobParaBase64(pdfBlob);
       const id_local = 'off_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
-      const item = { id_local, nome, mesa, codigo, created_at: new Date().toISOString(), pdf_b64 };
+      const item = { id_local, nome, mesa, codigo, rsvp_id: rsvpId, created_at: new Date().toISOString(), pdf_b64 };
       filaOffline.push(item);
       guardarFilaOffline(clienteData.token);
       convitesSessao++;
@@ -2593,6 +2618,7 @@ async function gerarConvite(nome, mesa) {
         setLoading('A registar o convidado...');
         const insertPayload = { token_cliente:clienteData.token, codigo, nome, status:'convite_gerado' };
         if (mesa) insertPayload.mesa = mesa;
+        if (rsvpId) insertPayload.rsvp_id = rsvpId;
         const { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([insertPayload]).select('id').single());
         if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
         conviteId = inserted?.id || null;
@@ -2618,7 +2644,7 @@ async function gerarConvite(nome, mesa) {
       // a pergunta de editar e a etiqueta "Confirmou presença" funcionarem
       // já com este convite incluído.
       if (conviteId && !todosConvites.find(c => c.id === conviteId)) {
-        todosConvites.unshift({ id: conviteId, nome, mesa, codigo: codigoGerado, created_at: new Date().toISOString(), editado: false });
+        todosConvites.unshift({ id: conviteId, nome, mesa, codigo: codigoGerado, created_at: new Date().toISOString(), editado: false, rsvp_id: rsvpId });
       }
       atualizarSecaoConfirmados();
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
@@ -2638,7 +2664,7 @@ async function gerarConvite(nome, mesa) {
    deixava passar a única oportunidade de editar sem nunca ser oferecida. */
 async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
   const convObj = todosConvites.find(c => c.id === id) || { id, nome, editado: false };
-  const podeEditar = !!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome);
+  const podeEditar = !!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
   if (!podeEditar) {
     if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
     else showToast(`✅ Convite de ${nome} gerado!`);
@@ -2679,7 +2705,7 @@ async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
 async function baixarConviteExistente(nome, codigo, id, btn) {
   if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
   const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
-  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome);
+  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
   if (podeEditar) {
     const mesaObrigatoria = !!configData?.mesa_ativa;
     const acoesEdicao = [
@@ -3552,6 +3578,40 @@ async function startScanner() {
     }
 }
 
+/* ▼ NOVO: quando o ecrã bloqueia/o telemóvel entra em suspensão, ou a app
+   fica em segundo plano, o browser corta a câmara por baixo do tapete —
+   e simplesmente voltar a mexer no telemóvel não a liga sozinha outra
+   vez, ficando presa até haver um refresh. Aqui detecta-se essa
+   transição e a câmara é desligada de forma limpa ao esconder, e
+   reiniciada automaticamente ao voltar a ficar visível. */
+let scannerActivoAntesDeEsconder = false;
+
+async function pausarScannerPorInvisibilidade() {
+    scannerActivoAntesDeEsconder = isScanning;
+    if (html5QrCode && isScanning) {
+        try { await html5QrCode.stop(); } catch (e) {}
+        isScanning = false;
+    }
+}
+
+function retomarScannerAoFicarVisivel() {
+    if (!scannerActivoAntesDeEsconder) return;
+    scannerActivoAntesDeEsconder = false;
+    const scannerTabAtiva = document.getElementById('scannerTab')?.classList.contains('active');
+    if (scannerTabAtiva && !isScanning) {
+        setTimeout(() => startScanner(), 400);
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pausarScannerPorInvisibilidade();
+    else retomarScannerAoFicarVisivel();
+});
+// Reforço para browsers/telemóveis onde o visibilitychange não é sempre fiável
+window.addEventListener('pageshow', retomarScannerAoFicarVisivel);
+window.addEventListener('focus', retomarScannerAoFicarVisivel);
+window.addEventListener('pagehide', pausarScannerPorInvisibilidade);
+
 /* ═══════════════════════════════════════════
    PROCESSAR SCAN — 100% local, rápido
 ═══════════════════════════════════════════ */
@@ -3950,6 +4010,7 @@ function switchTab(tab) {
         sTab.style.borderColor = '#5aa189';
         sCnt.classList.remove('hidden');
         showNextScanButton();
+        if (!isScanning) setTimeout(() => startScanner(), 200);
     } else {
         oTab.classList.add('active');
         oTab.classList.remove('text-gray-500', 'border-transparent');
