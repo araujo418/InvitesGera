@@ -777,68 +777,83 @@
     </div>
 
     <div class="divider"></div>
-    <div class="section-label">✨ Gerar Novo Convite</div>
-    <div>
-      <label for="nomeInput">Nome completo do convidado</label>
-      <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
-             autocapitalize="words" autocorrect="off" spellcheck="false"
-             oninput="validarNomeInput()"
-             onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
-      <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
-    </div>
 
-    <!-- Campo Mesa (visível só quando mesa_ativa=true) -->
-    <div id="mesaInputBox" style="display:none;">
-      <label for="mesaInput">🪑 Mesa do convidado</label>
-      <input type="text" id="mesaInput" placeholder="Ex: Mesa 5 ou VIP"
-             autocapitalize="words" autocorrect="off" spellcheck="false"
-             onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
-    </div>
-
-    <div class="rate-bar-wrap" id="rateBarWrap" style="opacity:0;">
-      <div class="rate-bar" id="rateBar"></div>
-    </div>
-
-    <div class="info yellow" id="step2Info" style="display:none;"></div>
-    <div class="ios-hint" id="iosHint">
-      📱 No seu dispositivo, escolha <strong>WhatsApp</strong> ou <strong>Guardar em Ficheiros</strong> para guardar o PDF.
-    </div>
-    <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
-    <button type="button" class="btn-outline" id="btnAderirMais" onclick="abrirCompraConvitesManual()"><i class="ti ti-square-rounded-plus" aria-hidden="true"></i> Aderir mais convites</button>
-
-    <!-- Confirmados no site de Confirmação de Presença — a lista de quem
-         ainda não tem convite fica junto na lista "Convites gerados" logo
-         abaixo; aqui fica só o resumo e o PDF. -->
-    <div class="confirmados-secao" id="confirmadosSecao" style="display:none;">
-      <div class="confirmados-secao-header">
-        <i class="ti ti-user-check" aria-hidden="true"></i>
-        <span>Confirmados na Confirmação de Presença</span>
-        <span id="confirmadosBadge" class="confirmados-badge" style="display:none;" title="Por gerar"></span>
-      </div>
-      <button type="button" class="btn-outline" id="btnPdfConfirmados" onclick="baixarRelatorioConfirmados()">
-        <i class="ti ti-file-download" aria-hidden="true"></i> Baixar PDF de confirmados
+    <!-- ▼ NOVO: duas abas principais — Confirmações (dados do site de
+         Confirmação de Presença) e Convites (geração manual + já gerados) -->
+    <div id="mainTabsWrap" style="display:none;gap:6px;flex-direction:row;">
+      <button id="mainTabConfirmacoes" class="tab-btn" onclick="mudarMainTab('confirmacoes')">
+        <i class="ti ti-user-check" aria-hidden="true"></i> Confirmações <span id="confirmadosBadge" class="confirmados-badge" style="display:none;" title="Por gerar"></span>
+      </button>
+      <button id="mainTabConvites" class="tab-btn tab-active" onclick="mudarMainTab('convites')">
+        <i class="ti ti-ticket" aria-hidden="true"></i> Convites
       </button>
     </div>
 
-    <div class="divider"></div>
-    <div class="convites-header">
-      <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
-      <span class="convites-count" id="convitesCount"></span>
-      <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+    <!-- ═══ ABA: CONFIRMAÇÕES DE PRESENÇA ═══ -->
+    <div id="confirmacoesTabContent" style="display:none;">
+      <button type="button" class="btn-outline" id="btnPdfConfirmados" onclick="baixarRelatorioConfirmados()" style="margin-top:10px;">
+        <i class="ti ti-file-download" aria-hidden="true"></i> Baixar PDF de todas as confirmações
+      </button>
+      <input type="text" class="convites-search" id="confirmacoesSearch"
+             placeholder="🔍 Pesquisar por nome..."
+             autocorrect="off" spellcheck="false"
+             oninput="filtrarConfirmacoes()" style="margin-top:10px;">
+      <div class="convites-lista" id="confirmacoesLista" style="margin-top:10px;">
+        <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Este evento não está ligado à Confirmação de Presença.</div>
+      </div>
     </div>
 
-    <!-- Tabs (visíveis só quando mesa_ativa=true) -->
-    <div id="convitesTabs" style="display:none;display:none;gap:6px;flex-direction:row;">
-      <button id="tabLista" class="tab-btn tab-active" onclick="mudarTab('lista')"><i class="ti ti-list" aria-hidden="true"></i> Lista</button>
-      <button id="tabMesas" class="tab-btn" onclick="mudarTab('mesas')"><i class="ti ti-layout-grid" aria-hidden="true"></i> Por Mesa</button>
-    </div>
+    <!-- ═══ ABA: CONVITES (geração manual + lista gerada) ═══ -->
+    <div id="convitesTabContent">
+      <div class="section-label" style="margin-top:10px;">✨ Gerar Novo Convite</div>
+      <div>
+        <label for="nomeInput">Nome completo do convidado</label>
+        <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
+               autocapitalize="words" autocorrect="off" spellcheck="false"
+               oninput="validarNomeInput()"
+               onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
+        <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
+      </div>
 
-    <input type="text" class="convites-search" id="convitesSearch"
-           placeholder="🔍 Pesquisar por nome..."
-           autocorrect="off" spellcheck="false"
-           oninput="filtrarConvites()" style="display:none;">
-    <div class="convites-lista" id="convitesLista">
-      <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
+      <!-- Campo Mesa (visível só quando mesa_ativa=true) -->
+      <div id="mesaInputBox" style="display:none;">
+        <label for="mesaInput">🪑 Mesa do convidado</label>
+        <input type="text" id="mesaInput" placeholder="Ex: Mesa 5 ou VIP"
+               autocapitalize="words" autocorrect="off" spellcheck="false"
+               onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
+      </div>
+
+      <div class="rate-bar-wrap" id="rateBarWrap" style="opacity:0;">
+        <div class="rate-bar" id="rateBar"></div>
+      </div>
+
+      <div class="info yellow" id="step2Info" style="display:none;"></div>
+      <div class="ios-hint" id="iosHint">
+        📱 No seu dispositivo, escolha <strong>WhatsApp</strong> ou <strong>Guardar em Ficheiros</strong> para guardar o PDF.
+      </div>
+      <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
+      <button type="button" class="btn-outline" id="btnAderirMais" onclick="abrirCompraConvitesManual()"><i class="ti ti-square-rounded-plus" aria-hidden="true"></i> Aderir mais convites</button>
+
+      <div class="divider"></div>
+      <div class="convites-header">
+        <div class="section-label" style="white-space:nowrap;">📋 Convites gerados</div>
+        <span class="convites-count" id="convitesCount"></span>
+        <button class="btn-outline" style="width:auto;margin-left:auto;" id="btnRecarregar" onclick="recarregarLista()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+      </div>
+
+      <!-- Tabs (visíveis só quando mesa_ativa=true) -->
+      <div id="convitesTabs" style="display:none;display:none;gap:6px;flex-direction:row;">
+        <button id="tabLista" class="tab-btn tab-active" onclick="mudarTab('lista')"><i class="ti ti-list" aria-hidden="true"></i> Lista</button>
+        <button id="tabMesas" class="tab-btn" onclick="mudarTab('mesas')"><i class="ti ti-layout-grid" aria-hidden="true"></i> Por Mesa</button>
+      </div>
+
+      <input type="text" class="convites-search" id="convitesSearch"
+             placeholder="🔍 Pesquisar por nome..."
+             autocorrect="off" spellcheck="false"
+             oninput="filtrarConvites()" style="display:none;">
+      <div class="convites-lista" id="convitesLista">
+        <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
+      </div>
     </div>
     <button class="btn-ghost" onclick="pedirConfirmacaoSair()"><i class="ti ti-logout" aria-hidden="true"></i> Sair</button>
   </div>
@@ -1942,8 +1957,13 @@ async function verificarLigacaoRsvp() {
 }
 
 async function atualizarSecaoConfirmados() {
-  const secao = document.getElementById('confirmadosSecao');
-  if (!clienteData?.event_code_confirmacao) { secao.style.display = 'none'; eventoRsvpCache = null; return; }
+  const tabsWrap = document.getElementById('mainTabsWrap');
+  if (!clienteData?.event_code_confirmacao) {
+    tabsWrap.style.display = 'none';
+    eventoRsvpCache = null;
+    if (mainTabAtual === 'confirmacoes') mudarMainTab('convites');
+    return;
+  }
   try {
     const { data, error } = await comTimeout(
       DB_RSVP.from('events').select(RSVP_COLS).eq('event_code', clienteData.event_code_confirmacao).limit(1)
@@ -1952,25 +1972,133 @@ async function atualizarSecaoConfirmados() {
     eventoRsvpCache = (data && data[0]) ? data[0] : null;
   } catch (e) {
     eventoRsvpCache = null; // sem ligação disponível agora — não bloqueia o resto da app
-    secao.style.display = 'none';
+    tabsWrap.style.display = 'none';
     return;
   }
-  if (!eventoRsvpCache) { secao.style.display = 'none'; return; }
+  if (!eventoRsvpCache) { tabsWrap.style.display = 'none'; return; }
 
-  secao.style.display = 'flex';
-  const todosConfirmados = (eventoRsvpCache.rsvps || []).filter(rsvpConfirmou);
-  // ▼ NOVO: a lista de quem confirmou e ainda não tem convite já não vive
-  // aqui — fica junto na mesma lista "Convites gerados" (ver
-  // obterListaCompletaConvites). Esta secção só mostra o botão do PDF e o
-  // número de quem ainda falta gerar.
-  const pendentes = todosConfirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name));
+  tabsWrap.style.display = 'flex';
+  const confirmados = (eventoRsvpCache.rsvps || []).filter(rsvpConfirmou);
+  const pendentes = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
 
   const badge = document.getElementById('confirmadosBadge');
   if (pendentes.length > 0) { badge.textContent = pendentes.length; badge.style.display = 'inline-block'; }
   else badge.style.display = 'none';
 
-  const btnPdf = document.getElementById('btnPdfConfirmados');
-  if (btnPdf) btnPdf.style.display = todosConfirmados.length > 0 ? 'flex' : 'none';
+  if (mainTabAtual === 'confirmacoes') renderizarConfirmacoes();
+}
+
+/* ═══════════════════════════════════════════
+   ABA "CONFIRMAÇÕES" — todas as respostas do site de Confirmação de
+   Presença (quem confirmou e quem declinou), separada da aba "Convites".
+═══════════════════════════════════════════ */
+let mainTabAtual = 'convites'; // 'convites' ou 'confirmacoes'
+
+function mudarMainTab(tab) {
+  mainTabAtual = tab;
+  document.getElementById('mainTabConfirmacoes').className = 'tab-btn' + (tab==='confirmacoes' ? ' tab-active' : '');
+  document.getElementById('mainTabConvites').className = 'tab-btn' + (tab==='convites' ? ' tab-active' : '');
+  document.getElementById('confirmacoesTabContent').style.display = tab === 'confirmacoes' ? 'block' : 'none';
+  document.getElementById('convitesTabContent').style.display = tab === 'convites' ? 'block' : 'none';
+  if (tab === 'confirmacoes') renderizarConfirmacoes();
+}
+
+function filtrarConfirmacoes() {
+  const t = document.getElementById('confirmacoesSearch').value.trim().toLowerCase();
+  renderizarConfirmacoes(t || null);
+}
+
+function renderizarConfirmacoes(termo) {
+  const el = document.getElementById('confirmacoesLista');
+  if (!eventoRsvpCache?.rsvps) {
+    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Este evento não está ligado à Confirmação de Presença.</div>';
+    return;
+  }
+  let lista = [...eventoRsvpCache.rsvps].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  if (termo) lista = lista.filter(r => (r.guest_name || '').toLowerCase().includes(termo));
+
+  if (lista.length === 0) {
+    el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhuma confirmação ainda.</div>';
+    return;
+  }
+
+  el.innerHTML = '';
+  lista.forEach(r => {
+    const confirmou = rsvpConfirmou(r);
+    const acompanhantes = nomesPipe(r.companions);
+    const criancas = nomesPipe(r.kids);
+    const ladoLbl = labelLado(r.side, eventoRsvpCache);
+    const extras = [];
+    if (acompanhantes.length) extras.push(`👥 ${acompanhantes.join(', ')}`);
+    if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
+    if (ladoLbl) extras.push(ladoLbl);
+
+    const jaGerado = confirmou ? encontrarConviteDoRsvp(r.guest_name, r.id) : null;
+
+    const item = document.createElement('div');
+    item.className = 'convite-item';
+    const initials = (r.guest_name||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+    let statusTag;
+    if (!confirmou) statusTag = `<div class="convite-item-tag" style="color:#b91c1c;"><i class="ti ti-x" aria-hidden="true"></i> Declinou</div>`;
+    else if (jaGerado) statusTag = `<div class="convite-item-tag verde"><i class="ti ti-check" aria-hidden="true"></i> Convite gerado</div>`;
+    else statusTag = `<div class="convite-item-tag" style="color:#b45309;"><i class="ti ti-clock" aria-hidden="true"></i> Por gerar</div>`;
+    const extrasTag = extras.length ? `<div class="convite-item-tag" style="color:#9ca3af;">${escHtml(extras.join(' · '))}</div>` : '';
+
+    item.innerHTML = `
+      <div class="convite-avatar" style="${!confirmou ? 'background:#fee2e2;color:#b91c1c;' : ''}">${initials}</div>
+      <div class="convite-item-info">
+        <div class="convite-item-nome">${escHtml(r.guest_name || '')}</div>${statusTag}${extrasTag}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        ${(confirmou && !jaGerado) ? `<button class="btn-dl" style="background:#5ba189;color:white;" title="Gerar convite" aria-label="Gerar convite de ${escHtml(r.guest_name)}"><i class="ti ti-ticket" aria-hidden="true"></i></button>` : ''}
+        <button class="btn-dl" style="background:#fef2f2;color:#b91c1c;" title="Eliminar confirmação" aria-label="Eliminar confirmação de ${escHtml(r.guest_name)}"><i class="ti ti-trash" aria-hidden="true"></i></button>
+      </div>`;
+
+    const btns = item.querySelectorAll('button');
+    if (confirmou && !jaGerado) {
+      btns[0].onclick = () => gerarConviteDeConfirmado(r.guest_name, acompanhantes, r.id);
+      btns[1].onclick = () => pedirConfirmacaoEliminarRsvp(r);
+    } else {
+      btns[0].onclick = () => pedirConfirmacaoEliminarRsvp(r);
+    }
+    el.appendChild(item);
+  });
+}
+
+// ▼ NOVO: eliminar uma confirmação de presença (linha da tabela rsvps no
+// site de Confirmação de Presença). Isto NÃO apaga um convite já gerado —
+// só remove o registo da confirmação em si; por isso o aviso é claro sobre
+// o que acontece em cada caso.
+function pedirConfirmacaoEliminarRsvp(r) {
+  haptic('light');
+  const jaGerado = rsvpConfirmou(r) ? encontrarConviteDoRsvp(r.guest_name, r.id) : null;
+  const aviso = jaGerado
+    ? 'Este convidado já tem convite gerado. Eliminar a confirmação NÃO apaga esse convite — só remove o registo da confirmação de presença.'
+    : 'Isto remove a confirmação de presença desta pessoa. Não é possível recuperar depois.';
+  abrirModal({
+    titulo: '🗑️ Eliminar confirmação?',
+    corpo: aviso,
+    nome: r.guest_name, nomeCls: 'duplicado',
+    acoes: [
+      { label:'🗑️ Eliminar', cls:'btn-warning', fn:()=>confirmarEliminarRsvp(r) },
+      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
+    ]
+  });
+}
+
+async function confirmarEliminarRsvp(r) {
+  try {
+    const { error } = await comTimeout(DB_RSVP.from('rsvps').delete().eq('id', r.id));
+    if (error) throw error;
+    if (eventoRsvpCache?.rsvps) eventoRsvpCache.rsvps = eventoRsvpCache.rsvps.filter(x => x.id !== r.id);
+    haptic('success');
+    showToast('✅ Confirmação eliminada.');
+    renderizarConfirmacoes();
+    atualizarSecaoConfirmados();
+  } catch (e) {
+    haptic('error');
+    showToast('❌ Não foi possível eliminar. Verifique a internet.', '#ef4444');
+  }
 }
 
 function nomesPipe(str) {
@@ -2041,9 +2169,11 @@ function gerarConviteDeConfirmado(nome, acompanhantes, rsvpId) {
 function baixarRelatorioConfirmados() {
   if (!eventoRsvpCache) return;
   haptic('light');
-  const confirmados = (eventoRsvpCache.rsvps || []).filter(rsvpConfirmou);
-  const comConvite = confirmados.filter(r => !!encontrarConviteDoRsvp(r.guest_name));
-  const semConvite = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name));
+  const todasRespostas = eventoRsvpCache.rsvps || [];
+  const confirmados = todasRespostas.filter(rsvpConfirmou);
+  const declinaram = todasRespostas.filter(r => !rsvpConfirmou(r));
+  const comConvite = confirmados.filter(r => !!encontrarConviteDoRsvp(r.guest_name, r.id));
+  const semConvite = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
   const nomeEvento = clienteData?.nome || eventoRsvpCache.title || 'Evento';
 
   const { jsPDF } = window.jspdf;
@@ -2066,7 +2196,7 @@ function baixarRelatorioConfirmados() {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10);
     doc.text(`Confirmações de presença · gerado em ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
     doc.setFontSize(9);
-    doc.text(`${confirmados.length} confirmação${confirmados.length===1?'':'ões'} no total  ·  ${comConvite.length} com convite  ·  ${semConvite.length} por gerar`, margemX, 30);
+    doc.text(`${todasRespostas.length} resposta${todasRespostas.length===1?'':'s'} no total  ·  ${comConvite.length} com convite  ·  ${semConvite.length} por gerar  ·  ${declinaram.length} declinaram`, margemX, 30);
     doc.setTextColor(...corTextoEscuro);
     y = 46;
   }
@@ -2142,6 +2272,7 @@ function baixarRelatorioConfirmados() {
   desenharCabecalho();
   desenharSeccao('Convite já gerado', comConvite, [214, 237, 229], [40, 90, 72]);
   desenharSeccao('Convite por gerar', semConvite, [255, 243, 205], [146, 90, 8]);
+  desenharSeccao('Declinaram', declinaram, [254, 226, 226], [153, 27, 27]);
   desenharRodape();
 
 
@@ -2211,23 +2342,10 @@ function activarMesaUI(cfg) {
    presença mas ainda não tem convite, para ficar tudo no mesmo local em
    vez de duas secções separadas. */
 function obterListaCompletaConvites() {
-  const gerados = [...filaOffline, ...todosConvites];
-  const pendentesRsvp = [];
-  if (eventoRsvpCache?.rsvps) {
-    eventoRsvpCache.rsvps.filter(rsvpConfirmou).forEach(r => {
-      if (!encontrarConviteDoRsvp(r.guest_name, r.id)) {
-        pendentesRsvp.push({
-          isRsvpPendente: true,
-          nome: r.guest_name,
-          rsvpId: r.id,
-          acompanhantes: nomesPipe(r.companions),
-          ladoLbl: labelLado(r.side, eventoRsvpCache),
-          created_at: r.created_at
-        });
-      }
-    });
-  }
-  return [...pendentesRsvp, ...gerados];
+  // ▼ ALTERADO: as confirmações por gerar já não entram nesta lista — têm
+  // agora a própria aba "Confirmações". Esta função devolve só o que foi
+  // mesmo gerado (mantém o nome por compatibilidade com quem já a chama).
+  return [...filaOffline, ...todosConvites];
 }
 
 function renderizarConvites(lista, termo) {
@@ -2798,6 +2916,10 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 // Expose to global scope
   window.baixarOuPartilhar = typeof baixarOuPartilhar !== "undefined" ? baixarOuPartilhar : window.baixarOuPartilhar;
   window.filtrarConvites = typeof filtrarConvites !== "undefined" ? filtrarConvites : window.filtrarConvites;
+  window.atualizarPrecoExtra = typeof atualizarPrecoExtra !== "undefined" ? atualizarPrecoExtra : window.atualizarPrecoExtra;
+  window.clamparQtdExtra = typeof clamparQtdExtra !== "undefined" ? clamparQtdExtra : window.clamparQtdExtra;
+  window.mudarMainTab = typeof mudarMainTab !== "undefined" ? mudarMainTab : window.mudarMainTab;
+  window.filtrarConfirmacoes = typeof filtrarConfirmacoes !== "undefined" ? filtrarConfirmacoes : window.filtrarConfirmacoes;
   window.mudarTab = typeof mudarTab !== "undefined" ? mudarTab : window.mudarTab;
   window.pedirConfirmacaoGerar = typeof pedirConfirmacaoGerar !== "undefined" ? pedirConfirmacaoGerar : window.pedirConfirmacaoGerar;
   window.pedirConfirmacaoSair = typeof pedirConfirmacaoSair !== "undefined" ? pedirConfirmacaoSair : window.pedirConfirmacaoSair;
@@ -3556,6 +3678,36 @@ function mostrarApp() {
     renderGuestList();
     updateUndoButton();
     setTimeout(() => startScanner(), 300);
+    // ▼ NOVO: em alguns Android/Chrome, a câmara arranca "tecnicamente" logo
+    // a seguir ao login mas fica presa a preto — sem mostrar imagem — e só
+    // se corrige bloqueando e desbloqueando o ecrã (isso força o browser a
+    // repintar o vídeo). Fazemos aqui sozinhos o mesmo truque pouco depois
+    // do arranque, sem precisar que a pessoa bloqueie o telemóvel.
+    setTimeout(() => reiniciarCameraSePreta(), 1300);
+}
+
+// Verifica se o vídeo da câmara já tem imagem real (videoWidth > 0). Se
+// continuar a 0 pouco depois de arrancar, está "preso a preto" — força um
+// stop + restart, que é exactamente o que o bloqueio/desbloqueio faz.
+async function reiniciarCameraSePreta() {
+    if (!isScanning || !html5QrCode) return;
+    try {
+        const videoEl = document.querySelector('#scannerContainer video');
+        if (!videoEl || !videoEl.videoWidth) {
+            await html5QrCode.stop().catch(() => {});
+            isScanning = false;
+            await startScanner();
+            // Segunda verificação, para telemóveis mais lentos a inicializar
+            setTimeout(async () => {
+                const v2 = document.querySelector('#scannerContainer video');
+                if (isScanning && html5QrCode && (!v2 || !v2.videoWidth)) {
+                    await html5QrCode.stop().catch(() => {});
+                    isScanning = false;
+                    await startScanner();
+                }
+            }, 1500);
+        }
+    } catch (e) {}
 }
 
 /* ═══════════════════════════════════════════
@@ -4587,6 +4739,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Expose to global scope
   window.manualCheckin = typeof manualCheckin !== "undefined" ? manualCheckin : window.manualCheckin;
   window.startScanner = typeof startScanner !== "undefined" ? startScanner : window.startScanner;
+  window.renderGuestList = typeof renderGuestList !== "undefined" ? renderGuestList : window.renderGuestList;
 })();
 </script>
   </div>
