@@ -4161,7 +4161,14 @@ function switchTab(tab) {
         sTab.style.borderColor = '#5aa189';
         sCnt.classList.remove('hidden');
         showNextScanButton();
-        if (!isScanning) setTimeout(() => startScanner(), 200);
+        // ▼ CORRIGIDO: só reinicia a câmara aqui se já houver sessão activa
+        // (currentClient). Sem esta condição, isto disparava logo ao
+        // carregar a página — antes do login, com o ecrã de entrar ainda
+        // visível — e a câmara ficava presa a preto, sem nunca arrancar
+        // correctamente depois do login de verdade (porque isScanning já
+        // ficava "true" com uma câmara inválida, e o arranque real seguinte
+        // era ignorado).
+        if (!isScanning && currentClient) setTimeout(() => startScanner(), 200);
     } else {
         oTab.classList.add('active');
         oTab.classList.remove('text-gray-500', 'border-transparent');
