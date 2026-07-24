@@ -82,6 +82,13 @@
   }
   window.cifrarCodigoQR = cifrarCodigoQR;
   window.decifrarCodigoQR = decifrarCodigoQR;
+
+  /* ▼ Ligação (só-leitura) ao site de Confirmação de Presença, partilhada
+     entre o Gerador e o Leitor (mesmo ficheiro, projectos Supabase
+     diferentes). Nenhum dado é escrito neste projecto a partir daqui. */
+  const RSVP_SUPABASE_URL = 'https://sjjezhvfdblilqqthxtl.supabase.co';
+  const RSVP_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqamV6aHZmZGJsaWxxcXRoeHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMzgzMTEsImV4cCI6MjA4ODgxNDMxMX0.SdZ6MdXHJs8mYOoANBK9Yg386L9CB7STtgrofJtgEhI';
+  window.DB_RSVP = supabase.createClient(RSVP_SUPABASE_URL, RSVP_SUPABASE_KEY);
   </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -336,6 +343,20 @@
     .confirmado-btn:active { transform: scale(0.95); background: #4a9073; }
     .confirmado-btn.gerado { background: #d0ede6; color: #5ba189; }
     .confirmados-vazio { text-align: center; color: #9ca3af; font-size: 13px; padding: 20px 10px; }
+    .admin-cliente-card {
+      background: #f8fffe; border: 1.5px solid #d0ede6; border-radius: 12px; padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .admin-cliente-nome { font-size: 14px; font-weight: 700; color: #1c1917; }
+    .admin-cliente-token { font-size: 11.5px; color: #9ca3af; }
+    .admin-cliente-stats { font-size: 12px; color: #5ba189; font-weight: 600; }
+    .admin-cliente-row { display: flex; align-items: center; gap: 8px; }
+    .admin-cliente-row input {
+      flex: 1; min-height: 40px; padding: 8px 12px; border: 1.5px solid #d0ede6; border-radius: 10px; font-size: 14px;
+    }
+    .admin-cliente-row button {
+      width: auto; flex: 0 0 auto; min-height: 40px; padding: 8px 14px; font-size: 13px;
+    }
     .confirmados-erro { text-align: center; color: #b45309; font-size: 12.5px; padding: 16px 10px; background: #fffbeb; border-radius: 12px; }
     .convite-edit-btn {
       width: 40px; height: 40px; min-height: 0; flex: 0 0 auto; padding: 0; background: #edf7f3; color: #5ba189;
@@ -576,13 +597,18 @@
 <div class="modal-overlay hidden" id="editarConviteOverlay">
   <div class="modal-box">
     <div class="modal-handle"></div>
-    <div class="modal-title">✏️ Corrigir nome do convite</div>
+    <div class="modal-title">✏️ Corrigir convite</div>
     <div class="modal-body" style="text-align:center;color:#9ca3af;font-size:12.5px;">Só é possível editar uma vez. O código e o QR do convite mantêm-se iguais.</div>
     <div>
       <label for="editarConviteNomeInput">Nome completo do convidado</label>
       <input type="text" id="editarConviteNomeInput" placeholder="Ex: Maria Silva"
              autocapitalize="words" autocorrect="off" spellcheck="false">
       <div class="nome-hint" id="editarConviteHint">Introduza o nome próprio e apelido</div>
+    </div>
+    <div id="editarConviteMesaBox" style="display:none;">
+      <label for="editarConviteMesaInput">🪑 Mesa do convidado</label>
+      <input type="text" id="editarConviteMesaInput" placeholder="Ex: Mesa 5 ou VIP"
+             autocapitalize="words" autocorrect="off" spellcheck="false">
     </div>
     <div class="modal-actions">
       <button type="button" class="btn-ghost" onclick="fecharEdicaoConvite()">Cancelar</button>
@@ -633,6 +659,53 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="adminAcessoOverlay">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔧 Acesso de administrador</div>
+    <div class="modal-body" style="text-align:center;color:#9ca3af;font-size:12.5px;">Introduza o token de administrador.</div>
+    <div>
+      <label for="adminTokenInput">Token</label>
+      <input type="password" id="adminTokenInput" placeholder="••••••••••"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+             onkeydown="if(event.key==='Enter'){this.blur();confirmarAdminAcesso();}">
+      <div class="nome-hint" id="adminTokenHint">&nbsp;</div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" onclick="fecharAdminAcesso()">Cancelar</button>
+      <button type="button" class="btn-main" id="btnConfirmarAdminAcesso" onclick="confirmarAdminAcesso()"><i class="ti ti-lock-open" aria-hidden="true"></i> Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="adminPainelOverlay">
+  <div class="modal-box" style="max-height:85vh;">
+    <div class="modal-handle"></div>
+    <div class="cc-header" style="color:#1c1917;">
+      <i class="ti ti-shield-lock" aria-hidden="true"></i>
+      <span>Administração</span>
+      <button type="button" class="cc-fechar-btn" onclick="fecharAdminPainel()" aria-label="Fechar" title="Fechar">✕</button>
+    </div>
+
+    <div class="convites-header" style="margin-top:4px;">
+      <div class="section-label" style="white-space:nowrap;">🔔 Pedidos de convites</div>
+      <span id="adminPedidosBadge" class="confirmados-badge" style="display:none;"></span>
+      <button class="btn-outline" style="width:auto;margin-left:auto;" onclick="carregarPedidosAdmin()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+    </div>
+    <div id="adminPedidos" style="display:flex;flex-direction:column;gap:10px;"></div>
+
+    <div class="divider"></div>
+    <div class="section-label">🔍 Aumentar convites de um cliente</div>
+    <div>
+      <label for="adminBuscaInput">Procurar por token ou nome do cliente</label>
+      <input type="text" id="adminBuscaInput" placeholder="Ex: evt-bmh6x7 ou Araújo Cataca"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+             onkeydown="if(event.key==='Enter'){this.blur();buscarClienteAdmin();}">
+    </div>
+    <button type="button" class="btn-outline" onclick="buscarClienteAdmin()"><i class="ti ti-search" aria-hidden="true"></i> Procurar</button>
+    <div id="adminResultados" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;"></div>
+  </div>
+</div>
 <div class="card">
   <div class="logo">
     <div class="logo-icon"><i class="ti ti-ticket" aria-hidden="true"></i></div>
@@ -657,6 +730,7 @@
     </div>
     <div class="info blue" id="step1Info" style="display:none;"></div>
     <button class="btn-main" onclick="validarToken()"><i class="ti ti-arrow-right" aria-hidden="true"></i> Continuar</button>
+    <button type="button" class="btn-ghost" onclick="abrirAdminAcesso()" style="margin-top:4px;"><i class="ti ti-shield-lock" aria-hidden="true"></i> Sou administrador</button>
   </div>
 
   <div class="step" id="step2">
@@ -727,17 +801,18 @@
     <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
     <button type="button" class="btn-outline" id="btnAderirMais" onclick="abrirCompraConvitesManual()"><i class="ti ti-square-rounded-plus" aria-hidden="true"></i> Aderir mais convites</button>
 
-    <!-- Confirmados no site de Confirmação de Presença — secção sempre visível, não é uma aba -->
+    <!-- Confirmados no site de Confirmação de Presença — a lista de quem
+         ainda não tem convite fica junto na lista "Convites gerados" logo
+         abaixo; aqui fica só o resumo e o PDF. -->
     <div class="confirmados-secao" id="confirmadosSecao" style="display:none;">
       <div class="confirmados-secao-header">
         <i class="ti ti-user-check" aria-hidden="true"></i>
         <span>Confirmados na Confirmação de Presença</span>
-        <span id="confirmadosBadge" class="confirmados-badge" style="display:none;"></span>
+        <span id="confirmadosBadge" class="confirmados-badge" style="display:none;" title="Por gerar"></span>
       </div>
-      <button type="button" class="btn-outline" id="btnPdfConfirmados" onclick="baixarRelatorioConfirmados()" style="margin-bottom:8px;">
+      <button type="button" class="btn-outline" id="btnPdfConfirmados" onclick="baixarRelatorioConfirmados()">
         <i class="ti ti-file-download" aria-hidden="true"></i> Baixar PDF de confirmados
       </button>
-      <div class="confirmados-lista" id="confirmadosLista"></div>
     </div>
 
     <div class="divider"></div>
@@ -797,14 +872,10 @@ const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
 const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ▼ NOVO: ligação (só-leitura) ao site de Confirmação de Presença.
-   Projecto Supabase diferente e independente — usado apenas para
-   consultar os convidados que já confirmaram presença, através do
-   event_code do evento, que deve ser igual ao token/código deste
-   evento no gerador. Nenhum dado é escrito neste projecto. */
-const RSVP_SUPABASE_URL = 'https://sjjezhvfdblilqqthxtl.supabase.co';
-const RSVP_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqamV6aHZmZGJsaWxxcXRoeHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMzgzMTEsImV4cCI6MjA4ODgxNDMxMX0.SdZ6MdXHJs8mYOoANBK9Yg386L9CB7STtgrofJtgEhI';
-const DB_RSVP = supabase.createClient(RSVP_SUPABASE_URL, RSVP_SUPABASE_KEY);
+/* ▼ Ligação (só-leitura) ao site de Confirmação de Presença — definida uma
+   única vez no <script> global partilhado (para o Leitor também conseguir
+   usá-la), aqui só referenciamos essa mesma ligação. */
+const DB_RSVP = window.DB_RSVP;
 
 /* ═══════════════════════════════════════════
    CONSTANTES
@@ -850,6 +921,7 @@ let ultimaGeracao      = 0;
 let rateLockTimer      = null;
 let rateBarTimer       = null;
 let tabAtual           = 'lista'; // 'lista' ou 'mesas'
+let origemConfirmado   = false; // ▼ NOVO: true quando o "Gerar" veio da lista de confirmados — salta a confirmação genérica
 
 /* ══════════════════════════════════��════════
    HELPER — lê o nº de convites gerados do
@@ -1145,13 +1217,15 @@ function iniciarRealtime(token) {
       clienteData.nome         = p.new.nome;
       clienteData.validade     = p.new.validade;
       document.getElementById('eventoNomeBox').textContent = '🎉 ' + p.new.nome;
-      actualizarContador(); iniciarTimerValidade(); haptic('light'); showToast('🔄 Evento actualizado!', '#5ba189');
+      actualizarContador(); iniciarTimerValidade(); haptic('light');
+      // ▼ NOVO: pode ser exactamente esta actualização a aprovação de um pedido de convites — se for, mostra confirmação clara; senão, o toast genérico de sempre
+      verificarPedidosAprovados().then(mostrou => { if (!mostrou) showToast('🔄 Evento actualizado!', '#5ba189'); });
     })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, (p) => {
       if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
       todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at, editado:p.new.editado||false });
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
-      else renderizarConvites([...filaOffline, ...todosConvites]);
+      else renderizarConvites(obterListaCompletaConvites());
       // ▼ ALTERADO: incrementa convites_gerados localmente (não scans_usados)
       clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
       actualizarContador();
@@ -1161,7 +1235,7 @@ function iniciarRealtime(token) {
       if (p.old?.id) {
         todosConvites = todosConvites.filter(c => c.id !== p.old.id);
         if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
-        else renderizarConvites([...filaOffline, ...todosConvites]);
+        else renderizarConvites(obterListaCompletaConvites());
       }
       // ▼ ALTERADO: relê apenas convites_gerados e limite_scans
       const { data } = await DB.from('clientes').select('convites_gerados,limite_scans').eq('token', token).single();
@@ -1242,6 +1316,7 @@ async function tentarRestaurarSessao(token) {
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
     iniciarRealtime(token); iniciarTimerValidade();
+    verificarPedidosAprovados(); // ▼ NOVO
     if (navigator.onLine && filaOffline.length > 0) setTimeout(() => sincronizarFila(), 2000);
     showStep('step2'); return true;
   } catch(e) { return false; }
@@ -1338,6 +1413,7 @@ async function validarToken() {
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
     iniciarRealtime(token); iniciarTimerValidade();
+    verificarPedidosAprovados(); // ▼ NOVO
     hideInfo('step1Info'); haptic('success'); showStep('step2');
   } catch(e) { haptic('error'); showInfo('step1Info','❌ ' + (navigator.onLine ? e.message : 'Sem ligação à internet.'), 'red'); }
 }
@@ -1485,12 +1561,53 @@ function copiarTexto(texto, btnEl) {
   }
 }
 
-function pedirConvitesExtra() {
+/* ▼ NOVO: notificação clara quando um pedido de convites é aprovado.
+   Não depende só de estar online no momento exacto da aprovação — fica
+   marcado como "aprovado, mas ainda não visto" na base de dados, por isso
+   aparece sempre, mesmo que o cliente só reabra a app horas depois. */
+async function verificarPedidosAprovados() {
+  if (!clienteData?.token) return false;
+  try {
+    const { data, error } = await comTimeout(
+      DB.from('pedidos_convites').select('id,quantidade,valor')
+        .eq('token_cliente', clienteData.token).eq('status', 'aprovado').eq('visto', false)
+        .order('created_at', { ascending: true })
+    );
+    if (error || !data || data.length === 0) return false;
+    for (const pedido of data) {
+      mostrarAprovacaoConvites(pedido);
+      await comTimeout(DB.from('pedidos_convites').update({ visto: true }).eq('id', pedido.id));
+    }
+    return true;
+  } catch (e) {
+    return false; // sem internet ou tabela indisponível — não bloqueia mais nada
+  }
+}
+
+function mostrarAprovacaoConvites(pedido) {
+  haptic('success');
+  abrirModal({
+    titulo: '🎉 Pedido aprovado!',
+    corpo: `O seu pedido de ${pedido.quantidade} convite${pedido.quantidade===1?'':'s'} extra (${formatarKz(pedido.valor)}) foi aprovado. Já pode gerar mais convites para este evento.`,
+    nome: '', nomeCls: '',
+    acoes: [ { label: 'Óptimo!', cls: 'btn-main', fn: () => {} } ]
+  });
+}
+
+async function pedirConvitesExtra() {
   haptic('medium');
   const qtd = lerQtdExtra();
   const preco = precoExtra(qtd);
   const nomeEvento = clienteData?.nome || 'Evento';
   const token = clienteData?.token || '';
+  // ▼ NOVO: regista o pedido na base de dados para apareceres a aprovar no
+  // painel de administração. Se falhar (ex: sem internet), continua na
+  // mesma para o WhatsApp — o pedido não fica perdido para o cliente.
+  try {
+    await comTimeout(DB.from('pedidos_convites').insert([{
+      token_cliente: token, nome_cliente: nomeEvento, quantidade: qtd, valor: preco, status: 'pendente'
+    }]));
+  } catch (e) { console.warn('Não foi possível registar o pedido:', e); }
   const msg = `Olá! Quero comprar mais convites para o meu evento.\n\n` +
               `Evento: ${nomeEvento}\n` +
               `Código: ${token}\n` +
@@ -1514,6 +1631,228 @@ function fecharCompraManual() {
 document.getElementById('comprarConvitesOverlay').addEventListener('click', function(e) { if (e.target === this) fecharCompraManual(); });
 
 /* ═══════════════════════════════════════════
+   ADMINISTRAÇÃO
+   ── acesso por TOKEN verificado directamente no Supabase — o
+      token em si nunca fica escrito neste ficheiro. Mostra os
+      pedidos de compra de convites por aprovar, e permite
+      pesquisar e aumentar o limite de qualquer cliente.
+═══════════════════════════════════════════ */
+function abrirAdminAcesso() {
+  haptic('light');
+  document.getElementById('adminTokenInput').value = '';
+  document.getElementById('adminTokenHint').textContent = '\u00a0';
+  document.getElementById('adminAcessoOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById('adminTokenInput').focus(), 150);
+}
+
+function fecharAdminAcesso() {
+  haptic('light');
+  document.getElementById('adminAcessoOverlay').classList.add('hidden');
+}
+document.getElementById('adminAcessoOverlay').addEventListener('click', function(e) { if (e.target === this) fecharAdminAcesso(); });
+
+async function confirmarAdminAcesso() {
+  const tokenDigitado = document.getElementById('adminTokenInput').value.trim();
+  const hint = document.getElementById('adminTokenHint');
+  if (!tokenDigitado) return;
+  const btn = document.getElementById('btnConfirmarAdminAcesso');
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+  try {
+    // ▼ A verificação acontece na base de dados: só passa quem tiver
+    // is_admin = true nessa linha da tabela clientes. Nada disto está
+    // escrito aqui no ficheiro. Só pode existir uma conta admin de cada
+    // vez — isso é garantido a nível da base de dados (ver índice único),
+    // não aqui — por isso este token pode ser usado sempre que precisares.
+    const { data, error } = await comTimeout(
+      DB.from('clientes').select('token').eq('token', tokenDigitado).eq('is_admin', true).maybeSingle()
+    );
+    if (error) throw error;
+    if (!data) {
+      haptic('error');
+      hint.className = 'nome-hint err';
+      hint.textContent = '❌ Token inválido.';
+      return;
+    }
+    haptic('success');
+    document.getElementById('adminAcessoOverlay').classList.add('hidden');
+    document.getElementById('adminPainelOverlay').classList.remove('hidden');
+    document.getElementById('adminBuscaInput').value = '';
+    document.getElementById('adminResultados').innerHTML = '';
+    carregarPedidosAdmin();
+  } catch (e) {
+    haptic('error');
+    hint.className = 'nome-hint err';
+    hint.textContent = '❌ Não foi possível verificar agora. Verifique a internet.';
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
+function fecharAdminPainel() {
+  haptic('light');
+  document.getElementById('adminPainelOverlay').classList.add('hidden');
+}
+document.getElementById('adminPainelOverlay').addEventListener('click', function(e) { if (e.target === this) fecharAdminPainel(); });
+
+async function carregarPedidosAdmin() {
+  const el = document.getElementById('adminPedidos');
+  const badge = document.getElementById('adminPedidosBadge');
+  el.innerHTML = '<div class="confirmados-vazio">A carregar pedidos...</div>';
+  try {
+    const { data, error } = await comTimeout(
+      DB.from('pedidos_convites').select('id,token_cliente,nome_cliente,quantidade,valor,created_at')
+        .eq('status', 'pendente').order('created_at', { ascending: false })
+    );
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      badge.style.display = 'none';
+      el.innerHTML = '<div class="confirmados-vazio">Sem pedidos pendentes.</div>';
+      return;
+    }
+    badge.textContent = data.length; badge.style.display = 'inline-block';
+    el.innerHTML = '';
+    data.forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'admin-cliente-card';
+      const dataFmt = new Date(p.created_at).toLocaleString('pt-PT');
+      card.innerHTML = `
+        <div>
+          <div class="admin-cliente-nome"></div>
+          <div class="admin-cliente-token"></div>
+        </div>
+        <div class="admin-cliente-stats">+${p.quantidade} convites · ${formatarKz(p.valor)} · ${dataFmt}</div>
+        <div class="admin-cliente-row">
+          <button type="button" class="btn-main" style="flex:1;"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>
+          <button type="button" class="btn-ghost" style="flex:0 0 auto;">Rejeitar</button>
+        </div>`;
+      card.querySelector('.admin-cliente-nome').textContent = p.nome_cliente || p.token_cliente;
+      card.querySelector('.admin-cliente-token').textContent = p.token_cliente;
+      const [btnAprovar, btnRejeitar] = card.querySelectorAll('.admin-cliente-row button');
+      btnAprovar.onclick = () => aprovarPedidoAdmin(p, btnAprovar, card);
+      btnRejeitar.onclick = () => rejeitarPedidoAdmin(p, btnRejeitar, card);
+      el.appendChild(card);
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="confirmados-erro">❌ ${e.message}</div>`;
+  }
+}
+
+function atualizarBadgePedidosApos(remover) {
+  const restantes = document.querySelectorAll('#adminPedidos .admin-cliente-card').length - (remover ? 1 : 0);
+  const badge = document.getElementById('adminPedidosBadge');
+  if (restantes <= 0) { badge.style.display = 'none'; document.getElementById('adminPedidos').innerHTML = '<div class="confirmados-vazio">Sem pedidos pendentes.</div>'; }
+  else badge.textContent = restantes;
+}
+
+async function aprovarPedidoAdmin(pedido, btn, card) {
+  haptic('medium');
+  btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+  try {
+    const { data: cli, error: eCli } = await comTimeout(
+      DB.from('clientes').select('limite_scans').eq('token', pedido.token_cliente).single()
+    );
+    if (eCli) throw eCli;
+    const novoLimite = (cli.limite_scans || 0) + pedido.quantidade;
+    const { error: eUpd } = await comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', pedido.token_cliente));
+    if (eUpd) throw eUpd;
+    const { error: eStatus } = await comTimeout(DB.from('pedidos_convites').update({ status: 'aprovado' }).eq('id', pedido.id));
+    if (eStatus) throw eStatus;
+    haptic('success');
+    showToast(`✅ Aprovado! Novo limite: ${novoLimite}`);
+    card.remove();
+    atualizarBadgePedidosApos(false);
+    if (clienteData && clienteData.token === pedido.token_cliente) { clienteData.limite_scans = novoLimite; actualizarContador(); }
+  } catch (e) {
+    haptic('error'); btn.disabled = false; btn.innerHTML = orig;
+    showToast('❌ Não foi possível aprovar: ' + e.message, '#ef4444');
+  }
+}
+
+async function rejeitarPedidoAdmin(pedido, btn, card) {
+  haptic('light');
+  btn.disabled = true;
+  try {
+    const { error } = await comTimeout(DB.from('pedidos_convites').update({ status: 'rejeitado' }).eq('id', pedido.id));
+    if (error) throw error;
+    haptic('warning');
+    card.remove();
+    atualizarBadgePedidosApos(false);
+  } catch (e) {
+    haptic('error'); btn.disabled = false;
+    showToast('❌ Não foi possível rejeitar: ' + e.message, '#ef4444');
+  }
+}
+
+async function buscarClienteAdmin() {
+  const termo = document.getElementById('adminBuscaInput').value.trim();
+  const el = document.getElementById('adminResultados');
+  if (!termo) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="confirmados-vazio">A procurar...</div>';
+  try {
+    const { data, error } = await comTimeout(
+      DB.from('clientes').select('token,nome,limite_scans,convites_gerados')
+        .or(`token.ilike.%${termo}%,nome.ilike.%${termo}%`)
+        .limit(15)
+    );
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      el.innerHTML = '<div class="confirmados-vazio">Nenhum cliente encontrado.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    data.forEach(cli => {
+      const card = document.createElement('div');
+      card.className = 'admin-cliente-card';
+      card.innerHTML = `
+        <div>
+          <div class="admin-cliente-nome"></div>
+          <div class="admin-cliente-token"></div>
+        </div>
+        <div class="admin-cliente-stats">${cli.convites_gerados || 0} gerados de ${cli.limite_scans || 0}</div>
+        <div class="admin-cliente-row">
+          <input type="number" min="0" value="${cli.limite_scans || 0}">
+          <button type="button" class="btn-main"><i class="ti ti-check" aria-hidden="true"></i> Actualizar</button>
+        </div>`;
+      card.querySelector('.admin-cliente-nome').textContent = cli.nome;
+      card.querySelector('.admin-cliente-token').textContent = cli.token;
+      const input = card.querySelector('input');
+      const btn = card.querySelector('button');
+      btn.onclick = () => actualizarLimiteAdmin(cli.token, input, btn, card);
+      el.appendChild(card);
+    });
+  } catch (e) {
+    el.innerHTML = `<div class="confirmados-erro">❌ ${e.message}</div>`;
+  }
+}
+
+async function actualizarLimiteAdmin(token, input, btn, card) {
+  const novoLimite = parseInt(input.value, 10);
+  if (!Number.isFinite(novoLimite) || novoLimite < 0) { haptic('warning'); return; }
+  haptic('medium');
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+  try {
+    const { error } = await comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', token));
+    if (error) throw error;
+    haptic('success');
+    showToast('✅ Limite actualizado!');
+    const stats = card.querySelector('.admin-cliente-stats');
+    if (stats) stats.textContent = stats.textContent.replace(/de \d+$/, `de ${novoLimite}`);
+    // Se este for o cliente actualmente autenticado, actualiza logo o contador visível
+    if (clienteData && clienteData.token === token) {
+      clienteData.limite_scans = novoLimite;
+      actualizarContador();
+    }
+  } catch (e) {
+    haptic('error');
+    showToast('❌ Não foi possível actualizar: ' + e.message, '#ef4444');
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
+/* ═══════════════════════════════════════════
    CARREGAR CONVITES
 ═══════════════════════════════════════════ */
 async function carregarConvitesGerados() {
@@ -1529,9 +1868,9 @@ async function carregarConvitesGerados() {
     }
     await rsvpPromise; // garante que a etiqueta "Confirmou presença" já sabe a resposta certa antes de desenhar
     document.getElementById('convitesSearch').value = '';
-    const total = [...filaOffline, ...todosConvites];
+    const completa = obterListaCompletaConvites();
     const hasMesa = configData?.mesa_ativa;
-    if (total.length === 0) {
+    if (completa.length === 0) {
       if (!hasMesa) document.getElementById('convitesSearch').style.display='none';
       document.getElementById('convitesCount').textContent='';
       lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';
@@ -1539,7 +1878,7 @@ async function carregarConvitesGerados() {
     }
     if (!hasMesa) document.getElementById('convitesSearch').style.display = 'block';
     if (tabAtual === 'mesas' && hasMesa) renderizarPorMesas();
-    else renderizarConvites(total);
+    else renderizarConvites(completa);
   } catch(e) { lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${navigator.onLine ? e.message : 'Sem ligação à internet'}</div>`; }
 }
 async function recarregarLista() { const btn=document.getElementById('btnRecarregar'); btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" aria-hidden="true"></i>'; await carregarConvitesGerados(); btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh" aria-hidden="true"></i>'; }
@@ -1550,7 +1889,7 @@ async function recarregarLista() { const btn=document.getElementById('btnRecarre
 function filtrarConvites() {
   if (tabAtual === 'mesas') { renderizarPorMesas(); return; }
   const t = document.getElementById('convitesSearch').value.trim().toLowerCase();
-  const todos = [...filaOffline, ...todosConvites];
+  const todos = obterListaCompletaConvites();
   renderizarConvites(t ? todos.filter(c => c.nome.toLowerCase().includes(t)) : todos, t || null);
 }
 
@@ -1564,7 +1903,7 @@ function mudarTab(tab) {
     search.style.display = 'none';
     renderizarPorMesas();
   } else {
-    const total = [...filaOffline, ...todosConvites];
+    const total = obterListaCompletaConvites();
     if (total.length > 0) search.style.display = 'block';
     renderizarConvites(total);
   }
@@ -1613,33 +1952,19 @@ async function atualizarSecaoConfirmados() {
   if (!eventoRsvpCache) { secao.style.display = 'none'; return; }
 
   secao.style.display = 'flex';
-  const todosConfirmados = (eventoRsvpCache.rsvps || []).filter(r => r.attending);
-  // ▼ NOVO: esta secção mostra só quem AINDA NÃO tem convite gerado.
-  // Quem já gerou aparece marcado com uma etiqueta na lista "Convites gerados" —
-  // assim é sempre óbvio, sem repetir a mesma pessoa em dois sítios diferentes.
-  // A comparação de nomes é "começa por", porque o convite pode ter o nome
-  // do acompanhante junto (ex: "Araújo Artur e Marlene").
-  const pendentes = todosConfirmados
-    .filter(r => !encontrarConviteDoRsvp(r.guest_name))
-    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  const todosConfirmados = (eventoRsvpCache.rsvps || []).filter(rsvpConfirmou);
+  // ▼ NOVO: a lista de quem confirmou e ainda não tem convite já não vive
+  // aqui — fica junto na mesma lista "Convites gerados" (ver
+  // obterListaCompletaConvites). Esta secção só mostra o botão do PDF e o
+  // número de quem ainda falta gerar.
+  const pendentes = todosConfirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name));
 
   const badge = document.getElementById('confirmadosBadge');
   if (pendentes.length > 0) { badge.textContent = pendentes.length; badge.style.display = 'inline-block'; }
   else badge.style.display = 'none';
 
-  const el = document.getElementById('confirmadosLista');
   const btnPdf = document.getElementById('btnPdfConfirmados');
   if (btnPdf) btnPdf.style.display = todosConfirmados.length > 0 ? 'flex' : 'none';
-
-  if (todosConfirmados.length === 0) {
-    el.innerHTML = '<div class="confirmados-vazio">Ainda ninguém confirmou presença para este evento.</div>';
-    return;
-  }
-  if (pendentes.length === 0) {
-    el.innerHTML = '<div class="confirmados-vazio">🎉 Todos os confirmados já têm convite gerado.</div>';
-    return;
-  }
-  renderizarConfirmados(pendentes);
 }
 
 function nomesPipe(str) {
@@ -1649,6 +1974,14 @@ function nomesPipe(str) {
 // Compara o nome de um convite com o nome de um convidado da Confirmação de
 // Presença. Não exige igualdade exacta porque o convite pode ter o nome do
 // acompanhante junto ao do titular (ex: "Araújo Artur e Marlene").
+// ▼ NOVO/CORRIGIDO: o campo "attending" no site de Confirmação de Presença é
+// TEXTO ("yes"/"no"), não verdadeiro/falso. Um simples `if (r.attending)`
+// dá sempre verdadeiro mesmo para "no", porque é uma string não-vazia —
+// e por isso é que quem tinha DECLINADO estava a aparecer como confirmado.
+function rsvpConfirmou(r) {
+  return r?.attending === true || r?.attending === 'yes';
+}
+
 function nomeCorrespondeARsvp(nomeConvite, guestName) {
   const nc = normalizarNome(nomeConvite || '');
   const ng = normalizarNome(guestName || '');
@@ -1663,34 +1996,7 @@ function encontrarConviteDoRsvp(guestName) {
 
 function estaConfirmadoRSVP(nomeConvite) {
   if (!eventoRsvpCache?.rsvps) return false;
-  return eventoRsvpCache.rsvps.some(r => r.attending && nomeCorrespondeARsvp(nomeConvite, r.guest_name));
-}
-
-function renderizarConfirmados(pendentes) {
-  const el = document.getElementById('confirmadosLista');
-  el.innerHTML = '';
-  pendentes.forEach(r => {
-    const acompanhantes = nomesPipe(r.companions);
-    const criancas = nomesPipe(r.kids);
-    const extras = [];
-    if (acompanhantes.length) extras.push(`👥 ${acompanhantes.join(', ')}`);
-    if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
-    const ladoLbl = labelLado(r.side, eventoRsvpCache);
-    if (ladoLbl) extras.push(ladoLbl);
-    const card = document.createElement('div');
-    card.className = 'confirmado-card';
-    card.innerHTML = `
-      <div class="confirmado-info">
-        <div class="confirmado-nome"></div>
-        <div class="confirmado-meta">${extras.length ? extras.join(' · ') : 'Confirmou presença'}</div>
-      </div>
-      <button type="button" class="confirmado-btn">
-        <i class="ti ti-ticket" aria-hidden="true"></i> Gerar
-      </button>`;
-    card.querySelector('.confirmado-nome').textContent = r.guest_name;
-    card.querySelector('.confirmado-btn').onclick = () => gerarConviteDeConfirmado(r.guest_name, acompanhantes);
-    el.appendChild(card);
-  });
+  return eventoRsvpCache.rsvps.some(r => rsvpConfirmou(r) && nomeCorrespondeARsvp(nomeConvite, r.guest_name));
 }
 
 function combinarNomeComAcompanhantes(nome, acompanhantes) {
@@ -1703,6 +2009,7 @@ function gerarConviteDeConfirmado(nome, acompanhantes) {
   haptic('light');
   document.getElementById('nomeInput').value = combinarNomeComAcompanhantes(nome, acompanhantes);
   validarNomeInput();
+  origemConfirmado = true; // salta a confirmação genérica "Vai gerar um convite para..."
   document.getElementById('nomeInput').scrollIntoView({ behavior:'smooth', block:'center' });
   pedirConfirmacaoGerar();
 }
@@ -1712,7 +2019,7 @@ function gerarConviteDeConfirmado(nome, acompanhantes) {
 function baixarRelatorioConfirmados() {
   if (!eventoRsvpCache) return;
   haptic('light');
-  const confirmados = (eventoRsvpCache.rsvps || []).filter(r => r.attending);
+  const confirmados = (eventoRsvpCache.rsvps || []).filter(rsvpConfirmou);
   const comConvite = confirmados.filter(r => !!encontrarConviteDoRsvp(r.guest_name));
   const semConvite = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name));
   const nomeEvento = clienteData?.nome || eventoRsvpCache.title || 'Evento';
@@ -1878,12 +2185,58 @@ function activarMesaUI(cfg) {
   if (!ativa && tabAtual === 'mesas') { tabAtual = 'lista'; }
 }
 
+/* ▼ NOVO: lista única — junta os convites já gerados com quem confirmou
+   presença mas ainda não tem convite, para ficar tudo no mesmo local em
+   vez de duas secções separadas. */
+function obterListaCompletaConvites() {
+  const gerados = [...filaOffline, ...todosConvites];
+  const pendentesRsvp = [];
+  if (eventoRsvpCache?.rsvps) {
+    eventoRsvpCache.rsvps.filter(rsvpConfirmou).forEach(r => {
+      if (!encontrarConviteDoRsvp(r.guest_name)) {
+        pendentesRsvp.push({
+          isRsvpPendente: true,
+          nome: r.guest_name,
+          acompanhantes: nomesPipe(r.companions),
+          ladoLbl: labelLado(r.side, eventoRsvpCache),
+          created_at: r.created_at
+        });
+      }
+    });
+  }
+  return [...pendentesRsvp, ...gerados];
+}
+
 function renderizarConvites(lista, termo) {
   const el=document.getElementById('convitesLista'), totalOnline=todosConvites.length, totalPend=filaOffline.length, total=totalOnline+totalPend;
-  document.getElementById('convitesCount').textContent = termo ? `${lista.length} de ${total}` : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}`;
+  const totalPorGerar = lista.filter(c => c.isRsvpPendente).length;
+  document.getElementById('convitesCount').textContent = termo
+    ? `${lista.length} de ${total + totalPorGerar}`
+    : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}${totalPorGerar>0?' · '+totalPorGerar+' por gerar':''}`;
   if (lista.length === 0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>'; return; }
   el.innerHTML = '';
   lista.forEach(conv => {
+    if (conv.isRsvpPendente) {
+      const item = document.createElement('div');
+      item.className = 'convite-item';
+      const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+      const extras = [];
+      if (conv.acompanhantes.length) extras.push(`👥 ${conv.acompanhantes.join(', ')}`);
+      if (conv.ladoLbl) extras.push(conv.ladoLbl);
+      item.innerHTML = `
+        <div class="convite-avatar" style="background:#fef3c7;color:#92400e;">${initials}</div>
+        <div class="convite-item-info">
+          <div class="convite-item-nome">${escHtml(conv.nome)}</div>
+          <div class="convite-item-tag" style="color:#b45309;"><i class="ti ti-user-check" aria-hidden="true"></i> Confirmou presença · por gerar</div>
+          ${extras.length ? `<div class="convite-item-tag" style="color:#9ca3af;">${escHtml(extras.join(' · '))}</div>` : ''}
+        </div>
+        <button class="btn-dl" style="background:#5ba189;color:white;" aria-label="Gerar convite de ${escHtml(conv.nome)}" title="Gerar convite">
+          <i class="ti ti-ticket" aria-hidden="true"></i>
+        </button>`;
+      item.querySelector('button').onclick = () => gerarConviteDeConfirmado(conv.nome, conv.acompanhantes);
+      el.appendChild(item);
+      return;
+    }
     const isPend = !!conv.id_local;
     const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
     const item   = document.createElement('div');
@@ -1930,6 +2283,7 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) { 
    CONFIRMAÇÃO GERAR
 ═══════════════════════════════════════════ */
 function pedirConfirmacaoGerar() {
+  const veioDeConfirmado = origemConfirmado; origemConfirmado = false;
   if (estaEmCooldown()) {
     const restam = Math.ceil((RATE_LIMIT_MS - (Date.now() - ultimaGeracao)) / 1000);
     haptic('warning');
@@ -1940,7 +2294,7 @@ function pedirConfirmacaoGerar() {
   const mesaRaw = (configData?.mesa_ativa ? document.getElementById('mesaInput')?.value.trim() : '') || '';
   const { ok, msg } = validarNome(nomeRaw);
   if (!ok) { haptic('warning'); showInfo('step2Info', msg, 'yellow'); validarNomeInput(); return; }
-  if (configData?.mesa_ativa && !mesaRaw) { haptic('warning'); showInfo('step2Info', '⚠️ Introduza a mesa do convidado.', 'yellow'); return; }
+  if (configData?.mesa_ativa && !mesaRaw && !veioDeConfirmado) { haptic('warning'); showInfo('step2Info', '⚠️ Introduza a mesa do convidado.', 'yellow'); return; }
   if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada.','red'); return; }
   if (!navigator.onLine) {
     if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
@@ -1963,6 +2317,12 @@ function pedirConfirmacaoGerar() {
         { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
       ]
     });
+  } else if (veioDeConfirmado) {
+    // ▼ NOVO: já se confirmou a intenção ao clicar "Gerar" na lista de
+    // confirmados — não faz sentido perguntar outra vez "quer mesmo gerar?".
+    // Vai direto para a geração; a única pergunta que falta (editar antes
+    // de baixar) acontece a seguir, dentro de gerarConvite.
+    gerarConvite(nomeRaw, mesaRaw);
   } else {
     const modoOff = !navigator.onLine && modoOfflinePermitido();
     const creditos = creditosOfflineRestantes();
@@ -1991,15 +2351,36 @@ function pedirConfirmacaoGerar() {
 let conviteEmEdicao = null;
 let acaoAposEdicao = null; // callback a correr depois de guardar (ex: continuar o download)
 
+// ▼ NOVO: sugere sempre o nome mais actualizado (convidado + acompanhantes),
+// comparando com os dados mais recentes da Confirmação de Presença — cobre
+// o caso de um convite ter sido gerado sem o acompanhante (ex: porque foi
+// criado antes de a pessoa o inserir, ou gerado manualmente sem passar pela
+// secção "Confirmados").
+function sugerirNomeComAcompanhantes(conv) {
+  if (!conv) return '';
+  if (!eventoRsvpCache?.rsvps) return conv.nome;
+  const match = eventoRsvpCache.rsvps.find(r => rsvpConfirmou(r) && nomeCorrespondeARsvp(conv.nome, r.guest_name));
+  if (!match) return conv.nome;
+  const acompanhantes = nomesPipe(match.companions);
+  return combinarNomeComAcompanhantes(match.guest_name, acompanhantes);
+}
+
 function pedirEdicaoConvite(conv, aposGuardar) {
   haptic('light');
   conviteEmEdicao = conv;
   acaoAposEdicao = aposGuardar || null;
   const input = document.getElementById('editarConviteNomeInput');
-  input.value = conv.nome;
+  input.value = sugerirNomeComAcompanhantes(conv);
   input.className = '';
   document.getElementById('editarConviteHint').textContent = 'Introduza o nome próprio e apelido';
   document.getElementById('editarConviteHint').className = 'nome-hint';
+  const mesaBox = document.getElementById('editarConviteMesaBox');
+  if (configData?.mesa_ativa) {
+    mesaBox.style.display = 'block';
+    document.getElementById('editarConviteMesaInput').value = conv.mesa || '';
+  } else {
+    mesaBox.style.display = 'none';
+  }
   document.getElementById('editarConviteOverlay').classList.remove('hidden');
   setTimeout(() => input.focus(), 150);
 }
@@ -2011,6 +2392,17 @@ function fecharEdicaoConvite() {
   document.getElementById('editarConviteOverlay').classList.add('hidden');
 }
 
+// ▼ NOVO: marca a "oportunidade de editar" como usada mesmo quando a pessoa
+// escolhe baixar sem editar — sem isto, a pergunta "Editar antes de
+// baixar?" voltava a aparecer em todos os downloads seguintes.
+async function marcarDecisaoEdicao(id) {
+  try {
+    await comTimeout(DB.from('convidados').update({ editado: true }).eq('id', id));
+    const local = todosConvites.find(c => c.id === id || c.id === Number(id));
+    if (local) local.editado = true;
+  } catch (e) { /* não é crítico — na pior das hipóteses pergunta outra vez */ }
+}
+
 async function guardarEdicaoConvite() {
   if (!conviteEmEdicao) return;
   const input = document.getElementById('editarConviteNomeInput');
@@ -2019,20 +2411,30 @@ async function guardarEdicaoConvite() {
   const hint = document.getElementById('editarConviteHint');
   if (!ok) { haptic('warning'); input.className = 'input-error'; hint.className = 'nome-hint err'; hint.textContent = msg; return; }
 
+  let novaMesa = conviteEmEdicao.mesa || '';
+  if (configData?.mesa_ativa) {
+    const mesaInput = document.getElementById('editarConviteMesaInput');
+    novaMesa = mesaInput.value.trim();
+    if (!novaMesa) { haptic('warning'); mesaInput.className = 'input-error'; showToast('⚠️ Introduza a mesa do convidado.', '#f59e0b'); return; }
+    mesaInput.className = '';
+  }
+
   const btn = document.getElementById('btnGuardarEdicaoConvite');
   const origHtml = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A guardar...';
   try {
-    const { error } = await comTimeout(DB.from('convidados').update({ nome: novoNome, editado: true }).eq('id', conviteEmEdicao.id));
+    const updatePayload = { nome: novoNome, editado: true };
+    if (configData?.mesa_ativa) updatePayload.mesa = novaMesa;
+    const { error } = await comTimeout(DB.from('convidados').update(updatePayload).eq('id', conviteEmEdicao.id));
     if (error) throw error;
     const local = todosConvites.find(c => c.id === conviteEmEdicao.id);
-    if (local) { local.nome = novoNome; local.editado = true; }
+    if (local) { local.nome = novoNome; local.editado = true; if (configData?.mesa_ativa) local.mesa = novaMesa; }
     haptic('success');
     document.getElementById('editarConviteOverlay').classList.add('hidden');
     conviteEmEdicao = null;
-    showToast('✅ Nome corrigido!');
+    showToast('✅ Convite corrigido!');
     if (tabAtual === 'mesas' && configData?.mesa_ativa) renderizarPorMesas();
-    else renderizarConvites([...filaOffline, ...todosConvites]);
+    else renderizarConvites(obterListaCompletaConvites());
     const callback = acaoAposEdicao; acaoAposEdicao = null;
     if (callback) callback();
   } catch (e) {
@@ -2059,18 +2461,26 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
   const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
   const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome);
   if (podeEditar) {
+    const mesaObrigatoria = !!configData?.mesa_ativa;
+    const acoesEdicao = [
+      { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
+        const atual = todosConvites.find(c => c.id === id || c.id === Number(id));
+        executarDownload(atual?.nome || nome, codigo, id, btn);
+      }) }
+    ];
+    if (!mesaObrigatoria) {
+      acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:()=>{ marcarDecisaoEdicao(id); executarDownload(nome, codigo, id, btn); } });
+    }
+    acoesEdicao.push({ label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} });
     abrirModal({
       titulo: '✏️ Editar antes de baixar?',
-      corpo: 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
+      corpo: mesaObrigatoria
+        ? `Este evento usa mesas — é preciso indicar a mesa de "${convObj.nome}" antes de baixar. Só é possível editar uma vez.`
+        : sugerirNomeComAcompanhantes(convObj) !== convObj.nome
+        ? `Detectámos acompanhante(s) na confirmação de presença que ainda não estão neste convite ('${sugerirNomeComAcompanhantes(convObj)}'). Pode corrigir antes de baixar — só é possível editar uma vez.`
+        : 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
       nome: convObj.nome, nomeCls: '',
-      acoes: [
-        { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
-          const atual = todosConvites.find(c => c.id === id || c.id === Number(id));
-          executarDownload(atual?.nome || nome, codigo, id, btn);
-        }) },
-        { label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:()=>executarDownload(nome, codigo, id, btn) },
-        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
-      ]
+      acoes: acoesEdicao
     });
     return;
   }
@@ -2088,7 +2498,7 @@ async function executarDownload(nome, codigo, id, btn) {
     if(!isIOS && id){
       downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token);
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
-      else renderizarConvites([...filaOffline,...todosConvites]);
+      else renderizarConvites(obterListaCompletaConvites());
     }
     haptic('success');
     showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
@@ -2151,6 +2561,8 @@ async function gerarConvite(nome, mesa) {
       await carregarConvitesGerados();
     } else {
       let conviteId = null;
+      let codigoGerado = null;
+      let pdfBlobGerado = null;
       await comRetry(async () => {
         setLoading('A verificar disponibilidade...');
         // ▼ ALTERADO: chama incrementar_convites em vez de incrementar_scans
@@ -2184,12 +2596,16 @@ async function gerarConvite(nome, mesa) {
         const { data:inserted, error:eIns } = await comTimeout(DB.from('convidados').insert([insertPayload]).select('id').single());
         if (eIns) throw new Error('Erro ao registar: ' + eIns.message);
         conviteId = inserted?.id || null;
+        codigoGerado = codigo;
+        pdfBlobGerado = pdfBlob;
         pararProgressBar();
-        await triggerDownload(pdfBlob, nome);
+        // ▼ ALTERADO: já não descarrega aqui automaticamente — ver decisão
+        // logo a seguir, depois de sair do ecrã de carregamento (para os
+        // convites de quem confirmou presença, primeiro pergunta-se se quer
+        // editar, antes do primeiro download).
       });
       ultimoContextoNome = null;
       convitesSessao++;
-      if (!isIOS && conviteId) { downloadsSessao.add(conviteId); }
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
       document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
@@ -2198,13 +2614,63 @@ async function gerarConvite(nome, mesa) {
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
       iniciarRateLimit();
       actualizarContador(); haptic('success'); showStep('step2');
+      // ▼ NOVO: acrescenta já à lista local (não espera pelo realtime), para
+      // a pergunta de editar e a etiqueta "Confirmou presença" funcionarem
+      // já com este convite incluído.
+      if (conviteId && !todosConvites.find(c => c.id === conviteId)) {
+        todosConvites.unshift({ id: conviteId, nome, mesa, codigo: codigoGerado, created_at: new Date().toISOString(), editado: false });
+      }
       atualizarSecaoConfirmados();
-      if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
-      else showToast(`✅ Convite de ${nome} gerado!`);
+      if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
+      else renderizarConvites(obterListaCompletaConvites());
+
+      await decidirPrimeiroDownload(nome, codigoGerado, conviteId, pdfBlobGerado);
+      if (!isIOS && conviteId) downloadsSessao.add(conviteId);
     }
   } catch(e) {
     pararProgressBar(); haptic('error'); console.error(e); mostrarErro(e);
   }
+}
+
+/* ▼ NOVO: decide se pergunta "editar antes de baixar?" logo no primeiro
+   download (mesmo instante da geração) para convites de quem confirmou
+   presença — antes, isto só acontecia em downloads seguintes, o que
+   deixava passar a única oportunidade de editar sem nunca ser oferecida. */
+async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
+  const convObj = todosConvites.find(c => c.id === id) || { id, nome, editado: false };
+  const podeEditar = !!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome);
+  if (!podeEditar) {
+    if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
+    else showToast(`✅ Convite de ${nome} gerado!`);
+    await triggerDownload(pdfBlobPronto, nome);
+    return;
+  }
+  const sugerido = sugerirNomeComAcompanhantes(convObj);
+  const mesaObrigatoria = !!configData?.mesa_ativa;
+  const acoesEdicao = [
+    { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
+      const atual = todosConvites.find(c => c.id === id) || convObj;
+      showToast(`✅ Convite de ${atual.nome} gerado!`);
+      executarDownload(atual.nome, codigo, id, { disabled:false, textContent:'', innerHTML:'' });
+    }) }
+  ];
+  if (!mesaObrigatoria) {
+    acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:async ()=>{
+      marcarDecisaoEdicao(id);
+      showToast(`✅ Convite de ${nome} gerado!`);
+      await triggerDownload(pdfBlobPronto, nome);
+    } });
+  }
+  abrirModal({
+    titulo: '✏️ Editar antes de baixar?',
+    corpo: mesaObrigatoria
+      ? `Este evento usa mesas — é preciso indicar a mesa de "${convObj.nome}" antes de baixar. Só é possível editar uma vez.`
+      : sugerido !== convObj.nome
+      ? `Detectámos acompanhante(s) na confirmação de presença que ainda não estão neste convite ('${sugerido}'). Pode corrigir antes de baixar — só é possível editar uma vez.`
+      : 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
+    nome: convObj.nome, nomeCls: '',
+    acoes: acoesEdicao
+  });
 }
 
 /* ═══════════════════════════════════════════
@@ -2215,18 +2681,26 @@ async function baixarConviteExistente(nome, codigo, id, btn) {
   const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
   const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome);
   if (podeEditar) {
+    const mesaObrigatoria = !!configData?.mesa_ativa;
+    const acoesEdicao = [
+      { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
+        const atual = todosConvites.find(c => c.id === id || c.id === Number(id));
+        executarDownload(atual?.nome || nome, codigo, id, btn);
+      }) }
+    ];
+    if (!mesaObrigatoria) {
+      acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:()=>{ marcarDecisaoEdicao(id); executarDownload(nome, codigo, id, btn); } });
+    }
+    acoesEdicao.push({ label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} });
     abrirModal({
       titulo: '✏️ Editar antes de baixar?',
-      corpo: 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
+      corpo: mesaObrigatoria
+        ? `Este evento usa mesas — é preciso indicar a mesa de "${convObj.nome}" antes de baixar. Só é possível editar uma vez.`
+        : sugerirNomeComAcompanhantes(convObj) !== convObj.nome
+        ? `Detectámos acompanhante(s) na confirmação de presença que ainda não estão neste convite ('${sugerirNomeComAcompanhantes(convObj)}'). Pode corrigir antes de baixar — só é possível editar uma vez.`
+        : 'Este convite é de alguém que confirmou presença. Pode corrigir o nome antes de baixar — só é possível editar uma vez.',
       nome: convObj.nome, nomeCls: '',
-      acoes: [
-        { label:'✏️ Editar primeiro', cls:'btn-main', fn:()=>pedirEdicaoConvite(convObj, () => {
-          const atual = todosConvites.find(c => c.id === id || c.id === Number(id));
-          executarDownload(atual?.nome || nome, codigo, id, btn);
-        }) },
-        { label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:()=>executarDownload(nome, codigo, id, btn) },
-        { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
-      ]
+      acoes: acoesEdicao
     });
     return;
   }
@@ -2307,6 +2781,12 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
   window.baixarConviteExistente = typeof baixarConviteExistente !== "undefined" ? baixarConviteExistente : window.baixarConviteExistente;
   window.pedirConfirmacaoSair = typeof pedirConfirmacaoSair !== "undefined" ? pedirConfirmacaoSair : window.pedirConfirmacaoSair;
   window.abrirCompraConvitesManual = typeof abrirCompraConvitesManual !== "undefined" ? abrirCompraConvitesManual : window.abrirCompraConvitesManual;
+  window.abrirAdminAcesso = typeof abrirAdminAcesso !== "undefined" ? abrirAdminAcesso : window.abrirAdminAcesso;
+  window.buscarClienteAdmin = typeof buscarClienteAdmin !== "undefined" ? buscarClienteAdmin : window.buscarClienteAdmin;
+  window.carregarPedidosAdmin = typeof carregarPedidosAdmin !== "undefined" ? carregarPedidosAdmin : window.carregarPedidosAdmin;
+  window.confirmarAdminAcesso = typeof confirmarAdminAcesso !== "undefined" ? confirmarAdminAcesso : window.confirmarAdminAcesso;
+  window.fecharAdminPainel = typeof fecharAdminPainel !== "undefined" ? fecharAdminPainel : window.fecharAdminPainel;
+  window.fecharAdminAcesso = typeof fecharAdminAcesso !== "undefined" ? fecharAdminAcesso : window.fecharAdminAcesso;
   window.ajustarQtdExtra = typeof ajustarQtdExtra !== "undefined" ? ajustarQtdExtra : window.ajustarQtdExtra;
   window.baixarRelatorioConfirmados = typeof baixarRelatorioConfirmados !== "undefined" ? baixarRelatorioConfirmados : window.baixarRelatorioConfirmados;
   window.copiarTexto = typeof copiarTexto !== "undefined" ? copiarTexto : window.copiarTexto;
@@ -2675,6 +3155,9 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
                         <button id="exportBtn" class="bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
                             <i class="fas fa-download mr-3"></i>Exportar
                         </button>
+                        <button id="ausentesBtn" class="bg-orange-600 text-white py-4 px-6 rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
+                            <i class="fas fa-user-clock mr-3"></i>Confirmou e não veio
+                        </button>
                         <button id="undoScansBtn" class="bg-red-600 text-white py-4 px-6 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center text-lg font-medium shadow-lg">
                             <i class="fas fa-undo mr-3"></i>Desfazer
                         </button>
@@ -2929,7 +3412,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
         const { data: client, error } = await DB_LEITOR
             .from('clientes')
-            .select('id,nome,token,validade,limite_scans,scans_usados,undo_usages_remaining')
+            .select('id,nome,token,validade,limite_scans,scans_usados,undo_usages_remaining,event_code_confirmacao')
             .eq('token', token)
             .single();
 
@@ -3626,6 +4109,16 @@ document.getElementById('exportBtn').addEventListener('click', async () => {
     finally { btn.innerHTML = '<i class="fas fa-download mr-3"></i>Exportar'; btn.disabled = false; }
 });
 
+document.getElementById('ausentesBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('ausentesBtn');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i>A cruzar dados...';
+    btn.disabled = true;
+    try { await generateRelatorioAusentesPDF(); showNotification('PDF gerado!', 'success'); }
+    catch(e) { showNotification(e.message || 'Erro ao gerar relatório', 'error'); }
+    finally { btn.innerHTML = orig; btn.disabled = false; }
+});
+
 document.getElementById('logoutBtn').addEventListener('click', () => {
     if (html5QrCode && isScanning) html5QrCode.stop().catch(()=>{});
     pararRealtime();
@@ -3665,6 +4158,117 @@ function getDeviceInfo() {
 /* ═══════════════════════════════════════════
    EXPORTAR PDF
 ═══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   RELATÓRIO: CONFIRMOU PRESENÇA MAS NÃO APARECEU
+   ── cruza quem disse "sim" no site de Confirmação de Presença
+      com quem foi realmente escaneado à entrada deste evento.
+═══════════════════════════════════════════ */
+function normalizarNomeLeitor(n) { return (n || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+
+function nomeCombinaComRsvpLeitor(nomeConvidado, guestName) {
+  const nc = normalizarNomeLeitor(nomeConvidado);
+  const ng = normalizarNomeLeitor(guestName);
+  if (!nc || !ng) return false;
+  return nc === ng || nc.startsWith(ng + ' e ');
+}
+
+async function generateRelatorioAusentesPDF() {
+  if (!currentClient?.event_code_confirmacao) {
+    throw new Error('Este evento não está ligado ao site de Confirmação de Presença.');
+  }
+  if (!DB_RSVP) throw new Error('Sem ligação à Confirmação de Presença agora.');
+
+  const { data, error } = await DB_RSVP.from('events')
+    .select('title,rsvps(guest_name,attending,side,companions,kids)')
+    .eq('event_code', currentClient.event_code_confirmacao)
+    .limit(1);
+  if (error) throw error;
+  const evento = data && data[0];
+  if (!evento) throw new Error('Evento não encontrado na Confirmação de Presença.');
+
+  const confirmados = (evento.rsvps || []).filter(r => r.attending === true || r.attending === 'yes');
+  if (confirmados.length === 0) throw new Error('Ainda não há confirmações de presença para este evento.');
+
+  const presentes = [];
+  const ausentes = [];
+  confirmados.forEach(r => {
+    const convidado = guests.find(g => nomeCombinaComRsvpLeitor(g.nome, r.guest_name));
+    const veio = !!(convidado && scannedGuests.has(convidado.id));
+    (veio ? presentes : ausentes).push(r);
+  });
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margemX = 16;
+  const corMarca = [91, 161, 137];
+  let y;
+
+  function nomesPipeLocal(str) { return str ? String(str).split('|').map(s => s.trim()).filter(Boolean) : []; }
+
+  doc.setFillColor(...corMarca); doc.rect(0, 0, pageW, 34, 'F');
+  doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold'); doc.setFontSize(17);
+  doc.text(currentClient.nome || evento.title || 'Evento', margemX, 16);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+  doc.text(`Confirmou presença × apareceu no evento · ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
+  doc.setFontSize(9);
+  doc.text(`${confirmados.length} confirmações  ·  ${presentes.length} apareceram  ·  ${ausentes.length} não apareceram`, margemX, 30);
+  doc.setTextColor(0, 0, 0);
+  y = 46;
+
+  function novaPaginaSeNecessario(altura) { if (y + altura > pageH - 16) { doc.addPage(); y = 20; } }
+
+  function secao(titulo, lista, corPill, corTextoPill, icone) {
+    novaPaginaSeNecessario(16);
+    doc.setFillColor(...corPill);
+    doc.roundedRect(margemX, y, pageW - margemX * 2, 10, 3, 3, 'F');
+    doc.setTextColor(...corTextoPill); doc.setFont(undefined, 'bold'); doc.setFontSize(11);
+    doc.text(`${icone}  ${titulo}  (${lista.length})`, margemX + 5, y + 6.8);
+    doc.setTextColor(0, 0, 0);
+    y += 15;
+    if (lista.length === 0) {
+      doc.setFont(undefined, 'italic'); doc.setFontSize(10); doc.setTextColor(150);
+      doc.text('— nenhum —', margemX + 2, y); doc.setTextColor(0, 0, 0);
+      y += 10; return;
+    }
+    lista.forEach((r, i) => {
+      const acomp = nomesPipeLocal(r.companions);
+      const criancas = nomesPipeLocal(r.kids);
+      const extras = [];
+      if (acomp.length) extras.push(`👥 ${acomp.join(', ')}`);
+      if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
+      const altura = extras.length ? 13 : 9;
+      novaPaginaSeNecessario(altura + 2);
+      if (i % 2 === 0) { doc.setFillColor(248, 250, 249); doc.rect(margemX, y - 5.5, pageW - margemX * 2, altura, 'F'); }
+      doc.setFont(undefined, 'bold'); doc.setFontSize(10.5); doc.setTextColor(0, 0, 0);
+      doc.text(r.guest_name, margemX + 3, y);
+      if (extras.length) {
+        doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(148, 163, 163);
+        doc.text(extras.join('   ·   '), margemX + 3, y + 5);
+        doc.setTextColor(0, 0, 0);
+      }
+      y += altura;
+    });
+    y += 6;
+  }
+
+  secao('Confirmou e apareceu', presentes, [214, 237, 229], [40, 90, 72], '✔');
+  secao('Confirmou e NÃO apareceu', ausentes, [254, 226, 226], [153, 27, 27], '⚠');
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPaginas; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(230, 230, 230);
+    doc.line(margemX, pageH - 12, pageW - margemX, pageH - 12);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(148, 163, 163);
+    doc.text('Invites Adkira', margemX, pageH - 7);
+    doc.text(`Página ${p} de ${totalPaginas}`, pageW - margemX, pageH - 7, { align: 'right' });
+  }
+
+  doc.save(`confirmou-nao-veio-${(currentClient.nome || 'evento').toLowerCase().replace(/\s+/g, '-')}.pdf`);
+}
+
 async function generatePDFReport() {
     const { jsPDF } = window.jspdf;
     const doc  = new jsPDF();
