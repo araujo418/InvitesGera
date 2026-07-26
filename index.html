@@ -910,7 +910,7 @@ const MAX_RETRIES    = 2;
 const RETRY_DELAY    = 2000;
 const RATE_LIMIT_MS  = 3000;
 // ▼ ALTERADO: inclui convites_gerados, remove scans_usados da leitura
-const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade,event_code_confirmacao';
+const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade,event_code_confirmacao,ilimitado';
 const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at,editado,rsvp_id';
 const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
@@ -1470,14 +1470,15 @@ function validarNomeInput() {
 ═══════════════════════════════════════════ */
 function actualizarContador() {
   if (!clienteData) return;
-  const limite   = clienteData.limite_scans   || 0;
+  const ilimitado = clienteData.ilimitado === true;
+  const limite   = ilimitado ? 0 : (clienteData.limite_scans   || 0);
   const gerados  = getGerados(); // ← convites_gerados
   const restantes = Math.max(0, limite - gerados);
-  document.getElementById('cntLimite').textContent    = limite || '∞';
+  document.getElementById('cntLimite').textContent    = ilimitado ? '♾️' : (limite || '∞');
   document.getElementById('cntGerados').textContent   = gerados;
-  document.getElementById('cntRestantes').textContent = limite ? restantes : '∞';
+  document.getElementById('cntRestantes').textContent = ilimitado ? '♾️' : (limite ? restantes : '∞');
   const usoWrap = document.getElementById('usoWrap');
-  if (limite > 0) {
+  if (!ilimitado && limite > 0) {
     const pct = Math.min(100, Math.round((gerados/limite)*100));
     document.getElementById('usoBar').style.width   = pct + '%';
     document.getElementById('usoTexto').textContent = `${gerados} de ${limite} usados`;
@@ -1488,16 +1489,17 @@ function actualizarContador() {
   if (convitesSessao > 0) { document.getElementById('sessaoTexto').textContent = `${convitesSessao} gerado${convitesSessao===1?'':'s'} nesta sessão`; badge.style.display = 'flex'; }
   else badge.style.display = 'none';
   actualizarBadgeOffline(); actualizarSyncPendente();
-  const perto = limite && restantes <= 3 && restantes > 0;
+  const perto = !ilimitado && limite && restantes <= 3 && restantes > 0;
   document.getElementById('counterBox').className = 'counter-box' + (perto ? ' warning' : '');
   const limBox = document.getElementById('limiteProximoBox');
   if (perto) { limBox.textContent = `⚠️ Restam apenas ${restantes} convite${restantes===1?'':'s'}.`; limBox.style.display = 'block'; } else limBox.style.display = 'none';
 
   // ▼ NOVO: aviso discreto quando restam poucos convites (≤15) — abre o modal só se pedido
+  // (nunca para clientes com convites ilimitados — não faz sentido pedir para comprar mais)
   const expirado = clienteData.validade && clienteData.validade < Math.floor(Date.now()/1000);
   const ccAlerta = document.getElementById('ccAlerta');
   if (ccAlerta) {
-    const mostrarAviso = limite > 0 && restantes <= LIMIAR_COMPRA_EXTRA && !expirado;
+    const mostrarAviso = !ilimitado && limite > 0 && restantes <= LIMIAR_COMPRA_EXTRA && !expirado;
     ccAlerta.style.display = mostrarAviso ? 'flex' : 'none';
     if (mostrarAviso) {
       document.getElementById('ccAlertaTexto').textContent = restantes > 0
@@ -1505,9 +1507,11 @@ function actualizarContador() {
         : 'Atingiu o limite de convites deste evento.';
     }
   }
+  const btnAderirMais = document.getElementById('btnAderirMais');
+  if (btnAderirMais) btnAderirMais.style.display = ilimitado ? 'none' : 'block';
   const btnGerar = document.getElementById('btnGerar');
   if (expirado) { btnGerar.disabled=true; btnGerar.innerHTML='<i class="ti ti-clock-off" aria-hidden="true"></i> Evento expirado'; document.getElementById('expiradoBox').style.display='block'; }
-  else if (limite && gerados >= limite) { btnGerar.disabled=true; btnGerar.innerHTML='<i class="ti ti-ban" aria-hidden="true"></i> Limite atingido'; showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red'); }
+  else if (!ilimitado && limite && gerados >= limite) { btnGerar.disabled=true; btnGerar.innerHTML='<i class="ti ti-ban" aria-hidden="true"></i> Limite atingido'; showInfo('step2Info',`Atingiu o limite de ${limite} convites.`,'red'); }
   else if (!estaEmCooldown()) { btnGerar.disabled=false; btnGerar.innerHTML='<i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite'; hideInfo('step2Info'); }
 }
 
@@ -2445,9 +2449,9 @@ function pedirConfirmacaoGerar() {
     if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
     if (creditosOfflineRestantes() <= 0) { haptic('error'); mostrarErro(new Error('offline_cheio')); return; }
   }
-  const limite  = clienteData.limite_scans || 0;
+  const limite  = clienteData.ilimitado ? 0 : (clienteData.limite_scans || 0);
   const gerados = getGerados();
-  if (limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} atingido.`,'red'); actualizarContador(); return; }
+  if (!clienteData.ilimitado && limite && gerados >= limite) { haptic('error'); showInfo('step2Info',`Limite de ${limite} atingido.`,'red'); actualizarContador(); return; }
   haptic('light');
   const dup = encontrarDuplicado(nomeRaw);
   if (dup) {
