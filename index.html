@@ -1327,7 +1327,8 @@ async function tentarRestaurarSessao(token) {
     if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) return false;
     let cfg = lerConfigCache(token);
     if (!cfg) {
-      const { data:cfgDb, error:e2 } = await DB.from('convite_config').select('*').eq('token_cliente', token).single();
+      const { data:cfgRows, error:e2 } = await DB.from('convite_config').select('*').eq('token_cliente', token).order('updated_at', { ascending:false }).limit(1);
+      const cfgDb = (cfgRows && cfgRows[0]) || null;
       if (e2 || !cfgDb) return false;
       cfg = cfgDb; guardarConfigCache(token, cfg);
     }
@@ -1423,7 +1424,8 @@ async function validarToken() {
     if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) { haptic('error'); showInfo('step1Info','❌ Evento expirado.','red'); return; }
     let cfg = lerConfigCache(token);
     if (!cfg) {
-      const { data:cfgDb, error:e2 } = await comTimeout(DB.from('convite_config').select('*').eq('token_cliente', token).single());
+      const { data:cfgRows, error:e2 } = await comTimeout(DB.from('convite_config').select('*').eq('token_cliente', token).order('updated_at', { ascending:false }).limit(1));
+      const cfgDb = (cfgRows && cfgRows[0]) || null;
       if (e2 || !cfgDb) { haptic('warning'); showInfo('step1Info','⚠️ Template não configurado. Contacte o organizador.','yellow'); return; }
       cfg = cfgDb; guardarConfigCache(token, cfg);
     }
@@ -2025,8 +2027,12 @@ function mudarMainTab(tab, semGuardar) {
 
 function filtrarConfirmacoes() {
   const t = document.getElementById('confirmacoesSearch').value.trim().toLowerCase();
+  confirmacoesPaginaAtual = 1;
   renderizarConfirmacoes(t || null);
 }
+
+const CONFIRMACOES_POR_PAGINA = 20;
+let confirmacoesPaginaAtual = 1;
 
 function renderizarConfirmacoes(termo) {
   const el = document.getElementById('confirmacoesLista');
@@ -2042,8 +2048,15 @@ function renderizarConfirmacoes(termo) {
     return;
   }
 
+  // ▼ NOVO: paginação — mostra só CONFIRMACOES_POR_PAGINA de cada vez
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / CONFIRMACOES_POR_PAGINA));
+  if (confirmacoesPaginaAtual > totalPaginas) confirmacoesPaginaAtual = totalPaginas;
+  if (confirmacoesPaginaAtual < 1) confirmacoesPaginaAtual = 1;
+  const inicio = (confirmacoesPaginaAtual - 1) * CONFIRMACOES_POR_PAGINA;
+  const listaPagina = lista.slice(inicio, inicio + CONFIRMACOES_POR_PAGINA);
+
   el.innerHTML = '';
-  lista.forEach(r => {
+  listaPagina.forEach(r => {
     const confirmou = rsvpConfirmou(r);
     const acompanhantes = nomesPipe(r.companions);
     const criancas = nomesPipe(r.kids);
@@ -2083,6 +2096,33 @@ function renderizarConfirmacoes(termo) {
     }
     el.appendChild(item);
   });
+
+  if (totalPaginas > 1) el.appendChild(construirPaginacao(confirmacoesPaginaAtual, totalPaginas, termo));
+}
+
+// ▼ NOVO: monta os controlos "‹ Voltar  1 2 3 …  Próximo ›"
+function construirPaginacao(paginaAtual, totalPaginas, termo) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:14px 0 4px;';
+
+  const botao = (label, pagina, activo, desativado) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.disabled = !!desativado;
+    b.style.cssText = `min-width:32px;height:32px;padding:0 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:${desativado?'default':'pointer'};border:1.5px solid ${activo?'#5ba189':'#e5e7eb'};background:${activo?'#5ba189':'white'};color:${activo?'white':desativado?'#d1d5db':'#374151'};`;
+    if (!desativado) b.onclick = () => { confirmacoesPaginaAtual = pagina; renderizarConfirmacoes(termo); document.getElementById('confirmacoesLista').scrollIntoView({behavior:'smooth', block:'start'}); };
+    return b;
+  };
+
+  wrap.appendChild(botao('‹ Voltar', paginaAtual - 1, false, paginaAtual === 1));
+  const maxBotoes = 6;
+  let de = Math.max(1, paginaAtual - Math.floor(maxBotoes/2));
+  let ate = Math.min(totalPaginas, de + maxBotoes - 1);
+  de = Math.max(1, ate - maxBotoes + 1);
+  for (let p = de; p <= ate; p++) wrap.appendChild(botao(String(p), p, p === paginaAtual, false));
+  wrap.appendChild(botao('Próximo ›', paginaAtual + 1, false, paginaAtual === totalPaginas));
+
+  return wrap;
 }
 
 // ▼ NOVO: eliminar uma confirmação de presença (linha da tabela rsvps no
@@ -3607,13 +3647,20 @@ async function efetuarLogin(token, opcoes) {
             throw new Error('Token expirado.');
 
         // Verificar se o token tem QR Code activo
-        const { data: cfg, error: cfgErr } = await DB_LEITOR
+        // ▼ CORRIGIDO: usava .single(), que dá erro se houver 0 ou mais de 1
+        // linha em convite_config para este cliente — e esse erro fazia o
+        // bloqueio ser saltado em silêncio, deixando entrar mesmo sem QR
+        // activo. Agora pega sempre na configuração mais recente, sem
+        // depender de existir exactamente uma linha.
+        const { data: cfgRows, error: cfgErr } = await DB_LEITOR
             .from('convite_config')
             .select('qr_ativo')
             .eq('token_cliente', token)
-            .single();
+            .order('updated_at', { ascending: false })
+            .limit(1);
 
-        if (!cfgErr && cfg && cfg.qr_ativo === false) {
+        const cfg = (!cfgErr && cfgRows && cfgRows[0]) ? cfgRows[0] : null;
+        if (cfg && cfg.qr_ativo === false) {
             throw new Error('🚫 Este evento não inclui QR Code.\n\nO acesso ao leitor não está disponível para este token. Contacte o organizador.');
         }
 
