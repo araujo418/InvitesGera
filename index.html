@@ -3371,11 +3371,16 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 const SUPABASE_URL      = 'https://rnvunprjvppbjavkaoek.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
 let DB_LEITOR = null;
-window.addEventListener('load', () => {
-    if (typeof supabase !== 'undefined') {
-        DB_LEITOR = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
-});
+// ▼ CORRIGIDO: isto estava dentro de window.addEventListener('load', ...),
+// que só dispara DEPOIS do DOMContentLoaded — ou seja, a restauração
+// automática da sessão tentava sempre acontecer ANTES de DB_LEITOR sequer
+// existir, falhava sempre em silêncio, e por isso caía sempre de volta no
+// ecrã de login mesmo logo a seguir a um simples refresh. Cria-se agora
+// logo aqui, de imediato — a biblioteca do Supabase já está carregada a
+// esta altura (o <script> dela vem antes deste, no <head>).
+if (typeof supabase !== 'undefined') {
+    DB_LEITOR = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
 
 /* ═══════════════════════════════════════════
    ESTADO GLOBAL
