@@ -188,7 +188,7 @@
     input.input-error { border-color: #ef4444; background: #fff; }
     input.input-ok    { border-color: #10b981; background: #f0fdf4; }
 
-    .nome-hint { font-size: 12px; margin-top: -8px; padding: 0 4px; color: #9ca3af; transition: color .2s; }
+    .nome-hint { font-size: 12px; margin-top: 6px; padding: 0 4px; color: #9ca3af; transition: color .2s; }
     .nome-hint.ok  { color: #10b981; }
     .nome-hint.err { color: #ef4444; }
 
@@ -832,7 +832,7 @@
         📱 No seu dispositivo, escolha <strong>WhatsApp</strong> ou <strong>Guardar em Ficheiros</strong> para guardar o PDF.
       </div>
       <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
-      <button type="button" class="btn-outline" id="btnAderirMais" onclick="abrirCompraConvitesManual()"><i class="ti ti-square-rounded-plus" aria-hidden="true"></i> Aderir mais convites</button>
+      <button type="button" class="btn-outline" id="btnAderirMais" onclick="abrirCompraConvitesManual()" style="margin-top:10px;"><i class="ti ti-square-rounded-plus" aria-hidden="true"></i> Aderir mais convites</button>
 
       <div class="divider"></div>
       <div class="convites-header">
@@ -3100,9 +3100,6 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
                                     <p class="text-lg font-medium">A inicializar scanner...</p>
                                 </div>
                             </div>
-                            <button id="btnReiniciarCamera" onclick="reiniciarCameraManual()" class="w-full mt-3 py-2.5 px-4 rounded-xl border-2 font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90" style="border-color:#9ca3af;color:#6b7280;">
-                                <i class="fas fa-sync-alt"></i>Câmara preta ou presa? Toque para reiniciar
-                            </button>
                         </div>
                     </div>
                     <div class="lg:col-span-1">
@@ -3687,27 +3684,6 @@ function mostrarApp() {
     setTimeout(() => startScanner(), 300);
 }
 
-// Botão manual — sempre disponível, para reiniciar a câmara com um toque
-// se alguma vez for preciso, sem dar refresh à página inteira.
-async function reiniciarCameraManual() {
-    haptic('light');
-    const btn = document.getElementById('btnReiniciarCamera');
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> A reiniciar...';
-    btn.disabled = true;
-    try {
-        if (html5QrCode && isScanning) { await html5QrCode.stop().catch(() => {}); }
-        isScanning = false;
-        await startScanner();
-        showNotification('Câmara reiniciada!', 'success');
-    } catch (e) {
-        showNotification('Não foi possível reiniciar a câmara', 'error');
-    } finally {
-        btn.innerHTML = orig;
-        btn.disabled = false;
-    }
-}
-
 /* ═══════════════════════════════════════════
    SCANNER
 ═══════════════════════════════════════════ */
@@ -3750,6 +3726,13 @@ async function pausarScannerPorInvisibilidade() {
 }
 
 function retomarScannerAoFicarVisivel() {
+    // ▼ NOVO: a ligação em tempo real ao Supabase pode cair silenciosamente
+    // enquanto o telemóvel está bloqueado/em segundo plano — sem isto, um
+    // convidado eliminado nesse período continuava a passar no leitor até
+    // um refresh completo à página. Ao voltar a ficar visível, actualiza-se
+    // sempre a lista de convidados a partir do servidor, mesmo que a câmara
+    // não precise de reiniciar.
+    if (currentClient) { carregarConvidadosServidor(); iniciarRealtime(currentClient.token); }
     if (!scannerActivoAntesDeEsconder) return;
     scannerActivoAntesDeEsconder = false;
     const scannerTabAtiva = document.getElementById('scannerTab')?.classList.contains('active');
@@ -4715,7 +4698,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.manualCheckin = typeof manualCheckin !== "undefined" ? manualCheckin : window.manualCheckin;
   window.startScanner = typeof startScanner !== "undefined" ? startScanner : window.startScanner;
   window.renderGuestList = typeof renderGuestList !== "undefined" ? renderGuestList : window.renderGuestList;
-  window.reiniciarCameraManual = typeof reiniciarCameraManual !== "undefined" ? reiniciarCameraManual : window.reiniciarCameraManual;
 })();
 </script>
   </div>
