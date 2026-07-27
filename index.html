@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>AdKira – Gestão de Convites</title>
+  <title>Invites – Gestão de Convites</title>
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -715,8 +715,8 @@
   <div class="logo">
     <div class="logo-icon"><i class="ti ti-ticket" aria-hidden="true"></i></div>
     <div class="logo-text">
-      <h1>AdKira</h1>
-      <p>Gestão de Convites</p>
+      <h1>Invites</h1>
+      <p>Gestão de Convites · por AdKira</p>
     </div>
   </div>
 
@@ -2269,7 +2269,7 @@ function baixarRelatorioConfirmados() {
       doc.setDrawColor(230, 230, 230);
       doc.line(margemX, pageH - 12, pageW - margemX, pageH - 12);
       doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(...corCinza);
-      doc.text('Invites Adkira', margemX, pageH - 7);
+      doc.text('Invites · por AdKira', margemX, pageH - 7);
       doc.text(`Página ${p} de ${totalPaginas}`, pageW - margemX, pageH - 7, { align: 'right' });
     }
   }
@@ -4475,7 +4475,7 @@ async function generateRelatorioAusentesPDF() {
     doc.setDrawColor(230, 230, 230);
     doc.line(margemX, pageH - 12, pageW - margemX, pageH - 12);
     doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(148, 163, 163);
-    doc.text('Invites Adkira', margemX, pageH - 7);
+    doc.text('Invites · por AdKira', margemX, pageH - 7);
     doc.text(`Página ${p} de ${totalPaginas}`, pageW - margemX, pageH - 7, { align: 'right' });
   }
 
