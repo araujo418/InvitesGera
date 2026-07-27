@@ -911,7 +911,7 @@ const RETRY_DELAY    = 2000;
 const RATE_LIMIT_MS  = 3000;
 // ▼ ALTERADO: inclui convites_gerados, remove scans_usados da leitura
 const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade,event_code_confirmacao,ilimitado';
-const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at,editado,rsvp_id';
+const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at,editado,rsvp_id,downloads_count';
 const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
 const SS_OFFLINE_KEY = 'adkira_offline_fila';
@@ -935,7 +935,9 @@ let ultimoContextoNome = null;
 let realtimeOk         = false;
 let realtimeReconTimer = null;
 let convitesSessao     = 0;
-let downloadsSessao    = new Set();
+// ▼ ALTERADO: o estado "descarregado" já não vive só na sessão do browser —
+// passa a ficar gravado no próprio convite (downloads_count), para nunca se
+// perder ao fechar o browser, mudar de dispositivo, ou o telemóvel reiniciar.
 let filaOffline        = [];
 let ultimaGeracao      = 0;
 let rateLockTimer      = null;
@@ -1054,14 +1056,13 @@ function obterBlobOffline(item) {
    SESSION STORAGE
 ═══════════════════════════════════════════ */
 function guardarEstadoSessaoComToken(token) {
-  try { sessionStorage.setItem(SS_SESSAO_KEY, JSON.stringify({ token, convites: convitesSessao, downloads: [...downloadsSessao] })); } catch(e) {}
+  try { sessionStorage.setItem(SS_SESSAO_KEY, JSON.stringify({ token, convites: convitesSessao })); } catch(e) {}
 }
 function lerEstadoSessao(token) {
   try {
     const r = sessionStorage.getItem(SS_SESSAO_KEY); if (!r) return;
     const o = JSON.parse(r); if (o.token && o.token !== token) return;
     convitesSessao  = o.convites  || 0;
-    downloadsSessao = new Set(o.downloads || []);
   } catch(e) {}
 }
 function guardarConfigCache(token, cfg) { try { sessionStorage.setItem(SS_CONFIG_KEY, JSON.stringify({ token, cfg })); } catch(e) {} }
@@ -1244,7 +1245,7 @@ function iniciarRealtime(token) {
     })
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'convidados', filter:`token_cliente=eq.${token}` }, (p) => {
       if (!p.new || todosConvites.find(c => c.id === p.new.id)) return;
-      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at, editado:p.new.editado||false, rsvp_id:p.new.rsvp_id||null });
+      todosConvites.unshift({ id:p.new.id, nome:p.new.nome, codigo:p.new.codigo, mesa:p.new.mesa||'', created_at:p.new.created_at, editado:p.new.editado||false, rsvp_id:p.new.rsvp_id||null, downloads_count:p.new.downloads_count||0 });
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
       else renderizarConvites(obterListaCompletaConvites());
       // ▼ ALTERADO: incrementa convites_gerados localmente (não scans_usados)
@@ -1365,7 +1366,7 @@ function limparTudo() {
   pararRealtime(); pararTimerValidade(); cancelarRateLimit();
   localStorage.removeItem('adkira_token'); limparCache();
   clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
-  convitesSessao=0; downloadsSessao=new Set(); filaOffline=[];
+  convitesSessao=0; filaOffline=[];
   ultimaGeracao=0; tabAtual='lista';
   document.getElementById('tokenInput').value='';
   document.getElementById('nomeInput').value='';
@@ -2311,7 +2312,7 @@ function renderizarPorMesas() {
     grp.innerHTML = `<div class="mesa-group-title">🪑 ${escHtml(mesa)}<span class="mesa-group-count">${convs.length}</span></div>`;
     convs.forEach(conv => {
       const isPend = !!conv.id_local;
-      const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
+      const jaDl   = !isPend && !isIOS && (conv.downloads_count > 0);
       const item   = document.createElement('div');
       item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
       const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
@@ -2383,7 +2384,7 @@ function renderizarConvites(lista, termo) {
       return;
     }
     const isPend = !!conv.id_local;
-    const jaDl   = !isPend && !isIOS && downloadsSessao.has(conv.id);
+    const jaDl   = !isPend && !isIOS && (conv.downloads_count > 0);
     const item   = document.createElement('div');
     item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
     const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
@@ -2647,7 +2648,14 @@ async function executarDownload(nome, codigo, id, btn) {
     const blob=await gerarPDF(nome,codigo,qr,configData,mesaConv);
     await triggerDownload(blob, nome);
     if(!isIOS && id){
-      downloadsSessao.add(id); guardarEstadoSessaoComToken(clienteData.token);
+      // ▼ ALTERADO: grava o download no próprio convite (base de dados),
+      // em vez de só na sessão do browser — assim nunca se perde, mesmo
+      // que o browser feche, o telemóvel reinicie, ou mudes de aparelho.
+      const novaContagem = (convObj?.downloads_count || 0) + 1;
+      if (convObj) convObj.downloads_count = novaContagem;
+      DB.from('convidados').update({ downloads_count: novaContagem }).eq('id', id)
+        .then(({ error }) => { if (error) console.warn('Não foi possível gravar o estado de download:', error); })
+        .catch(() => {});
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
       else renderizarConvites(obterListaCompletaConvites());
     }
@@ -2771,14 +2779,13 @@ async function gerarConvite(nome, mesa, rsvpId) {
       // a pergunta de editar e a etiqueta "Confirmou presença" funcionarem
       // já com este convite incluído.
       if (conviteId && !todosConvites.find(c => c.id === conviteId)) {
-        todosConvites.unshift({ id: conviteId, nome, mesa, codigo: codigoGerado, created_at: new Date().toISOString(), editado: false, rsvp_id: rsvpId });
+        todosConvites.unshift({ id: conviteId, nome, mesa, codigo: codigoGerado, created_at: new Date().toISOString(), editado: false, rsvp_id: rsvpId, downloads_count: 0 });
       }
       atualizarSecaoConfirmados();
       if (tabAtual==='mesas' && configData?.mesa_ativa) renderizarPorMesas();
       else renderizarConvites(obterListaCompletaConvites());
 
       await decidirPrimeiroDownload(nome, codigoGerado, conviteId, pdfBlobGerado);
-      if (!isIOS && conviteId) downloadsSessao.add(conviteId);
     }
   } catch(e) {
     pararProgressBar(); haptic('error'); console.error(e); mostrarErro(e);
