@@ -1990,6 +1990,16 @@ async function atualizarSecaoConfirmados() {
   if (pendentes.length > 0) { badge.textContent = pendentes.length; badge.style.display = 'inline-block'; }
   else badge.style.display = 'none';
 
+  // ▼ NOVO: restaura a aba em que o cliente estava antes de um refresh —
+  // só na primeira vez que as abas ficam disponíveis nesta sessão, para não
+  // "puxar" a aba de volta se o cliente já a tiver mudado entretanto.
+  if (!tabRestaurada) {
+    tabRestaurada = true;
+    let guardada = null;
+    try { guardada = sessionStorage.getItem('adkira_gerador_tab_' + clienteData.token); } catch(e) {}
+    if (guardada === 'confirmacoes' && mainTabAtual !== 'confirmacoes') { mudarMainTab('confirmacoes', true); return; }
+  }
+
   if (mainTabAtual === 'confirmacoes') renderizarConfirmacoes();
 }
 
@@ -1998,14 +2008,19 @@ async function atualizarSecaoConfirmados() {
    Presença (quem confirmou e quem declinou), separada da aba "Convites".
 ═══════════════════════════════════════════ */
 let mainTabAtual = 'convites'; // 'convites' ou 'confirmacoes'
+let tabRestaurada = false; // ▼ NOVO: garante que só restauramos a aba guardada uma vez por sessão
 
-function mudarMainTab(tab) {
+function mudarMainTab(tab, semGuardar) {
   mainTabAtual = tab;
   document.getElementById('mainTabConfirmacoes').className = 'tab-btn' + (tab==='confirmacoes' ? ' tab-active' : '');
   document.getElementById('mainTabConvites').className = 'tab-btn' + (tab==='convites' ? ' tab-active' : '');
   document.getElementById('confirmacoesTabContent').style.display = tab === 'confirmacoes' ? 'block' : 'none';
   document.getElementById('convitesTabContent').style.display = tab === 'convites' ? 'block' : 'none';
   if (tab === 'confirmacoes') renderizarConfirmacoes();
+  // ▼ NOVO: lembra a aba escolhida, para um refresh voltar ao mesmo sítio
+  if (!semGuardar && clienteData?.token) {
+    try { sessionStorage.setItem('adkira_gerador_tab_' + clienteData.token, tab); } catch(e) {}
+  }
 }
 
 function filtrarConfirmacoes() {
@@ -2976,6 +2991,10 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 </div>
 
 <!-- Login Screen -->
+<div id="leitorRestoreScreen" class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex flex-col items-center justify-center p-4 hidden">
+    <div class="w-16 h-16 border-4 border-emerald-200 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
+    <p class="text-gray-500 text-sm">A restaurar sessão...</p>
+</div>
 <div id="loginScreen" class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex flex-col items-center justify-center p-4">
     <div class="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 p-8 w-full max-w-md">
         <div class="text-center mb-8">
@@ -3561,15 +3580,13 @@ window.addEventListener('offline', () => actualizarConexao(false));
    LOGIN
 ═══════════════════════════════════════════ */
 let realToken = null;
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    const token = (document.getElementById('leitor_tokenInput').value === '********' && realToken)
-        ? realToken : document.getElementById('leitor_tokenInput').value.trim();
-    if (!token) return;
-
-    document.getElementById('loginError').classList.add('hidden');
-    document.getElementById('loginBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+// ▼ NOVO: lógica de login extraída para uma função reutilizável — usada
+// tanto pelo formulário como pela restauração automática da sessão (para
+// não obrigar a pessoa a voltar a entrar sempre que o telemóvel bloqueia
+// e o browser descarrega a página em segundo plano).
+async function efetuarLogin(token, opcoes) {
+    opcoes = opcoes || {};
+    if (!token) return false;
 
     try {
         if (!DB_LEITOR) throw new Error('Sistema não inicializado. Recarregue a página.');
@@ -3596,8 +3613,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         }
 
         currentClient = client;
-
-        // Carregar undo_usages_remaining do Supabase
         undoUsagesRemaining = client.undo_usages_remaining ?? 3;
 
         localStorage.setItem(LS_TOKEN, token);
@@ -3609,8 +3624,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         iniciarCronometro();
         updateTokenInfo();
         updateUndoButton();
+        return true;
 
     } catch(err) {
+        if (opcoes.silencioso) return false; // não mostra erro — cai de volta ao ecrã normal de login
         const errDiv = document.getElementById('loginError');
         const isQrBlock = err.message.includes('QR Code') || err.message.includes('não inclui');
         if (isQrBlock) {
@@ -3625,9 +3642,23 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             errDiv.textContent = err.message;
         }
         errDiv.classList.remove('hidden');
-    } finally {
-        document.getElementById('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-3"></i>Entrar no Sistema';
+        return false;
     }
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    const token = (document.getElementById('leitor_tokenInput').value === '********' && realToken)
+        ? realToken : document.getElementById('leitor_tokenInput').value.trim();
+    if (!token) return;
+
+    document.getElementById('loginError').classList.add('hidden');
+    document.getElementById('loginBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+
+    await efetuarLogin(token);
+
+    document.getElementById('loginBtn').innerHTML = '<i class="fas fa-sign-in-alt mr-3"></i>Entrar no Sistema';
 });
 
 /* ═══════════════════════════════════════════
@@ -4683,6 +4714,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saved) {
         realToken = saved;
         document.getElementById('leitor_tokenInput').value = '********';
+
+        // ▼ NOVO: tenta restaurar a sessão sozinha (sem obrigar a pessoa a
+        // clicar "Entrar" outra vez) — importante porque o browser, ao
+        // bloquear o ecrã, pode descartar a página em segundo plano, e sem
+        // isto a app voltava sempre ao ecrã de login.
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('leitorRestoreScreen').classList.remove('hidden');
+        efetuarLogin(saved, { silencioso: true }).then(ok => {
+            document.getElementById('leitorRestoreScreen').classList.add('hidden');
+            if (!ok) document.getElementById('loginScreen').classList.remove('hidden');
+        });
     }
 
     document.getElementById('leitor_tokenInput').addEventListener('focus', () => {
