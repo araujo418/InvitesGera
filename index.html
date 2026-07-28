@@ -1449,7 +1449,7 @@ async function validarToken() {
 function validarNome(nome) {
   const n = nome.trim();
   if (!n) return { ok:false, msg:'Introduza o nome próprio e apelido' };
-  if (/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-]/.test(n)) return { ok:false, msg:'❌ O nome não pode conter números ou símbolos' };
+  if (/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-.]/.test(n)) return { ok:false, msg:'❌ O nome não pode conter números ou símbolos' };
   const p = n.split(/\s+/).filter(x => x.length > 0);
   if (p.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
   const particulas = new Set(['e','y','i','o','a','de','da','do','das','dos','di','du','van','von','bin','bint']);
