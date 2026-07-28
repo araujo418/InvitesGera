@@ -1459,13 +1459,33 @@ function validarNome(nome) {
   if (palavrasReais.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
   return { ok:true, msg:'✓ Nome válido' };
 }
+let nomeValidacaoTimer = null;
 function validarNomeInput() {
   const input=document.getElementById('nomeInput'), hint=document.getElementById('nomeHint'), v=input.value;
+  clearTimeout(nomeValidacaoTimer);
   if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Introduza o nome próprio e apelido'; return; }
-  const { ok, msg } = validarNome(v);
-  input.className = ok ? 'input-ok' : 'input-error';
-  hint.className  = 'nome-hint ' + (ok ? 'ok' : 'err');
-  hint.textContent = msg;
+
+  // ▼ NOVO: caracteres inválidos (números/símbolos) continuam a avisar de
+  // imediato — é sempre um problema real, mesmo a meio de escrever.
+  if (/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-.]/.test(v.trim())) {
+    input.className = 'input-error';
+    hint.className  = 'nome-hint err';
+    hint.textContent = '❌ O nome não pode conter números ou símbolos';
+    return;
+  }
+
+  // O resto (ex: "introduza nome e apelido") só aparece depois de uma
+  // pequena pausa a escrever — para não mostrar isso logo ao digitar só
+  // a primeira palavra (ex: "Sr."), o que confundia quem ainda ia
+  // continuar a escrever o resto do nome.
+  input.className = '';
+  hint.className  = 'nome-hint';
+  nomeValidacaoTimer = setTimeout(() => {
+    const { ok, msg } = validarNome(v);
+    input.className = ok ? 'input-ok' : 'input-error';
+    hint.className  = 'nome-hint ' + (ok ? 'ok' : 'err');
+    hint.textContent = msg;
+  }, 800);
 }
 
 /* ═══════════════════════════════════════════
