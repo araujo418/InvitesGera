@@ -416,7 +416,7 @@
     .convites-search:focus { outline: none; border-color: #5ba189; background: white; box-shadow: 0 0 0 3px rgba(91,161,137,0.1); }
     .convites-count { font-size: 12px; color: #9ca3af; white-space: nowrap; }
 
-    .convites-lista { display: flex; flex-direction: column; gap: 0; max-height: 320px; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; border: 1.5px solid #e0f0eb; background: white; overflow: hidden; }
+    .convites-lista { display: flex; flex-direction: column; gap: 0; max-height: 320px; overflow-y: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; border: 1.5px solid #e0f0eb; background: white; }
     .convite-item { display: flex; align-items: center; padding: 12px 14px; gap: 12px; transition: background .15s; border-bottom: 1px solid #f0f9f5; }
     .convite-item:last-child { border-bottom: none; }
     .convite-item.ja-descarregado { background: #f8fffe; }
@@ -801,6 +801,7 @@
       <div class="convites-lista" id="confirmacoesLista" style="margin-top:10px;">
         <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Este evento não está ligado à Confirmação de Presença.</div>
       </div>
+      <div id="confirmacoesPaginacaoWrap"></div>
     </div>
 
     <!-- ═══ ABA: CONVITES (geração manual + lista gerada) ═══ -->
@@ -2031,13 +2032,15 @@ function filtrarConfirmacoes() {
   renderizarConfirmacoes(t || null);
 }
 
-const CONFIRMACOES_POR_PAGINA = 20;
+const CONFIRMACOES_POR_PAGINA = 10;
 let confirmacoesPaginaAtual = 1;
 
 function renderizarConfirmacoes(termo) {
   const el = document.getElementById('confirmacoesLista');
+  const pagWrap = document.getElementById('confirmacoesPaginacaoWrap');
   if (!eventoRsvpCache?.rsvps) {
     el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Este evento não está ligado à Confirmação de Presença.</div>';
+    pagWrap.innerHTML = '';
     return;
   }
   let lista = [...eventoRsvpCache.rsvps].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
@@ -2045,6 +2048,7 @@ function renderizarConfirmacoes(termo) {
 
   if (lista.length === 0) {
     el.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhuma confirmação ainda.</div>';
+    pagWrap.innerHTML = '';
     return;
   }
 
@@ -2056,7 +2060,13 @@ function renderizarConfirmacoes(termo) {
   const listaPagina = lista.slice(inicio, inicio + CONFIRMACOES_POR_PAGINA);
 
   el.innerHTML = '';
+  let falhas = 0;
   listaPagina.forEach(r => {
+    // ▼ NOVO: cada linha é isolada num try/catch — se um registo tiver
+    // dados inesperados e rebentar, salta-se só essa pessoa em vez de
+    // travar a lista toda a meio (o que também impedia os botões de
+    // página, que vêm depois deste forEach, de sequer aparecerem).
+    try {
     const confirmou = rsvpConfirmou(r);
     const acompanhantes = nomesPipe(r.companions);
     const criancas = nomesPipe(r.kids);
@@ -2095,9 +2105,21 @@ function renderizarConfirmacoes(termo) {
       btns[0].onclick = () => pedirConfirmacaoEliminarRsvp(r);
     }
     el.appendChild(item);
+    } catch (erroLinha) {
+      falhas++;
+      console.error('Não foi possível mostrar esta confirmação:', r, erroLinha);
+    }
   });
 
-  if (totalPaginas > 1) el.appendChild(construirPaginacao(confirmacoesPaginaAtual, totalPaginas, termo));
+  if (falhas > 0) {
+    const aviso = document.createElement('div');
+    aviso.style.cssText = 'background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:11px;color:#b91c1c;text-align:center;';
+    aviso.textContent = `⚠️ ${falhas} confirmação${falhas===1?'':'ões'} nesta página não ${falhas===1?'pôde':'puderam'} ser mostrada${falhas===1?'':'s'} (dados inesperados). Envia isto ao suporte.`;
+    el.appendChild(aviso);
+  }
+
+  pagWrap.innerHTML = '';
+  if (totalPaginas > 1) pagWrap.appendChild(construirPaginacao(confirmacoesPaginaAtual, totalPaginas, termo));
 }
 
 // ▼ NOVO: monta os controlos "‹ Voltar  1 2 3 …  Próximo ›"
@@ -2109,8 +2131,8 @@ function construirPaginacao(paginaAtual, totalPaginas, termo) {
     const b = document.createElement('button');
     b.textContent = label;
     b.disabled = !!desativado;
-    b.style.cssText = `min-width:32px;height:32px;padding:0 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:${desativado?'default':'pointer'};border:1.5px solid ${activo?'#5ba189':'#e5e7eb'};background:${activo?'#5ba189':'white'};color:${activo?'white':desativado?'#d1d5db':'#374151'};`;
-    if (!desativado) b.onclick = () => { confirmacoesPaginaAtual = pagina; renderizarConfirmacoes(termo); document.getElementById('confirmacoesLista').scrollIntoView({behavior:'smooth', block:'start'}); };
+    b.style.cssText = `width:auto;min-width:32px;height:32px;min-height:0;padding:0 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:${desativado?'default':'pointer'};border:1.5px solid ${activo?'#5ba189':'#e5e7eb'};background:${activo?'#5ba189':'white'};color:${activo?'white':desativado?'#d1d5db':'#374151'};`;
+    if (!desativado) b.onclick = () => { confirmacoesPaginaAtual = pagina; renderizarConfirmacoes(termo); const listaEl = document.getElementById('confirmacoesLista'); listaEl.scrollTop = 0; listaEl.scrollIntoView({behavior:'smooth', block:'start'}); };
     return b;
   };
 
