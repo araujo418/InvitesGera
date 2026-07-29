@@ -605,10 +605,10 @@
     <div class="modal-title">✏️ Corrigir convite</div>
     <div class="modal-body" style="text-align:center;color:#9ca3af;font-size:12.5px;">Só é possível editar uma vez. O código e o QR do convite mantêm-se iguais.</div>
     <div>
-      <label for="editarConviteNomeInput">Nome completo do convidado</label>
-      <input type="text" id="editarConviteNomeInput" placeholder="Ex: Maria Silva"
+      <label for="editarConviteNomeInput">Nome do(s) convidado(s)</label>
+      <input type="text" id="editarConviteNomeInput" placeholder="Ex: Maria Silva e João Pedro"
              autocapitalize="words" autocorrect="off" spellcheck="false">
-      <div class="nome-hint" id="editarConviteHint">Introduza o nome próprio e apelido</div>
+      <div class="nome-hint" id="editarConviteHint">Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)</div>
     </div>
     <div id="editarConviteMesaBox" style="display:none;">
       <label for="editarConviteMesaInput">🪑 Mesa do convidado</label>
@@ -808,12 +808,12 @@
     <div id="convitesTabContent">
       <div class="section-label" style="margin-top:10px;">✨ Gerar Novo Convite</div>
       <div>
-        <label for="nomeInput">Nome completo do convidado</label>
-        <input type="text" id="nomeInput" placeholder="Ex: Maria Silva"
+        <label for="nomeInput">Nome do(s) convidado(s)</label>
+        <input type="text" id="nomeInput" placeholder="Ex: Maria Silva e João Pedro"
                autocapitalize="words" autocorrect="off" spellcheck="false"
                oninput="validarNomeInput()"
                onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
-        <div class="nome-hint" id="nomeHint">Introduza o nome próprio e apelido</div>
+        <div class="nome-hint" id="nomeHint">Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)</div>
       </div>
 
       <!-- Campo Mesa (visível só quando mesa_ativa=true) -->
@@ -1372,7 +1372,7 @@ function limparTudo() {
   ultimaGeracao=0; tabAtual='lista';
   document.getElementById('tokenInput').value='';
   document.getElementById('nomeInput').value='';
-  document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
+  document.getElementById('nomeHint').textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
   document.getElementById('nomeHint').className='nome-hint';
   document.getElementById('nomeInput').className='';
   const mi=document.getElementById('mesaInput'); if(mi) mi.value='';
@@ -1448,7 +1448,7 @@ async function validarToken() {
 ═══════════════════════════════════════════ */
 function validarNome(nome) {
   const n = nome.trim();
-  if (!n) return { ok:false, msg:'Introduza o nome próprio e apelido' };
+  if (!n) return { ok:false, msg:'Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)' };
   if (/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-.]/.test(n)) return { ok:false, msg:'❌ O nome não pode conter números ou símbolos' };
   const p = n.split(/\s+/).filter(x => x.length > 0);
   if (p.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
@@ -1463,7 +1463,7 @@ let nomeValidacaoTimer = null;
 function validarNomeInput() {
   const input=document.getElementById('nomeInput'), hint=document.getElementById('nomeHint'), v=input.value;
   clearTimeout(nomeValidacaoTimer);
-  if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Introduza o nome próprio e apelido'; return; }
+  if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)'; return; }
 
   // ▼ NOVO: caracteres inválidos (números/símbolos) continuam a avisar de
   // imediato — é sempre um problema real, mesmo a meio de escrever.
@@ -2621,7 +2621,7 @@ function pedirEdicaoConvite(conv, aposGuardar) {
   const input = document.getElementById('editarConviteNomeInput');
   input.value = sugerirNomeComAcompanhantes(conv);
   input.className = '';
-  document.getElementById('editarConviteHint').textContent = 'Introduza o nome próprio e apelido';
+  document.getElementById('editarConviteHint').textContent = 'Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
   document.getElementById('editarConviteHint').className = 'nome-hint';
   const mesaBox = document.getElementById('editarConviteMesaBox');
   if (configData?.mesa_ativa) {
@@ -2807,7 +2807,7 @@ async function gerarConvite(nome, mesa, rsvpId) {
       guardarEstadoSessaoComToken(clienteData.token);
       await triggerDownload(pdfBlob, nome);
       document.getElementById('nomeInput').value='';
-      document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
+      document.getElementById('nomeHint').textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
@@ -2866,7 +2866,7 @@ async function gerarConvite(nome, mesa, rsvpId) {
       convitesSessao++;
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
-      document.getElementById('nomeHint').textContent='Introduza o nome próprio e apelido';
+      document.getElementById('nomeHint').textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
