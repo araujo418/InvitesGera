@@ -608,7 +608,7 @@
       <label for="editarConviteNomeInput">Nome do(s) convidado(s)</label>
       <input type="text" id="editarConviteNomeInput" placeholder="Ex: Maria Silva e João Pedro"
              autocapitalize="words" autocorrect="off" spellcheck="false">
-      <div class="nome-hint" id="editarConviteHint">Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)</div>
+      <div class="nome-hint" id="editarConviteHint">&nbsp;</div>
     </div>
     <div id="editarConviteMesaBox" style="display:none;">
       <label for="editarConviteMesaInput">🪑 Mesa do convidado</label>
@@ -813,7 +813,7 @@
                autocapitalize="words" autocorrect="off" spellcheck="false"
                oninput="validarNomeInput()"
                onkeydown="if(event.key==='Enter'){this.blur();pedirConfirmacaoGerar();}">
-        <div class="nome-hint" id="nomeHint">Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)</div>
+        <div class="nome-hint" id="nomeHint">&nbsp;</div>
       </div>
 
       <!-- Campo Mesa (visível só quando mesa_ativa=true) -->
@@ -912,6 +912,13 @@ const RETRY_DELAY    = 2000;
 const RATE_LIMIT_MS  = 3000;
 // ▼ ALTERADO: inclui convites_gerados, remove scans_usados da leitura
 const CLIENTE_COLS   = 'token,nome,limite_scans,convites_gerados,validade,event_code_confirmacao,ilimitado';
+
+// ▼ NOVO: remove emojis do nome do evento ao mostrar — mesmo que tenham sido
+// escritos ao criar/editar o cliente no Painel de Controlo, aparecem sempre
+// limpos aqui.
+function nomeEventoLimpo(nome) {
+  return (nome || '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{1F1E6}-\u{1F1FF}]/gu, '').replace(/\s+/g, ' ').trim();
+}
 const CONVITE_COLS   = 'id,nome,codigo,mesa,created_at,editado,rsvp_id,downloads_count';
 const SS_CONFIG_KEY  = 'adkira_config';
 const SS_SESSAO_KEY  = 'adkira_sessao';
@@ -1239,7 +1246,7 @@ function iniciarRealtime(token) {
       clienteData.limite_scans = p.new.limite_scans;
       clienteData.nome         = p.new.nome;
       clienteData.validade     = p.new.validade;
-      document.getElementById('eventoNomeBox').textContent = '🎉 ' + p.new.nome;
+      document.getElementById('eventoNomeBox').textContent = nomeEventoLimpo(p.new.nome);
       actualizarContador(); iniciarTimerValidade(); haptic('light');
       // ▼ NOVO: pode ser exactamente esta actualização a aprovação de um pedido de convites — se for, mostra confirmação clara; senão, o toast genérico de sempre
       verificarPedidosAprovados().then(mostrou => { if (!mostrou) showToast('🔄 Evento actualizado!', '#5ba189'); });
@@ -1335,7 +1342,7 @@ async function tentarRestaurarSessao(token) {
     }
     clienteData = cli; configData = cfg;
     lerEstadoSessao(token); carregarFilaOffline(token);
-    document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    document.getElementById('eventoNomeBox').textContent = nomeEventoLimpo(cli.nome);
     activarMesaUI(cfg);
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
@@ -1372,7 +1379,7 @@ function limparTudo() {
   ultimaGeracao=0; tabAtual='lista';
   document.getElementById('tokenInput').value='';
   document.getElementById('nomeInput').value='';
-  document.getElementById('nomeHint').textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
+  document.getElementById('nomeHint').textContent= '';
   document.getElementById('nomeHint').className='nome-hint';
   document.getElementById('nomeInput').className='';
   const mi=document.getElementById('mesaInput'); if(mi) mi.value='';
@@ -1433,7 +1440,7 @@ async function validarToken() {
     clienteData = cli; configData = cfg;
     localStorage.setItem('adkira_token', token);
     lerEstadoSessao(token); carregarFilaOffline(token);
-    document.getElementById('eventoNomeBox').textContent = '🎉 ' + cli.nome;
+    document.getElementById('eventoNomeBox').textContent = nomeEventoLimpo(cli.nome);
     activarMesaUI(cfg);
     actualizarContador(); actualizarBannersOffline();
     await carregarConvitesGerados();
@@ -1448,7 +1455,7 @@ async function validarToken() {
 ═══════════════════════════════════════════ */
 function validarNome(nome) {
   const n = nome.trim();
-  if (!n) return { ok:false, msg:'Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)' };
+  if (!n) return { ok:false, msg:'Escreva o nome do convidado' };
   if (/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'\-.]/.test(n)) return { ok:false, msg:'❌ O nome não pode conter números ou símbolos' };
   const p = n.split(/\s+/).filter(x => x.length > 0);
   if (p.length < 2) return { ok:false, msg:'⚠️ Introduza pelo menos nome e apelido' };
@@ -1463,7 +1470,7 @@ let nomeValidacaoTimer = null;
 function validarNomeInput() {
   const input=document.getElementById('nomeInput'), hint=document.getElementById('nomeHint'), v=input.value;
   clearTimeout(nomeValidacaoTimer);
-  if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)'; return; }
+  if (!v) { input.className=''; hint.className='nome-hint'; hint.textContent=''; return; }
 
   // ▼ NOVO: caracteres inválidos (números/símbolos) continuam a avisar de
   // imediato — é sempre um problema real, mesmo a meio de escrever.
@@ -2621,7 +2628,7 @@ function pedirEdicaoConvite(conv, aposGuardar) {
   const input = document.getElementById('editarConviteNomeInput');
   input.value = sugerirNomeComAcompanhantes(conv);
   input.className = '';
-  document.getElementById('editarConviteHint').textContent = 'Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
+  document.getElementById('editarConviteHint').textContent = '';
   document.getElementById('editarConviteHint').className = 'nome-hint';
   const mesaBox = document.getElementById('editarConviteMesaBox');
   if (configData?.mesa_ativa) {
@@ -2807,7 +2814,7 @@ async function gerarConvite(nome, mesa, rsvpId) {
       guardarEstadoSessaoComToken(clienteData.token);
       await triggerDownload(pdfBlob, nome);
       document.getElementById('nomeInput').value='';
-      document.getElementById('nomeHint').textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
+      document.getElementById('nomeHint').textContent= '';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
@@ -2866,7 +2873,7 @@ async function gerarConvite(nome, mesa, rsvpId) {
       convitesSessao++;
       guardarEstadoSessaoComToken(clienteData.token);
       document.getElementById('nomeInput').value='';
-      document.getElementById('nomeHint').textContent='Nome e apelido — se tiver acompanhante, escreva os dois nomes juntos (ex: Maria Silva e João Pedro)';
+      document.getElementById('nomeHint').textContent= '';
       document.getElementById('nomeHint').className='nome-hint';
       document.getElementById('nomeInput').className='';
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
@@ -3453,6 +3460,10 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 const SUPABASE_URL      = 'https://rnvunprjvppbjavkaoek.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
 let DB_LEITOR = null;
+// ▼ NOVO: remove emojis do nome do evento ao mostrar (mesma limpeza do gerador)
+function nomeEventoLimpo(nome) {
+  return (nome || '').replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{1F1E6}-\u{1F1FF}]/gu, '').replace(/\s+/g, ' ').trim();
+}
 // ▼ CORRIGIDO: isto estava dentro de window.addEventListener('load', ...),
 // que só dispara DEPOIS do DOMContentLoaded — ou seja, a restauração
 // automática da sessão tentava sempre acontecer ANTES de DB_LEITOR sequer
@@ -3808,7 +3819,7 @@ async function carregarConvidadosServidor() {
 function mostrarApp() {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('mainApp').classList.remove('hidden');
-    document.getElementById('eventTitle').textContent = currentClient.nome || 'Evento';
+    document.getElementById('eventTitle').textContent = nomeEventoLimpo(currentClient.nome) || 'Evento';
     actualizarBarraSync();
     updateUI();
     renderGuestList();
