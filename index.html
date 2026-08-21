@@ -5123,11 +5123,41 @@ function showCompanionModal(guest) {
    DESFAZER SCANS — lê/escreve no Supabase
 ═══════════════════════════════════════════ */
 document.getElementById('undoScansBtn').addEventListener('click', async () => {
-    // ✅ NOVO — desfazer leituras em massa para um evento Cloudflare
-    // ainda não foi ligado (fica para depois desta fase). Nunca falhar
-    // em silêncio.
+    // ✅ CORRIGIDO — pedido explícito: já está ligado a sério para
+    // eventos Cloudflare, reaproveitando a mesma rota nova do
+    // servidor (handleScannerResetCheckins) — repõe TODOS os check-ins
+    // deste evento de uma vez, titular e acompanhante.
     if (cfBackendMode) {
-        showNotification('🚧 Desfazer leituras ainda não está pronto para este evento (Cloudflare).', 'warning');
+        if (scannedGuests.size === 0 && companionScanned.size === 0) {
+            showNotification('Não há escaneados para desfazer', 'warning'); return;
+        }
+        const totalCf = new Set([...scannedGuests, ...companionScanned]).size;
+        const okCf = confirm(`⚠️ Desfazer TODOS os ${totalCf} escaneados deste evento?\n\nEsta acção não pode ser desfeita.\n\nDeseja continuar?`);
+        if (!okCf) return;
+        const btnCf = document.getElementById('undoScansBtn');
+        btnCf.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i>A desfazer...';
+        btnCf.disabled = true;
+        try {
+            const res = await fetch(
+                CF_API_BASE + '/api/scanner/' + encodeURIComponent(cfScannerEventId) + '/reset-checkins?token=' + encodeURIComponent(currentClient.token),
+                { method: 'PATCH' }
+            );
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.message || 'Não foi possível desfazer as leituras.');
+            scannedGuests.clear();
+            companionScanned.clear();
+            awaitingCompanionScan = null;
+            currentClient.scans_usados = 0;
+            updateUI(); renderGuestList();
+            haptic('success');
+            showNotification(`✅ ${data.affected || totalCf} leitura(s) desfeita(s).`, 'success');
+        } catch (e) {
+            haptic('error');
+            showNotification('❌ ' + (e.message || 'Não foi possível desfazer.'), 'error');
+        } finally {
+            btnCf.innerHTML = '<i class="fas fa-undo mr-3"></i>Desfazer';
+            btnCf.disabled = false;
+        }
         return;
     }
     if (undoUsagesRemaining <= 0) {
