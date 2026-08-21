@@ -928,6 +928,17 @@ let cfEventData   = null;
 const _CF_QR_PREFIX = 'ADK:';
 const _cfCryptoKeyCache = new Map();
 
+// 🔒 CORRIGIDO — BUG GRAVE, a causa real de TODOS os QR falharem a
+// ler: esta função vivia só dentro do invólucro (IIFE) do painel
+// Gerador — o Leitor, no seu PRÓPRIO invólucro separado, nunca
+// conseguia chegar-lhe ("_cfDeriveKey is not defined", confirmado no
+// diagnóstico). Mesma causa de outros bugs já corrigidos esta sessão
+// (ex: CF_API_BASE) — "function" atravessa blocos <script> DIFERENTES,
+// mas NÃO atravessa um IIFE por dentro desse bloco. Exposta aqui a
+// sério, ao window, para o Leitor conseguir mesmo chamá-la — mantendo
+// também a declaração normal, para as chamadas DENTRO deste mesmo
+// bloco (ex: _cfEncryptToken, logo a seguir) continuarem a funcionar
+// pelo nome directo, sem precisarem de "window." à frente.
 async function _cfDeriveKey(scannerToken) {
   if (_cfCryptoKeyCache.has(scannerToken)) return _cfCryptoKeyCache.get(scannerToken);
   const enc = new TextEncoder();
@@ -939,6 +950,7 @@ async function _cfDeriveKey(scannerToken) {
   _cfCryptoKeyCache.set(scannerToken, key);
   return key;
 }
+window._cfDeriveKey = _cfDeriveKey; // ✅ ver nota acima — precisa de ser acessível também do bloco do Leitor
 
 async function _cfEncryptToken(rsvpToken, scannerToken) {
   // 🔍 DIAGNÓSTICO TEMPORÁRIO — remover depois de encontrada a causa.
