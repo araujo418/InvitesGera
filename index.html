@@ -834,6 +834,9 @@
       </div>
       <button class="btn-main" id="btnGerar" onclick="pedirConfirmacaoGerar()"><i class="ti ti-ticket" aria-hidden="true"></i> Gerar Convite</button>
       <button type="button" class="btn-outline" id="btnAderirMais" onclick="abrirCompraConvitesManual()" style="margin-top:10px;"><i class="ti ti-square-rounded-plus" aria-hidden="true"></i> Aderir mais convites</button>
+      <button type="button" class="btn-outline" id="btnPdfConvites" onclick="baixarRelatorioConvites()" style="margin-top:10px;">
+        <i class="ti ti-file-download" aria-hidden="true"></i> Baixar PDF de todos os convites gerados
+      </button>
 
       <div class="divider"></div>
       <div class="convites-header">
@@ -852,9 +855,22 @@
              placeholder="🔍 Pesquisar por nome..."
              autocorrect="off" spellcheck="false"
              oninput="filtrarConvites()" style="display:none;">
+
+      <!-- ▼ NOVO — barra de selecção múltipla, só aparece com alguma marcação -->
+      <div id="convitesSelecaoBar" style="display:none;align-items:center;justify-content:space-between;gap:8px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 12px;margin-bottom:8px;">
+        <span id="convitesSelecaoCount" style="font-size:12.5px;font-weight:700;color:#991b1b;"></span>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="btn-ghost" style="width:auto;padding:6px 10px;font-size:12.5px;" onclick="limparSelecaoConvites()">Limpar</button>
+          <button type="button" class="btn-outline" style="width:auto;padding:6px 12px;font-size:12.5px;background:#dc2626;color:#fff;border-color:#dc2626;" onclick="confirmarEliminarSeleccionados()">
+            <i class="ti ti-trash" aria-hidden="true"></i> Eliminar seleccionados
+          </button>
+        </div>
+      </div>
+
       <div class="convites-lista" id="convitesLista">
         <div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">A carregar...</div>
       </div>
+      <div id="convitesPaginacaoWrap"></div>
     </div>
     <button class="btn-ghost" onclick="pedirConfirmacaoSair()"><i class="ti ti-logout" aria-hidden="true"></i> Sair</button>
   </div>
@@ -892,6 +908,182 @@
 const SUPABASE_URL = 'https://rnvunprjvppbjavkaoek.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJudnVucHJqdnBwYmphdmthb2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE2NjYzOTksImV4cCI6MjA2NzI0MjM5OX0.5E37Qm-KMmyGtGKbOINbDqMQlZlfgcQx91RQ01qslT8';
 const DB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ✅ Estado do Cloudflare, próprio deste painel (Gerador) — independente
+// do painel Leitor, que tem o seu próprio (podem estar logados em
+// eventos diferentes ao mesmo tempo, cada um no seu sítio).
+let cfBackendMode = false;
+let cfEventData   = null;
+
+/* ═══════════════════════════════════════════
+   ═══ NOVO — FASE 2: gerar bilhetes a sério
+   para um cliente Cloudflare ═══
+   Mesma lógica já usada no site oficial
+   (_cvDrawAndDownloadTicket, js/tickets.js) —
+   portada para aqui, porta a porta, para o
+   bilhete gerado aqui ser IDÊNTICO ao gerado
+   no site (mesmo QR cifrado, reconhecível
+   pelo mesmo leitor).
+═══════════════════════════════════════════ */
+const _CF_QR_PREFIX = 'ADK:';
+const _cfCryptoKeyCache = new Map();
+
+async function _cfDeriveKey(scannerToken) {
+  if (_cfCryptoKeyCache.has(scannerToken)) return _cfCryptoKeyCache.get(scannerToken);
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(scannerToken), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode('adkira-tickets-v1'), iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+  _cfCryptoKeyCache.set(scannerToken, key);
+  return key;
+}
+
+async function _cfEncryptToken(rsvpToken, scannerToken) {
+  const key = await _cfDeriveKey(scannerToken);
+  const enc = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(rsvpToken));
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return _CF_QR_PREFIX + btoa(String.fromCharCode(...combined)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+// ✅ Mesma protecção já usada no site (ver worker.js) — nunca deixa uma
+// cor mal formada rebentar o desenho do PDF inteiro.
+function _cfHexToRgbSafe(value) {
+  const str = String(value || '').trim();
+  const hexMatch = str.match(/^#?([0-9a-fA-F]{6})$/);
+  if (hexMatch) {
+    const h = hexMatch[1];
+    return { r: parseInt(h.slice(0,2),16)/255, g: parseInt(h.slice(2,4),16)/255, b: parseInt(h.slice(4,6),16)/255 };
+  }
+  const rgbMatch = str.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (rgbMatch) {
+    const clamp = (n) => Math.max(0, Math.min(255, parseInt(n,10)))/255;
+    return { r: clamp(rgbMatch[1]), g: clamp(rgbMatch[2]), b: clamp(rgbMatch[3]) };
+  }
+  return { r: 0, g: 0, b: 0 };
+}
+
+// ✅ A função principal — chama a rota já construída no Worker
+// (handlePublicClientViewGenerateTicket), depois desenha o PDF aqui
+// mesmo, no browser, tal como o site já faz.
+async function _cfGerarTicketReal(nome, mesa, rsvpId) {
+  const eventRef = cfEventData?.event_code || cfEventData?.id;
+  const token = clienteData.token;
+
+  // ✅ Sem rsvpId — é um convite "manual" (nome escrito directamente,
+  // sem ter passado pela Confirmação de Presença). Cria-se primeiro
+  // uma confirmação marcada como manual (mesmo princípio já usado no
+  // site — nunca conta como "confirmação a sério" nas Confirmações),
+  // só depois se pode gerar o bilhete para ela.
+  let realRsvpId = rsvpId;
+  if (!realRsvpId) {
+    const manualToken = 'manual_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
+    const createRes = await fetch(CF_API_BASE + '/api/events/' + encodeURIComponent(cfEventData.id) + '/rsvps', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guest_name: nome, attending: true, is_manual_ticket: true, rsvp_token: manualToken }),
+    });
+    const createData = await createRes.json().catch(() => ({}));
+    if (!createRes.ok) throw new Error(createData.message || 'Não foi possível criar a confirmação manual.');
+    realRsvpId = createData.rsvp?.id;
+    if (!realRsvpId) throw new Error('O servidor não devolveu o id da confirmação criada.');
+  }
+
+  const res = await fetch(
+    CF_API_BASE + '/api/public/client-view/' + encodeURIComponent(eventRef) + '/' + encodeURIComponent(token) + '/rsvps/' + encodeURIComponent(realRsvpId) + '/ticket',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+  );
+  const t = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(t.message || 'Não foi possível gerar o bilhete.');
+
+  if (typeof window.PDFLib === 'undefined') throw new Error('Biblioteca de PDF não carregada — recarrega a página e tenta outra vez.');
+  const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+  const templateBytes = await fetch(t.ticket_template_url).then(r => r.arrayBuffer());
+  const doc = await PDFDocument.load(templateBytes);
+  const allPages = doc.getPages();
+  const _pageAt = (n) => allPages[Math.min(Math.max((n||1)-1, 0), allPages.length-1)];
+  const namePage = _pageAt(t.ticket_name_page);
+  const qrPage   = _pageAt(t.ticket_qr_page);
+
+  // ✅ QR cifrado — MESMO formato que o leitor do site oficial já sabe
+  // ler (ADK: + AES-256-GCM), para o bilhete gerado aqui funcionar lá.
+  const encryptedPayload = await _cfEncryptToken(t.rsvp_token, t.scanner_token);
+  const qrDataUrl = await gerarQRDataURL(encryptedPayload, 256);
+  const qrBytes = Uint8Array.from(atob(qrDataUrl.split(',')[1]), c => c.charCodeAt(0));
+  const qrImage = await doc.embedPng(qrBytes);
+
+  // ⚠️ Simplificação da Fase 2: fontes personalizadas (carregadas no
+  // site) ainda não são suportadas aqui — cai sempre numa das
+  // predefinidas. Ajustar mais tarde, se fizer falta.
+  const fontMap = { 'Helvetica':StandardFonts.Helvetica, 'Helvetica-Bold':StandardFonts.HelveticaBold, 'Times-Roman':StandardFonts.TimesRoman, 'Times-Bold':StandardFonts.TimesRomanBold, 'Courier':StandardFonts.Courier };
+  const font = await doc.embedFont(fontMap[t.ticket_name_font] || StandardFonts.Helvetica);
+  const nameSize = t.ticket_name_size || 24;
+  const { r:hr, g:hg, b:hb } = _cfHexToRgbSafe(t.ticket_name_color);
+  const { width, height } = namePage.getSize();
+  const nx = (t.ticket_name_x || 0.5) * width;
+  const ny = height - (t.ticket_name_y || 0.75) * height;
+  const textW = font.widthOfTextAtSize(t.guest_name, nameSize);
+  namePage.drawText(t.guest_name, { x: nx - textW/2, y: ny - nameSize/2, size: nameSize, font, color: rgb(hr,hg,hb) });
+
+  // 🔒 CORRIGIDO — mesmo bug encontrado e corrigido no site (js/tickets.js):
+  // faltava excluir "off" — sem isto, desligar o QR nunca fazia nada,
+  // saía sempre à mesma.
+  if (t.qr_delivery_mode !== 'off' && t.qr_delivery_mode !== 'invite' && t.qr_delivery_mode !== 'pdf_invite') {
+    const qrSize = t.ticket_qr_size || 80;
+    const { width: qw, height: qh } = qrPage.getSize();
+    const qx = (t.ticket_qr_x || 0.5) * qw - qrSize/2;
+    const qy = qh - (t.ticket_qr_y || 0.85) * qh - qrSize/2;
+    qrPage.drawImage(qrImage, { x: qx, y: qy, width: qrSize, height: qrSize });
+  }
+
+  if (t.ticket_link_enabled && t.guest_link_url) {
+    try {
+      const linkPage = _pageAt(t.ticket_link_page);
+      const { width: lw, height: lh } = linkPage.getSize();
+      const lx = (t.ticket_link_x || 0.5) * lw;
+      const ly = lh - (t.ticket_link_y || 0.95) * lh;
+      let rx0, ry0, rx1, ry1;
+      if (t.ticket_link_image_url) {
+        const imgW = t.ticket_link_image_pdf_w || t.ticket_link_image_w || 120;
+        let imgH = t.ticket_link_image_pdf_h || t.ticket_link_image_h || 40;
+        const imgBytes = await fetch(t.ticket_link_image_url).then(r => r.arrayBuffer());
+        let pdfImage;
+        try { pdfImage = await doc.embedPng(imgBytes); } catch(e1) { pdfImage = await doc.embedJpg(imgBytes); }
+        // 🔒 CORRIGIDO — mesma protecção já usada no site (tickets.js):
+        // se a altura/largura gravadas não baterem certo com a
+        // proporção REAL da imagem (ex: dados antigos, ou um valor que
+        // nunca deveria ter chegado assim), a altura recalcula-se
+        // sozinha a partir da largura — nunca deixa a imagem sair
+        // esticada ou achatada no bilhete final.
+        const naturalAspect = pdfImage.height / Math.max(pdfImage.width, 1);
+        if (Math.abs((imgH / Math.max(imgW, 1)) - naturalAspect) > 0.02) imgH = Math.max(1, imgW * naturalAspect);
+        const drawX = lx - imgW/2, drawY = ly - imgH/2;
+        linkPage.drawImage(pdfImage, { x: drawX, y: drawY, width: imgW, height: imgH });
+        rx0=drawX; ry0=drawY; rx1=drawX+imgW; ry1=drawY+imgH;
+      } else {
+        const linkSize = t.ticket_link_size || 14;
+        const { r:lr, g:lg, b:lb } = _cfHexToRgbSafe(t.ticket_link_color || '#9333ea');
+        const linkText = t.ticket_link_text || 'Clique aqui para abrir o convite';
+        const lwidth = font.widthOfTextAtSize(linkText, linkSize);
+        const textX = lx - lwidth/2, textY = ly - linkSize/2;
+        linkPage.drawText(linkText, { x: textX, y: textY, size: linkSize, font, color: rgb(lr,lg,lb) });
+        rx0=textX-4; ry0=textY-4; rx1=textX+lwidth+4; ry1=textY+linkSize+4;
+      }
+      const linkAnnotation = doc.context.obj({ Type:'Annot', Subtype:'Link', Rect:[rx0,ry0,rx1,ry1], Border:[0,0,0], A:{ Type:'Action', S:'URI', URI: window.PDFLib.PDFString.of(t.guest_link_url) } });
+      const linkRef = doc.context.register(linkAnnotation);
+      const existingAnnots = linkPage.node.lookup(window.PDFLib.PDFName.of('Annots'));
+      const annotsArray = existingAnnots ? existingAnnots.asArray() : [];
+      linkPage.node.set(window.PDFLib.PDFName.of('Annots'), doc.context.obj([...annotsArray, linkRef]));
+    } catch (e) { console.error('[GERADOR CLOUDFLARE] falhou o link pessoal:', e); }
+  }
+
+  const pdfBytes = await doc.save();
+  return { blob: new Blob([pdfBytes], { type: 'application/pdf' }), guestName: t.guest_name, rsvpId: realRsvpId };
+}
 
 /* ▼ Ligação (só-leitura) ao site de Confirmação de Presença — definida uma
    única vez no <script> global partilhado (para o Leitor também conseguir
@@ -1235,6 +1427,9 @@ async function sincronizarFila() {
 ═══════════════════════════════════════════ */
 function mostrarBannerRealtime(v) { document.getElementById('realtimeBanner').classList.toggle('visible', v); }
 function iniciarRealtime(token) {
+  // 🔒 Mesma protecção de carregarConvidadosServidor — nunca tentar
+  // tempo real do Supabase antigo para um cliente Cloudflare.
+  if (cfBackendMode) return;
   pararRealtime(); realtimeOk = false;
   realtimeChannel = DB.channel('cli-' + token)
     .on('postgres_changes', { event:'UPDATE', schema:'public', table:'clientes', filter:`token=eq.${token}` }, (p) => {
@@ -1328,25 +1523,88 @@ document.addEventListener('DOMContentLoaded', async () => {
 /* ═══════════════════════════════════════════
    RESTAURAR SESSÃO
 ═══════════════════════════════════════════ */
+// ✅ NOVO — convites JÁ EMITIDOS (incluindo os manuais) para um cliente
+// Cloudflare: mostra-os na aba "Convites", tal como já mostrava para o
+// Supabase. Gerar um NOVO a partir daqui ainda não está pronto (Fase 2),
+// mas VER os que já existem é bem mais simples — não precisa da
+// matemática de posições do PDF, só listar o que já está gravado.
+function _cfAdaptGeneratedTickets(cfEvent) {
+  return (cfEvent?.rsvps || [])
+    .filter(r => (r.attending === true || r.attending === 1) && r.ticket_issued)
+    .map(r => ({
+      id: r.id,
+      nome: r.guest_name,
+      codigo: r.rsvp_token || r.id,
+      mesa: null,
+      created_at: r.created_at || null,
+      editado: !!r.ticket_edited, // ✅ CORRIGIDO — vinha sempre "false" fixo; agora lê o campo real
+      rsvp_id: r.id,
+      downloads_count: 0,
+    }));
+}
+
 async function tentarRestaurarSessao(token) {
   try {
     const { data:cli, error:e1 } = await DB.from('clientes').select(CLIENTE_COLS).eq('token', token).single();
-    if (e1 || !cli) return false;
-    if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) return false;
-    let cfg = lerConfigCache(token);
-    if (!cfg) {
-      const { data:cfgRows, error:e2 } = await DB.from('convite_config').select('*').eq('token_cliente', token).order('updated_at', { ascending:false }).limit(1);
-      const cfgDb = (cfgRows && cfgRows[0]) || null;
-      if (e2 || !cfgDb) return false;
-      cfg = cfgDb; guardarConfigCache(token, cfg);
+    // 🔒 CORRIGIDO — esta é uma SEGUNDA função de login, completamente
+    // separada de validarToken() (corre sozinha ao recarregar a página,
+    // se já houver um token guardado) — nunca tinha a tentativa no
+    // Cloudflare, só o Supabase. Por isso, ao recarregar a página com um
+    // token Cloudflare já guardado, caía sempre de volta no ecrã de
+    // login, com erros 406 do Supabase na consola pelo meio (via esta
+    // função e via carregarConvidadosServidor/iniciarRealtime, chamadas
+    // mais abaixo). Mesmo princípio de sempre: só desiste do Supabase a
+    // sério quando ele respondeu mesmo "não existe", nunca por uma
+    // simples falha de ligação.
+    if (!e1 && cli) {
+      if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) return false;
+      let cfg = lerConfigCache(token);
+      if (!cfg) {
+        const { data:cfgRows, error:e2 } = await DB.from('convite_config').select('*').eq('token_cliente', token).order('updated_at', { ascending:false }).limit(1);
+        const cfgDb = (cfgRows && cfgRows[0]) || null;
+        if (e2 || !cfgDb) return false;
+        cfg = cfgDb; guardarConfigCache(token, cfg);
+      }
+      clienteData = cli; configData = cfg;
+      cfBackendMode = false;
+    } else {
+      const cfEvent = await window._cfTryLogin(token);
+      if (!cfEvent) return false;
+      // 🔒 CORRIGIDO — mostrava sempre '∞' (Disponíveis/Restantes),
+      // porque punha ilimitado:true fixo, sem nunca ir buscar o limite
+      // a sério da conta. Agora vem já pronto nesta mesma resposta
+      // (ticket_limit/tickets_generated_total), sem precisar de mais
+      // nenhum pedido — o servidor já calcula isto sem expor a conta em si.
+      clienteData = {
+        token,
+        nome: cfEvent.title || 'Evento',
+        limite_scans: cfEvent.ticket_limit ?? 50,
+        convites_gerados: cfEvent.tickets_generated_total || 0,
+        validade: null,
+        event_code_confirmacao: cfEvent.event_code || cfEvent.id,
+        ilimitado: false,
+      };
+      configData = { mesa_ativa: false, pdf_base: null, elementos: {} }; // ⚠️ completo na Fase 2
+      cfBackendMode = true;
+      cfEventData = cfEvent;
     }
-    clienteData = cli; configData = cfg;
     lerEstadoSessao(token); carregarFilaOffline(token);
-    document.getElementById('eventoNomeBox').textContent = nomeEventoLimpo(cli.nome);
-    activarMesaUI(cfg);
+    document.getElementById('eventoNomeBox').textContent = nomeEventoLimpo(clienteData.nome);
+    activarMesaUI(configData);
     actualizarContador(); actualizarBannersOffline();
-    await carregarConvitesGerados();
-    iniciarRealtime(token); iniciarTimerValidade();
+    if (!cfBackendMode) {
+      await carregarConvitesGerados();
+      iniciarRealtime(token);
+    } else {
+      todosConvites = _cfAdaptGeneratedTickets(cfEventData);
+      // 🔒 CORRIGIDO — a caixa de pesquisa fica sempre escondida por
+      // predefinição no HTML — só aparecia quando carregarConvitesGerados()
+      // corria (o botão de actualizar), nunca aqui, no próprio login.
+      if (todosConvites.length > 0) document.getElementById('convitesSearch').style.display = 'block';
+      renderizarConvites(obterListaCompletaConvites(), '');
+      await verificarLigacaoRsvp();
+    }
+    iniciarTimerValidade();
     verificarPedidosAprovados(); // ▼ NOVO
     if (navigator.onLine && filaOffline.length > 0) setTimeout(() => sincronizarFila(), 2000);
     showStep('step2'); return true;
@@ -1375,6 +1633,7 @@ function limparTudo() {
   pararRealtime(); pararTimerValidade(); cancelarRateLimit();
   localStorage.removeItem('adkira_token'); limparCache();
   clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
+  cfBackendMode = false; cfEventData = null;
   convitesSessao=0; filaOffline=[];
   ultimaGeracao=0; tabAtual='lista';
   document.getElementById('tokenInput').value='';
@@ -1428,23 +1687,64 @@ async function validarToken() {
   showInfo('step1Info','⏳ A verificar...','blue');
   try {
     const { data:cli, error:e1 } = await comTimeout(DB.from('clientes').select(CLIENTE_COLS).eq('token', token).single());
-    if (e1 || !cli) { haptic('error'); showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
-    if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) { haptic('error'); showInfo('step1Info','❌ Evento expirado.','red'); return; }
-    let cfg = lerConfigCache(token);
-    if (!cfg) {
-      const { data:cfgRows, error:e2 } = await comTimeout(DB.from('convite_config').select('*').eq('token_cliente', token).order('updated_at', { ascending:false }).limit(1));
-      const cfgDb = (cfgRows && cfgRows[0]) || null;
-      if (e2 || !cfgDb) { haptic('warning'); showInfo('step1Info','⚠️ Template não configurado. Contacte o organizador.','yellow'); return; }
-      cfg = cfgDb; guardarConfigCache(token, cfg);
+    // 🔒 CORRIGIDO — nunca deixar um erro de REDE/ligação ao Supabase
+    // impedir a tentativa seguinte no Cloudflare. Só desiste "a sério"
+    // quando o Supabase respondeu mesmo, e disse "não existe".
+    if (!e1 && cli) {
+      if (cli.validade && cli.validade < Math.floor(Date.now()/1000)) { haptic('error'); showInfo('step1Info','❌ Evento expirado.','red'); return; }
+      let cfg = lerConfigCache(token);
+      if (!cfg) {
+        const { data:cfgRows, error:e2 } = await comTimeout(DB.from('convite_config').select('*').eq('token_cliente', token).order('updated_at', { ascending:false }).limit(1));
+        const cfgDb = (cfgRows && cfgRows[0]) || null;
+        if (e2 || !cfgDb) { haptic('warning'); showInfo('step1Info','⚠️ Template não configurado. Contacte o organizador.','yellow'); return; }
+        cfg = cfgDb; guardarConfigCache(token, cfg);
+      }
+      clienteData = cli; configData = cfg;
+      cfBackendMode = false;
+    } else {
+      // ✅ NOVO — não encontrado no Supabase: tenta o Cloudflare antes
+      // de desistir. Um cliente vive inteiramente num dos dois lados.
+      // ⚠️ Fase 1: só o LOGIN — a geração de bilhetes a sério para um
+      // cliente Cloudflare fica para a Fase 2 (o botão "Gerar" já avisa
+      // disto com clareza, não falha em silêncio).
+      const cfEvent = await window._cfTryLogin(token);
+      if (!cfEvent) { haptic('error'); showInfo('step1Info','❌ Código inválido ou não encontrado.','red'); return; }
+      // 🔒 CORRIGIDO — mostrava sempre '∞' (Disponíveis/Restantes),
+      // porque punha ilimitado:true fixo, sem nunca ir buscar o limite
+      // a sério da conta. Agora vem já pronto nesta mesma resposta
+      // (ticket_limit/tickets_generated_total), sem precisar de mais
+      // nenhum pedido — o servidor já calcula isto sem expor a conta em si.
+      clienteData = {
+        token,
+        nome: cfEvent.title || 'Evento',
+        limite_scans: cfEvent.ticket_limit ?? 50,
+        convites_gerados: cfEvent.tickets_generated_total || 0,
+        validade: null,
+        event_code_confirmacao: cfEvent.event_code || cfEvent.id,
+        ilimitado: false,
+      };
+      configData = { mesa_ativa: false, pdf_base: null, elementos: {} }; // ⚠️ completo na Fase 2
+      cfBackendMode = true;
+      cfEventData = cfEvent;
     }
-    clienteData = cli; configData = cfg;
     localStorage.setItem('adkira_token', token);
     lerEstadoSessao(token); carregarFilaOffline(token);
-    document.getElementById('eventoNomeBox').textContent = nomeEventoLimpo(cli.nome);
-    activarMesaUI(cfg);
+    document.getElementById('eventoNomeBox').textContent = nomeEventoLimpo(clienteData.nome);
+    activarMesaUI(configData);
     actualizarContador(); actualizarBannersOffline();
-    await carregarConvitesGerados();
-    iniciarRealtime(token); iniciarTimerValidade();
+    if (!cfBackendMode) {
+      await carregarConvitesGerados();
+      iniciarRealtime(token);
+    } else {
+      todosConvites = _cfAdaptGeneratedTickets(cfEventData);
+      // 🔒 CORRIGIDO — a caixa de pesquisa fica sempre escondida por
+      // predefinição no HTML — só aparecia quando carregarConvitesGerados()
+      // corria (o botão de actualizar), nunca aqui, no próprio login.
+      if (todosConvites.length > 0) document.getElementById('convitesSearch').style.display = 'block';
+      renderizarConvites(obterListaCompletaConvites(), '');
+      await verificarLigacaoRsvp(); // ✅ NOVO — popula a aba "Confirmações" também para clientes Cloudflare
+    }
+    iniciarTimerValidade();
     verificarPedidosAprovados(); // ▼ NOVO
     hideInfo('step1Info'); haptic('success'); showStep('step2');
   } catch(e) { haptic('error'); showInfo('step1Info','❌ ' + (navigator.onLine ? e.message : 'Sem ligação à internet.'), 'red'); }
@@ -1913,9 +2213,42 @@ async function actualizarLimiteAdmin(token, input, btn, card) {
 ═══════════════════════════════════════════ */
 async function carregarConvitesGerados() {
   if (!clienteData) return;
-  const rsvpPromise = verificarLigacaoRsvp(); // corre em paralelo com o fetch principal
   const lista = document.getElementById('convitesLista');
   lista.innerHTML = '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:14px;">A carregar...</div>';
+  // 🔒 CORRIGIDO — este botão ia sempre ao Supabase antigo
+  // (DB.from('convidados')), mesmo para um evento Cloudflare — que não
+  // tem nada ali, claro. O resultado: a lista ficava vazia ("Nenhum
+  // convite gerado ainda") até recarregares a página inteira à força.
+  // Para Cloudflare, "actualizar" significa ir buscar os dados frescos
+  // à API certa, e reconstruir a lista a partir daí — mesma lógica já
+  // usada no login.
+  if (cfBackendMode) {
+    try {
+      if (navigator.onLine) {
+        const fresh = await window._cfTryLogin(clienteData.token);
+        if (fresh) {
+          cfEventData = fresh;
+          clienteData.limite_scans = fresh.ticket_limit ?? clienteData.limite_scans;
+          clienteData.convites_gerados = fresh.tickets_generated_total ?? clienteData.convites_gerados;
+          todosConvites = _cfAdaptGeneratedTickets(fresh);
+          actualizarContador();
+        }
+      }
+      document.getElementById('convitesSearch').value = '';
+      const completa = obterListaCompletaConvites();
+      if (completa.length === 0) {
+        document.getElementById('convitesSearch').style.display='none';
+        document.getElementById('convitesCount').textContent='';
+        lista.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:16px;">Nenhum convite gerado ainda.</div>';
+        return;
+      }
+      document.getElementById('convitesSearch').style.display = 'block';
+      renderizarConvites(completa);
+      atualizarSecaoConfirmados();
+    } catch(e) { lista.innerHTML = `<div style="text-align:center;color:#ef4444;font-size:13px;padding:12px;">❌ ${navigator.onLine ? e.message : 'Sem ligação à internet'}</div>`; }
+    return;
+  }
+  const rsvpPromise = verificarLigacaoRsvp(); // corre em paralelo com o fetch principal
   try {
     if (navigator.onLine) {
       const { data, error } = await comTimeout(DB.from('convidados').select(CONVITE_COLS).eq('token_cliente', clienteData.token).order('created_at', { ascending:false }));
@@ -1945,6 +2278,7 @@ async function recarregarLista() { const btn=document.getElementById('btnRecarre
 function filtrarConvites() {
   if (tabAtual === 'mesas') { renderizarPorMesas(); return; }
   const t = document.getElementById('convitesSearch').value.trim().toLowerCase();
+  convitesPaginaAtual = 1;
   const todos = obterListaCompletaConvites();
   renderizarConvites(t ? todos.filter(c => c.nome.toLowerCase().includes(t)) : todos, t || null);
 }
@@ -1993,6 +2327,38 @@ async function verificarLigacaoRsvp() {
 
 async function atualizarSecaoConfirmados() {
   const tabsWrap = document.getElementById('mainTabsWrap');
+
+  // ✅ NOVO — cliente Cloudflare: os dados de confirmações já vieram no
+  // login (cfEventData.rsvps), não é preciso ir a lado nenhum do
+  // Supabase antigo das RSVPs — esse projecto nem sabe que este evento
+  // existe. "attending" chega do Cloudflare como 1/0 (número), não
+  // true/false a sério — normaliza-se aqui, senão rsvpConfirmou() nunca
+  // reconhece ninguém como confirmado. Bilhetes manuais ficam de fora
+  // (mesmo princípio já usado no resto do site: não são confirmações a
+  // sério).
+  if (cfBackendMode) {
+    const rsvps = (cfEventData?.rsvps || [])
+      .filter(r => !r.is_manual_ticket)
+      .map(r => ({ ...r, attending: (r.attending === true || r.attending === 1) }));
+    eventoRsvpCache = { rsvps, side1_name: cfEventData?.groom_name, side2_name: cfEventData?.bride_name };
+    // 🔒 CORRIGIDO — a aba "Confirmações" ficava escondida por completo
+    // sempre que não havia NENHUMA confirmação a sério (sem contar
+    // manuais) — ex: um evento onde, por agora, só existem bilhetes
+    // manuais. Ao contrário do Supabase (onde a aba só existe se houver
+    // um "event_code_confirmacao" ligado — pode genuinamente não haver
+    // nenhum sistema de confirmações), um evento Cloudflare tem sempre
+    // confirmações de presença como conceito — só pode estar vazio
+    // agora. A aba fica sempre visível, mesmo com 0.
+    tabsWrap.style.display = 'flex';
+    const confirmados = rsvps.filter(rsvpConfirmou);
+    const pendentes = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
+    const badge = document.getElementById('confirmadosBadge');
+    if (pendentes.length > 0) { badge.textContent = pendentes.length; badge.style.display = 'inline-block'; }
+    else badge.style.display = 'none';
+    if (mainTabAtual === 'confirmacoes') renderizarConfirmacoes();
+    return;
+  }
+
   if (!clienteData?.event_code_confirmacao) {
     tabsWrap.style.display = 'none';
     eventoRsvpCache = null;
@@ -2146,11 +2512,22 @@ function renderizarConfirmacoes(termo) {
   }
 
   pagWrap.innerHTML = '';
-  if (totalPaginas > 1) pagWrap.appendChild(construirPaginacao(confirmacoesPaginaAtual, totalPaginas, termo));
+  if (totalPaginas > 1) pagWrap.appendChild(construirPaginacao(confirmacoesPaginaAtual, totalPaginas, termo, {
+    setPagina: (p) => { confirmacoesPaginaAtual = p; },
+    render: renderizarConfirmacoes,
+    listaElId: 'confirmacoesLista',
+  }));
 }
 
 // ▼ NOVO: monta os controlos "‹ Voltar  1 2 3 …  Próximo ›"
-function construirPaginacao(paginaAtual, totalPaginas, termo) {
+// ✅ CORRIGIDO — generalizada para servir qualquer lista paginada (antes
+// só sabia mexer em confirmacoesPaginaAtual/renderizarConfirmacoes,
+// fixos por dentro — por isso "Convites" nunca teve paginação nenhuma,
+// mesmo com 159 convidados de fio a pavio). Recebe agora o "getter"/
+// "setter" da página actual, a função que desenha a lista, e o id do
+// elemento para onde fazer scroll — cada aba usa a sua própria versão.
+function construirPaginacao(paginaAtual, totalPaginas, termo, opts) {
+  const setPagina = opts.setPagina, render = opts.render, listaElId = opts.listaElId;
   const wrap = document.createElement('div');
   wrap.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:14px 0 4px;';
 
@@ -2159,7 +2536,7 @@ function construirPaginacao(paginaAtual, totalPaginas, termo) {
     b.textContent = label;
     b.disabled = !!desativado;
     b.style.cssText = `width:auto;min-width:32px;height:32px;min-height:0;padding:0 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:${desativado?'default':'pointer'};border:1.5px solid ${activo?'#5ba189':'#e5e7eb'};background:${activo?'#5ba189':'white'};color:${activo?'white':desativado?'#d1d5db':'#374151'};`;
-    if (!desativado) b.onclick = () => { confirmacoesPaginaAtual = pagina; renderizarConfirmacoes(termo); const listaEl = document.getElementById('confirmacoesLista'); listaEl.scrollTop = 0; listaEl.scrollIntoView({behavior:'smooth', block:'start'}); };
+    if (!desativado) b.onclick = () => { setPagina(pagina); render(termo); const listaEl = document.getElementById(listaElId); listaEl.scrollTop = 0; listaEl.scrollIntoView({behavior:'smooth', block:'start'}); };
     return b;
   };
 
@@ -2197,16 +2574,32 @@ function pedirConfirmacaoEliminarRsvp(r) {
 
 async function confirmarEliminarRsvp(r) {
   try {
-    const { error } = await comTimeout(DB_RSVP.from('rsvps').delete().eq('id', r.id));
-    if (error) throw error;
-    if (eventoRsvpCache?.rsvps) eventoRsvpCache.rsvps = eventoRsvpCache.rsvps.filter(x => x.id !== r.id);
+    if (cfBackendMode) {
+      // ✅ CORRIGIDO — já tinha a rota pronta e a funcionar (usada em
+      // eliminarConvite) — só faltava mesmo ligá-la aqui, em vez de
+      // mostrar sempre "ainda não disponível".
+      const eventRef = cfEventData?.event_code || cfEventData?.id;
+      const res = await fetch(
+        CF_API_BASE + '/api/public/client-view/' + encodeURIComponent(eventRef) + '/' + encodeURIComponent(clienteData.token) + '/rsvps/' + encodeURIComponent(r.id),
+        { method: 'DELETE' }
+      );
+      if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || 'Não foi possível eliminar.'); }
+      if (eventoRsvpCache?.rsvps) eventoRsvpCache.rsvps = eventoRsvpCache.rsvps.filter(x => x.id !== r.id);
+      if (cfEventData?.rsvps) cfEventData.rsvps = cfEventData.rsvps.filter(x => x.id !== r.id);
+      todosConvites = todosConvites.filter(c => c.id !== r.id);
+    } else {
+      const { error } = await comTimeout(DB_RSVP.from('rsvps').delete().eq('id', r.id));
+      if (error) throw error;
+      if (eventoRsvpCache?.rsvps) eventoRsvpCache.rsvps = eventoRsvpCache.rsvps.filter(x => x.id !== r.id);
+    }
     haptic('success');
     showToast('✅ Confirmação eliminada.');
     renderizarConfirmacoes();
     atualizarSecaoConfirmados();
+    if (cfBackendMode) renderizarConvites(obterListaCompletaConvites());
   } catch (e) {
     haptic('error');
-    showToast('❌ Não foi possível eliminar. Verifique a internet.', '#ef4444');
+    showToast('❌ ' + (e.message || 'Não foi possível eliminar. Verifique a internet.'), '#ef4444');
   }
 }
 
@@ -2341,12 +2734,21 @@ function baixarRelatorioConfirmados() {
     }
 
     lista.forEach((r, i) => {
-      const acomp = nomesPipe(r.companions);
-      const criancas = nomesPipe(r.kids);
+      // 🔒 CORRIGIDO — no Cloudflare, "companions"/"kids" são NÚMEROS
+      // (uma contagem), não uma lista de nomes separados por "|" como no
+      // Supabase — nomesPipe() nunca soube distinguir isto, e mostrava o
+      // número como se fosse o próprio nome de um acompanhante ("2" em
+      // vez de "2 acompanhantes"). Detecta-se aqui o formato certo.
+      const acompNum = typeof r.companions === 'number' ? r.companions : null;
+      const criancasNum = typeof r.kids === 'number' ? r.kids : null;
+      const acomp = acompNum === null ? nomesPipe(r.companions) : [];
+      const criancas = criancasNum === null ? nomesPipe(r.kids) : [];
       const ladoLbl = labelLado(r.side, eventoRsvpCache);
       const extras = [];
-      if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
-      if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
+      if (acompNum) extras.push(`${acompNum} acompanhante${acompNum===1?'':'s'}`);
+      else if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
+      if (criancasNum) extras.push(`${criancasNum} criança${criancasNum===1?'':'s'}`);
+      else if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
       if (ladoLbl) extras.push(ladoLbl);
       const linhaAltura = extras.length ? 13 : 9;
 
@@ -2386,6 +2788,94 @@ function baixarRelatorioConfirmados() {
 
 
   doc.save(`confirmados-${(clienteData?.nome||'evento').toLowerCase().replace(/\s+/g,'-')}.pdf`);
+}
+
+// ▼ NOVO — pedido explícito: o mesmo relatório bonito que já existe para
+// Confirmações, mas para "Convites" (todos os que já têm bilhete
+// gerado). Mesmo estilo visual, dados diferentes (nome/mesa/data, e se
+// já tem confirmação de presença ligada).
+function baixarRelatorioConvites() {
+  haptic('light');
+  const todos = obterListaCompletaConvites();
+  if (todos.length === 0) { showToast('⚠️ Ainda não há convites gerados.'); return; }
+  const nomeEvento = clienteData?.nome || 'Evento';
+  const mesasActivas = !!configData?.mesa_ativa;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margemX = 16;
+  const corMarca = [91, 161, 137];
+  const corTextoClaro = [255, 255, 255];
+  const corCinza = [148, 163, 163];
+  const corTextoEscuro = [28, 25, 23];
+  let y;
+
+  function desenharCabecalho() {
+    doc.setFillColor(...corMarca);
+    doc.rect(0, 0, pageW, 30, 'F');
+    doc.setTextColor(...corTextoClaro);
+    doc.setFont(undefined, 'bold'); doc.setFontSize(17);
+    doc.text(nomeEvento, margemX, 16);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+    doc.text(`Convites gerados · gerado em ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
+    doc.setTextColor(...corTextoEscuro);
+    y = 42;
+  }
+
+  function novaPaginaSeNecessario(alturaNecessaria) {
+    if (y + alturaNecessaria > pageH - 16) { doc.addPage(); desenharCabecalhoContinuacao(); }
+  }
+
+  function desenharCabecalhoContinuacao() {
+    doc.setFillColor(...corMarca);
+    doc.rect(0, 0, pageW, 14, 'F');
+    doc.setTextColor(...corTextoClaro); doc.setFont(undefined,'bold'); doc.setFontSize(10);
+    doc.text(nomeEvento, margemX, 9.5);
+    doc.setTextColor(...corTextoEscuro);
+    y = 24;
+  }
+
+  desenharCabecalho();
+  novaPaginaSeNecessario(16);
+  doc.setFillColor(214, 237, 229);
+  doc.roundedRect(margemX, y, pageW - margemX * 2, 10, 3, 3, 'F');
+  doc.setTextColor(40, 90, 72); doc.setFont(undefined,'bold'); doc.setFontSize(11);
+  doc.text(`Convites gerados  (${todos.length})`, margemX + 5, y + 6.8);
+  doc.setTextColor(...corTextoEscuro);
+  y += 15;
+
+  todos.forEach((c, i) => {
+    const confirmado = estaConfirmadoRSVP(c.nome, c.rsvp_id);
+    const extras = [];
+    if (mesasActivas && c.mesa) extras.push(`Mesa ${c.mesa}`);
+    extras.push(confirmado ? '✓ Confirmou presença' : '— sem confirmação ligada');
+    if (c.created_at) { try { extras.push(new Date(c.created_at).toLocaleDateString('pt-PT')); } catch(e) {} }
+    const linhaAltura = 13;
+
+    novaPaginaSeNecessario(linhaAltura + 2);
+    if (i % 2 === 0) { doc.setFillColor(248, 250, 249); doc.rect(margemX, y - 5.5, pageW - margemX * 2, linhaAltura, 'F'); }
+
+    doc.setFont(undefined, 'bold'); doc.setFontSize(10.5); doc.setTextColor(...corTextoEscuro);
+    doc.text(c.nome, margemX + 3, y);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(...corCinza);
+    doc.text(extras.join('   ·   '), margemX + 3, y + 5);
+    doc.setTextColor(...corTextoEscuro);
+    y += linhaAltura;
+  });
+
+  const totalPaginas = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= totalPaginas; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(230, 230, 230);
+    doc.line(margemX, pageH - 12, pageW - margemX, pageH - 12);
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(...corCinza);
+    doc.text('Invites · por AdKira', margemX, pageH - 7);
+    doc.text(`Página ${p} de ${totalPaginas}`, pageW - margemX, pageH - 7, { align: 'right' });
+  }
+
+  doc.save(`convites-${(nomeEvento||'evento').toLowerCase().replace(/\s+/g,'-')}.pdf`);
 }
 
 function renderizarPorMesas() {
@@ -2457,15 +2947,32 @@ function obterListaCompletaConvites() {
   return [...filaOffline, ...todosConvites];
 }
 
+// ▼ NOVO: paginação — mesma ideia já usada em Confirmações (10 por
+// página), para 159 convites não ficarem todos numa lista só, infindável.
+const CONVITES_POR_PAGINA = 10;
+let convitesPaginaAtual = 1;
+// ▼ NOVO — selecção múltipla, para eliminar vários de uma vez. Um Set
+// guarda os ids marcados — persiste sozinho ao mudares de página ou ao
+// pesquisares, porque nunca se limpa entre renderizações; só se limpa
+// quando o próprio utilizador desmarca, ou depois de eliminar.
+let convitesSeleccionados = new Set();
+
 function renderizarConvites(lista, termo) {
-  const el=document.getElementById('convitesLista'), totalOnline=todosConvites.length, totalPend=filaOffline.length, total=totalOnline+totalPend;
+  const el=document.getElementById('convitesLista'), pagWrap=document.getElementById('convitesPaginacaoWrap'), totalOnline=todosConvites.length, totalPend=filaOffline.length, total=totalOnline+totalPend;
   const totalPorGerar = lista.filter(c => c.isRsvpPendente).length;
   document.getElementById('convitesCount').textContent = termo
     ? `${lista.length} de ${total + totalPorGerar}`
     : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}${totalPorGerar>0?' · '+totalPorGerar+' por gerar':''}`;
-  if (lista.length === 0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>'; return; }
+  if (lista.length === 0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>'; pagWrap.innerHTML=''; return; }
+
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / CONVITES_POR_PAGINA));
+  if (convitesPaginaAtual > totalPaginas) convitesPaginaAtual = totalPaginas;
+  if (convitesPaginaAtual < 1) convitesPaginaAtual = 1;
+  const inicio = (convitesPaginaAtual - 1) * CONVITES_POR_PAGINA;
+  const listaPagina = lista.slice(inicio, inicio + CONVITES_POR_PAGINA);
+
   el.innerHTML = '';
-  lista.forEach(conv => {
+  listaPagina.forEach(conv => {
     if (conv.isRsvpPendente) {
       const item = document.createElement('div');
       item.className = 'convite-item';
@@ -2501,6 +3008,7 @@ function renderizarConvites(lista, termo) {
     if (isPend) { tag='<div class="convite-item-tag roxo">Offline — a aguardar sync</div>'; btnCls='btn-dl pendente'; btnIcon='<i class="ti ti-clock" aria-hidden="true"></i>'; }
     else if (jaDl) { tag='<div class="convite-item-tag verde">Descarregado</div>'; btnCls='btn-dl ja-dl'; btnIcon='<i class="ti ti-check" aria-hidden="true"></i>'; }
     item.innerHTML=`
+      ${isPend ? '' : `<input type="checkbox" class="convite-checkbox" style="width:18px;height:18px;flex-shrink:0;accent-color:#dc2626;cursor:pointer;" ${convitesSeleccionados.has(conv.id) ? 'checked' : ''} onchange="toggleSelecaoConvite('${conv.id}', this.checked)" aria-label="Seleccionar ${escHtml(conv.nome)}">`}
       <div class="convite-avatar">${initials}</div>
       <div class="convite-item-info">
         <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${nomeMudouTag}${tag}
@@ -2508,9 +3016,135 @@ function renderizarConvites(lista, termo) {
       <button class="${btnCls}" aria-label="Descarregar convite de ${escHtml(conv.nome)}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
         ${btnIcon}
-      </button>`;
+      </button>
+      ${isPend ? '' : `<button class="btn-dl" style="background:#fef2f2;color:#dc2626;margin-left:6px" aria-label="Eliminar convite de ${escHtml(conv.nome)}" title="Eliminar" onclick="confirmarEliminarConvite('${conv.id}')">
+        <i class="ti ti-trash" aria-hidden="true"></i>
+      </button>`}`;
     el.appendChild(item);
   });
+  atualizarBarraSelecaoConvites();
+
+  pagWrap.innerHTML = '';
+  if (totalPaginas > 1) pagWrap.appendChild(construirPaginacao(convitesPaginaAtual, totalPaginas, termo, {
+    setPagina: (p) => { convitesPaginaAtual = p; },
+    render: (t) => { const todos = obterListaCompletaConvites(); renderizarConvites(t ? todos.filter(c => c.nome.toLowerCase().includes(t)) : todos, t || null); },
+    listaElId: 'convitesLista',
+  }));
+}
+
+/* ═══════════════════════════════════════════
+   ═══ NOVO — ELIMINAR UM CONVITE JÁ GERADO ═══
+═══════════════════════════════════════════ */
+function confirmarEliminarConvite(id) {
+  const conv = todosConvites.find(c => c.id === id || c.id === Number(id));
+  if (!conv) return;
+  abrirModal({
+    titulo: '🗑️ Eliminar este convite?',
+    corpo: 'O bilhete já gerado deixa de ser válido. Esta acção não pode ser desfeita.',
+    nome: conv.nome, nomeCls: 'duplicado',
+    acoes: [
+      { label:'🗑️ Eliminar', cls:'btn-warning', fn:()=>eliminarConvite(id) },
+      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
+    ]
+  });
+}
+
+// ✅ Núcleo partilhado — elimina UM convite a sério no servidor, sem
+// tocar em UI nenhuma (nem toast, nem re-desenhar a lista) — usado
+// tanto pela eliminação individual como pela em massa, para a em massa
+// não mostrar uma sequência de avisos separados, um por um.
+async function _eliminarConviteNoServidor(id) {
+  if (cfBackendMode) {
+    // ✅ Reaproveita a mesma rota já usada para eliminar uma
+    // confirmação (handlePublicClientViewDeleteRsvp) — um convite já
+    // gerado é sempre também uma linha de RSVP, apaga-se por completo.
+    const eventRef = cfEventData?.event_code || cfEventData?.id;
+    const res = await fetch(
+      CF_API_BASE + '/api/public/client-view/' + encodeURIComponent(eventRef) + '/' + encodeURIComponent(clienteData.token) + '/rsvps/' + encodeURIComponent(id),
+      { method: 'DELETE' }
+    );
+    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || 'Não foi possível eliminar.'); }
+    clienteData.convites_gerados = Math.max(0, (clienteData.convites_gerados || 0) - 1);
+    if (cfEventData?.rsvps) cfEventData.rsvps = cfEventData.rsvps.filter(r => r.id !== id);
+  } else {
+    const { error } = await comTimeout(DB.from('convidados').delete().eq('id', id));
+    if (error) throw error;
+  }
+  todosConvites = todosConvites.filter(c => c.id !== id && c.id !== Number(id));
+}
+
+async function eliminarConvite(id) {
+  try {
+    await _eliminarConviteNoServidor(id);
+    actualizarContador();
+    haptic('success');
+    showToast('✅ Convite eliminado.');
+    renderizarConvites(obterListaCompletaConvites());
+  } catch (e) {
+    haptic('error');
+    showToast('❌ ' + (e.message || 'Não foi possível eliminar.'), '#dc2626');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   ═══ NOVO — SELECÇÃO MÚLTIPLA + ELIMINAR EM MASSA ═══
+   O Set convitesSeleccionados vive fora de renderizarConvites, por
+   isso sobrevive sozinho a: mudar de página, pesquisar, e voltar a
+   pesquisar — cada renderização só LÊ o que já lá está, nunca o limpa.
+═══════════════════════════════════════════ */
+function toggleSelecaoConvite(id, marcado) {
+  if (marcado) convitesSeleccionados.add(id);
+  else convitesSeleccionados.delete(id);
+  atualizarBarraSelecaoConvites();
+}
+
+function atualizarBarraSelecaoConvites() {
+  const bar = document.getElementById('convitesSelecaoBar');
+  const n = convitesSeleccionados.size;
+  if (n === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  document.getElementById('convitesSelecaoCount').textContent = `${n} convite${n===1?'':'s'} seleccionado${n===1?'':'s'}`;
+}
+
+function limparSelecaoConvites() {
+  convitesSeleccionados.clear();
+  atualizarBarraSelecaoConvites();
+  // ✅ Precisa de voltar a desenhar a página actual, para desmarcar as
+  // checkboxes visíveis agora — sem isto, ficavam marcadas no ecrã
+  // mesmo com o Set já vazio por dentro.
+  const t = document.getElementById('convitesSearch').value.trim().toLowerCase();
+  const todos = obterListaCompletaConvites();
+  renderizarConvites(t ? todos.filter(c => c.nome.toLowerCase().includes(t)) : todos, t || null);
+}
+
+function confirmarEliminarSeleccionados() {
+  const n = convitesSeleccionados.size;
+  if (n === 0) return;
+  abrirModal({
+    titulo: `🗑️ Eliminar ${n} convite${n===1?'':'s'}?`,
+    corpo: 'Os bilhetes já gerados destes convidados deixam de ser válidos. Esta acção não pode ser desfeita.',
+    nome: `${n} convite${n===1?'':'s'} seleccionado${n===1?'':'s'}`, nomeCls: 'duplicado',
+    acoes: [
+      { label:'🗑️ Eliminar todos', cls:'btn-warning', fn:()=>eliminarSeleccionados() },
+      { label:'✕ Cancelar', cls:'btn-ghost', fn:()=>{} }
+    ]
+  });
+}
+
+async function eliminarSeleccionados() {
+  const ids = [...convitesSeleccionados];
+  showToast(`⏳ A eliminar ${ids.length} convite${ids.length===1?'':'s'}...`);
+  let sucesso = 0, falhas = 0;
+  for (const id of ids) {
+    try { await _eliminarConviteNoServidor(id); sucesso++; }
+    catch (e) { falhas++; }
+  }
+  convitesSeleccionados.clear();
+  actualizarContador();
+  atualizarBarraSelecaoConvites();
+  renderizarConvites(obterListaCompletaConvites());
+  if (falhas === 0) { haptic('success'); showToast(`✅ ${sucesso} convite${sucesso===1?'':'s'} eliminado${sucesso===1?'':'s'}.`); }
+  else { haptic('error'); showToast(`⚠️ ${sucesso} eliminado(s), ${falhas} falhou(aram). Tenta outra vez para os que faltam.`, '#d97706'); }
 }
 
 /* ═══════════════════════════════════════════
@@ -2679,6 +3313,42 @@ async function guardarEdicaoConvite() {
   const origHtml = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A guardar...';
   try {
+    // ✅ NOVO — Cloudflare: ao contrário do Supabase (que só troca o
+    // nome, mantendo o mesmo QR), aqui muda-se o nome E RODA-SE o QR no
+    // servidor — o bilhete antigo, mesmo já impresso/enviado, deixa de
+    // ser válido a partir deste momento. Continua a ser o MESMO
+    // convidado/linha (nunca conta como um convite a mais) — só pode
+    // ser feito UMA vez por bilhete (o servidor recusa a segunda
+    // tentativa).
+    if (cfBackendMode) {
+      const eventRef = cfEventData?.event_code || cfEventData?.id;
+      const res = await fetch(
+        CF_API_BASE + '/api/public/client-view/' + encodeURIComponent(eventRef) + '/' + encodeURIComponent(clienteData.token) + '/rsvps/' + encodeURIComponent(conviteEmEdicao.id) + '/edit-ticket',
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guest_name: novoNome }) }
+      );
+      const editData = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(editData.message || 'Não foi possível corrigir o bilhete.');
+
+      const local = todosConvites.find(c => c.id === conviteEmEdicao.id);
+      if (local) { local.nome = novoNome; local.editado = true; }
+      haptic('success');
+      document.getElementById('editarConviteOverlay').classList.add('hidden');
+      const idParaRegenerar = conviteEmEdicao.id;
+      conviteEmEdicao = null;
+      renderizarConvites(obterListaCompletaConvites());
+
+      // ✅ O bilhete físico (PDF) tem de ser gerado de novo — o QR
+      // mudou. Descarrega logo o novo, para nunca ficar por engano com
+      // o antigo (agora inválido) na mão.
+      showToast('⏳ A gerar o bilhete corrigido...');
+      const { blob, guestName } = await _cfGerarTicketReal(novoNome, null, idParaRegenerar);
+      await triggerDownload(blob, guestName);
+      showToast('✅ Convite corrigido — o bilhete anterior já não é válido.');
+      const callback = acaoAposEdicao; acaoAposEdicao = null;
+      if (callback) callback();
+      return;
+    }
+
     const updatePayload = { nome: novoNome, editado: true };
     if (configData?.mesa_ativa) updatePayload.mesa = novaMesa;
     const { error } = await comTimeout(DB.from('convidados').update(updatePayload).eq('id', conviteEmEdicao.id));
@@ -2695,7 +3365,7 @@ async function guardarEdicaoConvite() {
     if (callback) callback();
   } catch (e) {
     haptic('error');
-    hint.className = 'nome-hint err'; hint.textContent = '❌ Não foi possível guardar. Verifique a internet e tente novamente.';
+    hint.className = 'nome-hint err'; hint.textContent = '❌ ' + (e.message || 'Não foi possível guardar. Verifique a internet e tente novamente.');
   } finally {
     btn.disabled = false; btn.innerHTML = origHtml;
   }
@@ -2711,11 +3381,33 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
     return;
   }
 
+  // ✅ FASE 2 — bilhete de um cliente Cloudflare: a rota do servidor é
+  // segura de chamar outra vez (não duplica nada, só volta a emitir os
+  // mesmos dados) — por isso descarregar de novo é só voltar a gerar o
+  // PDF na hora, tal como da primeira vez.
+  if (cfBackendMode) {
+    btn.disabled = true;
+    try {
+      const { blob, guestName } = await _cfGerarTicketReal(nome, null, id);
+      await triggerDownload(blob, guestName);
+      haptic('success');
+      showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
+    } catch (e) {
+      haptic('error');
+      showToast('⚠️ ' + (e.message || 'Não foi possível descarregar o bilhete.'), '#dc2626');
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
+
   // ▼ NOVO: só os convites de quem confirmou presença na Confirmação de
   // Presença podem ser editados, e só uma vez — pergunta-se isso mesmo
   // antes de baixar, nunca depois.
   const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
-  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
+  const podeEditar = cfBackendMode
+    ? (!!convObj && !convObj.editado) // ✅ Cloudflare: qualquer bilhete já emitido, ainda não editado — não exige ligação a uma confirmação RSVP (cobre também os manuais)
+    : (!!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id));
   if (podeEditar) {
     const mesaObrigatoria = !!configData?.mesa_ativa;
     const acoesEdicao = [
@@ -2793,6 +3485,45 @@ function gerarQRDataURL(codigo, tamanho) {
 async function gerarConvite(nome, mesa, rsvpId) {
   mesa = mesa || '';
   rsvpId = rsvpId || null;
+  // ✅ NOVO — Fase 2: gerar bilhetes a sério para um cliente Cloudflare,
+  // reaproveitando a mesma rota já construída no Worker
+  // (handlePublicClientViewGenerateTicket) e o mesmo desenho de PDF já
+  // usado no site (_cvDrawAndDownloadTicket) — ver _cfGerarTicketReal.
+  if (cfBackendMode) {
+    if (!navigator.onLine) { haptic('error'); mostrarErro(new Error('Sem ligação à internet.')); return; }
+    ultimoContextoNome = nome;
+    hideInfo('step2Info'); showStep('step3');
+    iniciarProgressBar(TIMEOUT_MS * (MAX_RETRIES + 1));
+    try {
+      setLoading('A gerar o bilhete...');
+      const { blob, guestName, rsvpId: newRsvpId } = await _cfGerarTicketReal(nome, mesa, rsvpId);
+      pararProgressBar();
+      ultimoContextoNome = null;
+      convitesSessao++;
+      // ✅ NOVO — sem isto, "Já gerados"/"Restantes" só actualizavam
+      // depois de recarregar a página — agora reflectem-se logo.
+      clienteData.convites_gerados = (clienteData.convites_gerados || 0) + 1;
+      actualizarContador();
+      document.getElementById('nomeInput').value='';
+      document.getElementById('nomeHint').textContent= '';
+      document.getElementById('nomeHint').className='nome-hint';
+      document.getElementById('nomeInput').className='';
+      iniciarRateLimit();
+      haptic('success'); showStep('step2');
+      // ✅ Actualiza a lista local já — não espera pelo servidor, para o
+      // bilhete aparecer logo em "Convites".
+      const idFinal = newRsvpId;
+      if (idFinal && !todosConvites.find(c => c.id === idFinal)) {
+        todosConvites.unshift({ id: idFinal, nome: guestName, mesa, codigo: idFinal, created_at: new Date().toISOString(), editado: false, rsvp_id: idFinal, downloads_count: 0 });
+      }
+      renderizarConvites(obterListaCompletaConvites());
+      await triggerDownload(blob, guestName);
+      showToast('✅ Bilhete gerado!', '#5ba189');
+    } catch(e) {
+      pararProgressBar(); haptic('error'); console.error(e); mostrarErro(e);
+    }
+    return;
+  }
   const modoOff = !navigator.onLine && modoOfflinePermitido();
   if (!navigator.onLine && !modoOff) { haptic('error'); mostrarErro(new Error('failed to fetch')); return; }
   ultimoContextoNome = nome;
@@ -2902,7 +3633,9 @@ async function gerarConvite(nome, mesa, rsvpId) {
    deixava passar a única oportunidade de editar sem nunca ser oferecida. */
 async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
   const convObj = todosConvites.find(c => c.id === id) || { id, nome, editado: false };
-  const podeEditar = !!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
+  const podeEditar = cfBackendMode
+    ? (!!id && !convObj.editado)
+    : (!!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id));
   if (!podeEditar) {
     if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
     else showToast(`✅ Convite de ${nome} gerado!`);
@@ -2943,7 +3676,9 @@ async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
 async function baixarConviteExistente(nome, codigo, id, btn) {
   if (verificarOffline()) { haptic('error'); showToast('📵 Sem ligação','#ef4444'); return; }
   const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
-  const podeEditar = !!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id);
+  const podeEditar = cfBackendMode
+    ? (!!convObj && !convObj.editado) // ✅ Cloudflare: qualquer bilhete já emitido, ainda não editado — não exige ligação a uma confirmação RSVP (cobre também os manuais)
+    : (!!convObj && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id));
   if (podeEditar) {
     const mesaObrigatoria = !!configData?.mesa_ativa;
     const acoesEdicao = [
@@ -3008,10 +3743,27 @@ async function gerarPDF(nome,codigo,qrDataUrl,config,mesa){
         const corHex = isMesaEl ? (el.color||config.cor_mesa||'#5ba189') : (el.color||config.cor_nome||'#1a1a2e');
         const cor=hexToRgb(normalizarCor(corHex));
         let font;
+        const quer_negrito = el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito;
+        const quer_italico = el.fontStyle==='italic'||config.italico;
         if(customFont)font=customFont;
-        else{const b=el.fontWeight==='bold'||el.fontWeight==='700'||config.negrito,i=el.fontStyle==='italic'||config.italico;if(b&&i)font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);else if(b)font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);else if(i)font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);else font=await pdfDoc.embedFont(StandardFonts.Helvetica);}
+        else{if(quer_negrito&&quer_italico)font=await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);else if(quer_negrito)font=await pdfDoc.embedFont(StandardFonts.HelveticaBold);else if(quer_italico)font=await pdfDoc.embedFont(StandardFonts.HelveticaOblique);else font=await pdfDoc.embedFont(StandardFonts.Helvetica);}
+        // ▼ NOVO: com fonte personalizada não há um ficheiro "negrito" próprio —
+        // simula-se desenhando o texto várias vezes com um desvio mínimo
+        // (técnica de "negrito falso"), para o negrito continuar a fazer efeito.
+        const negritoFalso = !!(customFont && quer_negrito);
         const lines=text.split('\n'),lineH=fontSize*1.2,topPx=parseFloat(el.top)||0;
-        lines.forEach((line,li)=>{const xPos=el.transform?.includes('translateX(-50%)')?(pW/2)-(font.widthOfTextAtSize(line,fontSize)/2):(parseFloat(el.left)||0)*scaleX;page.drawText(line,{x:xPos,y:pH-(topPx*scaleY)-fontSize*0.85-(li*lineH),size:fontSize,font,color:rgb(cor.r,cor.g,cor.b)});});
+        lines.forEach((line,li)=>{
+          const xPos=el.transform?.includes('translateX(-50%)')?(pW/2)-(font.widthOfTextAtSize(line,fontSize)/2):(parseFloat(el.left)||0)*scaleX;
+          const yPos=pH-(topPx*scaleY)-fontSize*0.85-(li*lineH);
+          if(negritoFalso){
+            const d=Math.max(0.25,fontSize*0.018);
+            [[0,0],[-d,0],[d,0],[0,-d],[0,d]].forEach(([dx,dy])=>{
+              page.drawText(line,{x:xPos+dx,y:yPos+dy,size:fontSize,font,color:rgb(cor.r,cor.g,cor.b)});
+            });
+          }else{
+            page.drawText(line,{x:xPos,y:yPos,size:fontSize,font,color:rgb(cor.r,cor.g,cor.b)});
+          }
+        });
       }else if(el.type==='qr'&&qrDataUrl){
         try{const qrImg=await pdfDoc.embedPng(qrDataUrl);const qrW=(parseFloat(el.width)||config.tamanho_qr||100)*scaleX,qrH=(parseFloat(el.height)||config.tamanho_qr||100)*scaleY;const xPos=el.transform?.includes('translateX(-50%)')?(pW/2)-(qrW/2):(parseFloat(el.left)||0)*scaleX;page.drawImage(qrImg,{x:xPos,y:pH-(parseFloat(el.top)||0)*scaleY-qrH,width:qrW,height:qrH});}
         catch(e){console.warn('QR falhou:',e);}
@@ -3063,6 +3815,16 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
   window.fecharEdicaoConvite = typeof fecharEdicaoConvite !== "undefined" ? fecharEdicaoConvite : window.fecharEdicaoConvite;
   window.guardarEdicaoConvite = typeof guardarEdicaoConvite !== "undefined" ? guardarEdicaoConvite : window.guardarEdicaoConvite;
   window.pedirConvitesExtra = typeof pedirConvitesExtra !== "undefined" ? pedirConvitesExtra : window.pedirConvitesExtra;
+  // 🔒 CORRIGIDO — "ReferenceError: confirmarEliminarConvite is not
+  // defined": todo este bloco vive dentro de uma IIFE — uma função
+  // definida lá dentro só fica acessível a um onclick de HTML gerado
+  // dinamicamente (como os botões da lista de Convites) se for exposta
+  // aqui explicitamente. Esqueci-me destas duas ao acrescentá-las.
+  window.confirmarEliminarConvite = typeof confirmarEliminarConvite !== "undefined" ? confirmarEliminarConvite : window.confirmarEliminarConvite;
+  window.baixarRelatorioConvites = typeof baixarRelatorioConvites !== "undefined" ? baixarRelatorioConvites : window.baixarRelatorioConvites;
+  window.toggleSelecaoConvite = typeof toggleSelecaoConvite !== "undefined" ? toggleSelecaoConvite : window.toggleSelecaoConvite;
+  window.limparSelecaoConvites = typeof limparSelecaoConvites !== "undefined" ? limparSelecaoConvites : window.limparSelecaoConvites;
+  window.confirmarEliminarSeleccionados = typeof confirmarEliminarSeleccionados !== "undefined" ? confirmarEliminarSeleccionados : window.confirmarEliminarSeleccionados;
 })();
 </script>
   </div>
@@ -3476,6 +4238,147 @@ if (typeof supabase !== 'undefined') {
 }
 
 /* ═══════════════════════════════════════════
+   ═══ NOVO — CLOUDFLARE (Fase 1: login) ═══
+   Segunda base de dados, completamente separada do Supabase acima —
+   um cliente vive inteiramente num dos dois lados, nunca nos dois. Se
+   o token não for encontrado no Supabase, tenta-se aqui. A partir do
+   momento em que se encontra, a sessão fica presa a esse sítio.
+═══════════════════════════════════════════ */
+const CF_API_BASE = 'https://invitesao-api.araujocataca16.workers.dev';
+window.CF_API_BASE = CF_API_BASE; // ✅ acessível também do bloco <script> do painel Gerador (mais acima no ficheiro)
+let cfBackendMode = false; // true assim que a sessão ficar presa ao Cloudflare
+let cfEventData   = null;  // o evento Cloudflare completo, para as fases seguintes (gerar bilhetes, leitor)
+
+// ✅ Tenta encontrar este token no Cloudflare — usa a MESMA rota pública
+// que o site oficial já usa em /gerador-leitor-qr (handleGetPublicClientViewByToken),
+// nunca precisa de sessão nenhuma, só o token em si. Definida como
+// propriedade de `window` de propósito — o painel Gerador vive num
+// bloco <script> completamente separado deste (têm cada um a sua
+// própria SUPABASE_URL/DB), e só assim consegue chamar esta mesma
+// função sem a duplicar.
+window._cfTryLogin = async function _cfTryLogin(token) {
+  try {
+    const res = await fetch(CF_API_BASE + '/api/public/client-view-by-token/' + encodeURIComponent(token));
+    if (!res.ok) return null;
+    const event = await res.json();
+    if (!event || !event.id) return null;
+    return event;
+  } catch (e) {
+    return null;
+  }
+};
+
+// (removida — _cfAdaptToLegacyShape. Usava a rota errada para este
+// painel (client-view, do Gerador) — substituída por
+// _cfAdaptScannerShape, que usa a rota certa do Leitor.)
+
+/* ═══════════════════════════════════════════
+   ═══ NOVO — FASE 3: Leitor QR (Cloudflare) ═══
+   🔒 CORRIGIDO — o login do Leitor, na Fase 1, usava por engano a
+   MESMA rota do Gerador (client-view-by-token, que verifica o Token do
+   GERADOR) — nunca o Token do LEITOR a sério. Isto significa que
+   entrar aqui com o Token do Leitor (o que mostra "CR-..." no
+   REPRODUTOR) falhava sempre, e só "funcionava" por acidente se
+   alguém tentasse entrar com o token errado (o do Gerador). Esta rota
+   nova (client-scanner-by-token) verifica o token certo, e devolve
+   também a "qr_key" — a chave para decifrar os QR codes, que a outra
+   rota nunca dava (nem devia dar, por segurança).
+═══════════════════════════════════════════ */
+let cfScannerQrKey = null;
+let cfScannerEventId = null;
+
+async function _cfTryScannerLogin(token) {
+  try {
+    const res = await fetch(CF_API_BASE + '/api/public/client-scanner-by-token/' + encodeURIComponent(token));
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.event?.id || !data?.qr_key) return null;
+    return data;
+  } catch (e) {
+    return null;
+  }
+}
+
+// ✅ Vai buscar a lista de bilhetes emitidos, já com o estado de
+// check-in (quem já entrou, titular e acompanhante) — a MESMA rota que
+// o leitor do site oficial já usa.
+async function _cfLoadScannerGuests(eventId, token) {
+  const res = await fetch(CF_API_BASE + '/api/scanner/' + encodeURIComponent(eventId) + '?token=' + encodeURIComponent(token));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Não foi possível carregar a lista do leitor.');
+  return data;
+}
+
+function _cfAdaptScannerShape(scannerData, guestsData, token) {
+  currentClient = {
+    id: scannerData.event.id,
+    nome: scannerData.event.title || 'Evento',
+    token: token,
+    validade: null,
+    limite_scans: null,
+    scans_usados: 0,
+    undo_usages_remaining: 3,
+    event_code_confirmacao: scannerData.event.event_code || scannerData.event.id,
+  };
+  guests = (guestsData.rsvps || []).map(r => ({
+    id: r.id,
+    nome: r.guest_name,
+    codigo: r.rsvp_token,
+    token_cliente: token,
+    status: null,
+    mesa: null,
+    _cfCompanions: r.companions || 0,
+  }));
+  // ✅ Ao contrário da Fase 1, aqui já se sabe mesmo quem entrou —
+  // vem directamente do servidor, não fica sempre vazio.
+  scannedGuests = new Set(guestsData.rsvps.filter(r => r.checked_in).map(r => r.id));
+  companionScanned = new Set(guestsData.rsvps.filter(r => r.companion_checked_in).map(r => r.id));
+  cfBackendMode = true;
+  cfEventData = scannerData.event;
+  cfScannerQrKey = scannerData.qr_key;
+  cfScannerEventId = scannerData.event.id;
+}
+
+// ✅ Decifra um QR code lido — irmão do _cfEncryptToken já usado no
+// Gerador, MESMO formato ("ADK:" + AES-256-GCM) que o site oficial já
+// usa, para um bilhete gerado em qualquer lado (aqui ou no site) ser
+// sempre lido correctamente.
+// (cópia local do prefixo — "const" não atravessa blocos <script>
+// diferentes, ao contrário de "function", que já vimos ser global)
+const _CF_QR_PREFIX = 'ADK:';
+async function _cfDecryptToken(qrText, scannerToken) {
+  if (!qrText.startsWith(_CF_QR_PREFIX)) return null;
+  try {
+    const b64 = qrText.slice(_CF_QR_PREFIX.length).replace(/-/g,'+').replace(/_/g,'/');
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const iv = bytes.slice(0, 12);
+    const data = bytes.slice(12);
+    const key = await _cfDeriveKey(scannerToken);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+    return new TextDecoder().decode(plain);
+  } catch (e) {
+    return null;
+  }
+}
+
+// ✅ Marca o check-in a sério no servidor — "only_if_not_checked_in"
+// garante que, mesmo com dois leitores a tentar ao mesmo tempo, só um
+// consegue (o servidor trata isto como uma operação só, indivisível —
+// ver handleScannerCheckin, worker.js).
+async function _cfMarcarCheckin(rsvpToken, campo) {
+  const body = { rsvp_token: rsvpToken, only_if_not_checked_in: true };
+  body[campo] = true;
+  body[campo + '_at'] = new Date().toISOString();
+  const res = await fetch(
+    CF_API_BASE + '/api/scanner/' + encodeURIComponent(cfScannerEventId) + '/checkin?token=' + encodeURIComponent(currentClient.token),
+    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || 'Não foi possível registar a entrada.');
+  return data; // { rsvp, alreadyCheckedIn }
+}
+
+/* ═══════════════════════════════════════════
    ESTADO GLOBAL
 ═══════════════════════════════════════════ */
 let currentClient       = null;
@@ -3538,6 +4441,9 @@ function salvarCache() {
 }
 
 function carregarCache() {
+    // 🔒 Rede de segurança — esta cache é só para o Supabase (dados
+    // offline); nunca deve sobrepor-se aos dados frescos do Cloudflare.
+    if (cfBackendMode) { console.warn('[LEITOR] carregarCache chamado em modo Cloudflare — ignorado.'); return; }
     try {
         const g  = localStorage.getItem(LS_GUESTS);
         const s  = localStorage.getItem(LS_SCANNED);
@@ -3576,6 +4482,9 @@ function saveSettings() { localStorage.setItem(LS_SETTINGS, JSON.stringify(setti
    REALTIME
 ═══════════════════════════════════════════ */
 function iniciarRealtime(token) {
+    // 🔒 Mesma protecção de carregarConvidadosServidor — nunca tentar
+    // tempo real do Supabase antigo para um cliente Cloudflare.
+    if (cfBackendMode) return;
     pararRealtime();
     realtimeChannel = DB_LEITOR.channel('leitor-' + token)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'convidados', filter: `token_cliente=eq.${token}` }, (payload) => {
@@ -3695,37 +4604,65 @@ async function efetuarLogin(token, opcoes) {
             .eq('token', token)
             .single();
 
-        if (error || !client) throw new Error('Token inválido ou não encontrado.');
-        if (client.validade && client.validade < Math.floor(Date.now()/1000))
-            throw new Error('Token expirado.');
+        // 🔒 CORRIGIDO — nunca deixar um erro de REDE/ligação ao Supabase
+        // impedir a tentativa seguinte no Cloudflare. Só avança para
+        // "token não encontrado a sério" quando o Supabase respondeu
+        // mesmo, e respondeu "não existe" — não quando falhou a ligar.
+        if (!error && client) {
+            if (client.validade && client.validade < Math.floor(Date.now()/1000))
+                throw new Error('Token expirado.');
 
-        // Verificar se o token tem QR Code activo
-        // ▼ CORRIGIDO: usava .single(), que dá erro se houver 0 ou mais de 1
-        // linha em convite_config para este cliente — e esse erro fazia o
-        // bloqueio ser saltado em silêncio, deixando entrar mesmo sem QR
-        // activo. Agora pega sempre na configuração mais recente, sem
-        // depender de existir exactamente uma linha.
-        const { data: cfgRows, error: cfgErr } = await DB_LEITOR
-            .from('convite_config')
-            .select('qr_ativo')
-            .eq('token_cliente', token)
-            .order('updated_at', { ascending: false })
-            .limit(1);
+            // Verificar se o token tem QR Code activo
+            // ▼ CORRIGIDO: usava .single(), que dá erro se houver 0 ou mais de 1
+            // linha em convite_config para este cliente — e esse erro fazia o
+            // bloqueio ser saltado em silêncio, deixando entrar mesmo sem QR
+            // activo. Agora pega sempre na configuração mais recente, sem
+            // depender de existir exactamente uma linha.
+            const { data: cfgRows, error: cfgErr } = await DB_LEITOR
+                .from('convite_config')
+                .select('qr_ativo')
+                .eq('token_cliente', token)
+                .order('updated_at', { ascending: false })
+                .limit(1);
 
-        const cfg = (!cfgErr && cfgRows && cfgRows[0]) ? cfgRows[0] : null;
-        if (cfg && cfg.qr_ativo === false) {
-            throw new Error('🚫 Este evento não inclui QR Code.\n\nO acesso ao leitor não está disponível para este token. Contacte o organizador.');
+            const cfg = (!cfgErr && cfgRows && cfgRows[0]) ? cfgRows[0] : null;
+            if (cfg && cfg.qr_ativo === false) {
+                throw new Error('🚫 Este evento não inclui QR Code.\n\nO acesso ao leitor não está disponível para este token. Contacte o organizador.');
+            }
+
+            currentClient = client;
+            cfBackendMode = false;
+            undoUsagesRemaining = client.undo_usages_remaining ?? 3;
+        } else {
+            // ✅ CORRIGIDO — não encontrado no Supabase: tenta o Cloudflare,
+            // pela rota CERTA para este painel (Token do Leitor, não o do
+            // Gerador — ver nota grande acima de _cfTryScannerLogin).
+            const scannerData = await _cfTryScannerLogin(token);
+            if (!scannerData) throw new Error('Token inválido ou não encontrado.');
+            const guestsData = await _cfLoadScannerGuests(scannerData.event.id, token);
+            _cfAdaptScannerShape(scannerData, guestsData, token);
+            undoUsagesRemaining = currentClient.undo_usages_remaining ?? 3;
         }
 
-        currentClient = client;
-        undoUsagesRemaining = client.undo_usages_remaining ?? 3;
-
         localStorage.setItem(LS_TOKEN, token);
-        carregarCache();
+        // 🔒 CORRIGIDO — BUG REAL E GRAVE: carregarCache() lê dados de
+        // testes ANTERIORES guardados no browser (localStorage), pensado
+        // só para o Supabase funcionar offline — mas corria sempre, sem
+        // nenhuma verificação, mesmo depois dos dados frescos e CORRECTOS
+        // do Cloudflare (164 convidados a sério) já terem sido postos por
+        // _cfAdaptScannerShape. Isto SOBREPUNHA-SE a eles com o que quer
+        // que estivesse em cache de uma sessão de testes qualquer,
+        // completamente antiga e sem relação nenhuma com o evento actual
+        // — por isso apareciam só 3 nomes (de um teste de há muito tempo),
+        // nunca os 164 a sério.
+        if (!cfBackendMode) carregarCache();
         mostrarApp();
 
-        await carregarConvidadosServidor();
-        iniciarRealtime(token);
+        if (!cfBackendMode) await carregarConvidadosServidor();
+        // ✅ Tempo real (Supabase) e o desenho da lista já foram feitos
+        // dentro de mostrarApp()/_cfAdaptToLegacyShape para o Cloudflare —
+        // iniciarRealtime só faz sentido do lado Supabase por agora.
+        if (!cfBackendMode) iniciarRealtime(token);
         iniciarCronometro();
         updateTokenInfo();
         updateUndoButton();
@@ -3770,6 +4707,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
    CARREGAR CONVIDADOS DO SERVIDOR
 ═══════════════════════════════════════════ */
 async function carregarConvidadosServidor() {
+    // 🔒 CORRIGIDO — esta função tinha 6 sítios diferentes a chamá-la, e só
+    // protegi UM deles (dentro de efetuarLogin) contra correr em modo
+    // Cloudflare. Os outros 5 continuavam a tentar ir ao Supabase antigo
+    // com um token que ele nunca vai reconhecer (dá sempre 406) — a
+    // proteção fica aqui dentro, uma vez só, para nunca mais escapar
+    // nenhum caminho novo que venha a chamar isto no futuro.
+    if (cfBackendMode) return;
     if (!isOnline || !DB_LEITOR || !currentClient) return;
     try {
         const { data, error } = await DB_LEITOR
@@ -3896,9 +4840,101 @@ window.addEventListener('pagehide', pausarScannerPorInvisibilidade);
 /* ═══════════════════════════════════════════
    PROCESSAR SCAN — 100% local, rápido
 ═══════════════════════════════════════════ */
+// ✅ FASE 3 — versão Cloudflare do onScanSuccess. Mesma estrutura da
+// versão Supabase (titular → pergunta de acompanhante → confirma), só
+// que o check-in é marcado a sério no servidor (handleScannerCheckin),
+// com "only_if_not_checked_in" a garantir que dois leitores a
+// escanearem o mesmo bilhete quase ao mesmo tempo nunca duplicam a
+// entrada — só um consegue, o servidor decide isso sozinho.
+async function _cfOnScanSuccess(decodedText) {
+    const decifrado = await _cfDecryptToken(decodedText, cfScannerQrKey);
+    if (!decifrado) {
+        showScanResult('CÓDIGO INVÁLIDO', 'Este QR não pertence a este evento.', 'error');
+        playFeedback('error');
+        showNextScanButton();
+        return;
+    }
+    const guest = guests.find(g => g.codigo === decifrado);
+    if (!guest) {
+        showScanResult('CÓDIGO INVÁLIDO', '', 'error');
+        playFeedback('error');
+        showNextScanButton();
+        return;
+    }
+
+    // Caso especial: a aguardar leitura do acompanhante
+    if (awaitingCompanionScan && awaitingCompanionScan.id === guest.id) {
+        _lastCompanionName = nomeAcompanhante(guest);
+        awaitingCompanionScan = null;
+        try {
+            await _cfMarcarCheckin(guest.codigo, 'companion_checked_in');
+            companionScanned.add(guest.id);
+            showScanResult('ACOMPANHANTE CONFIRMADO', nomeTitular(guest), 'success');
+            playFeedback('success');
+        } catch (e) {
+            showScanResult('ERRO', e.message, 'error');
+            playFeedback('error');
+        }
+        showNextScanButton();
+        return;
+    }
+
+    if (companionScanned.has(guest.id)) {
+        showScanResult('JÁ ESCANEADO', guest.nome, 'warning');
+        playFeedback('warning');
+        showNextScanButton();
+        return;
+    }
+
+    if (scannedGuests.has(guest.id)) {
+        showScanResult('JÁ ESCANEADO', guest.nome, 'warning');
+        playFeedback('warning');
+        showNextScanButton();
+        return;
+    }
+
+    // ✅ Regista o check-in do titular A SÉRIO no servidor — se outro
+    // leitor já tiver escaneado este mesmo bilhete entretanto (mesmo
+    // que só há um segundo), "alreadyCheckedIn" avisa disso, em vez de
+    // deixar entrar duas vezes.
+    try {
+        const { alreadyCheckedIn } = await _cfMarcarCheckin(guest.codigo, 'checked_in');
+        if (alreadyCheckedIn) {
+            scannedGuests.add(guest.id);
+            showScanResult('JÁ ESCANEADO', guest.nome + ' (noutro aparelho/momento)', 'warning');
+            playFeedback('warning');
+            showNextScanButton();
+            return;
+        }
+    } catch (e) {
+        showScanResult('ERRO', e.message, 'error');
+        playFeedback('error');
+        showNextScanButton();
+        return;
+    }
+    scannedGuests.add(guest.id);
+    currentClient.scans_usados = (currentClient.scans_usados || 0) + 1;
+    updateUI(); renderGuestList();
+
+    if (temAcompanhante(guest)) {
+        scanPaused = true;
+        showCompanionModal(guest);
+    } else {
+        showScanResult('PERMITIDO', nomeTitular(guest), 'success');
+        playFeedback('success');
+        showNextScanButton();
+    }
+}
+
 async function onScanSuccess(decodedText) {
     if (scanPaused) return;
     scanPaused = true;
+
+    // ✅ NOVO — FASE 3: leitor a sério para eventos Cloudflare.
+    if (cfBackendMode) {
+        await _cfOnScanSuccess(decodedText);
+        return;
+    }
 
     // ▼ NOVO: tenta decifrar o QR localmente (AES-256-GCM, sem internet).
     // Convites gerados antes desta actualização ainda têm o código em
@@ -3981,6 +5017,11 @@ async function onScanSuccess(decodedText) {
 }
 
 function registarScan(guest, quantidade) {
+    // 🔒 Rede de segurança — esta função é só para Supabase (escreve
+    // directamente em DB_LEITOR). Nunca deve ser chamada em modo
+    // Cloudflare (usa-se _cfMarcarCheckin em vez disto) — mas fica aqui
+    // a proteger, para nunca rebentar mesmo que escape algum sítio novo.
+    if (cfBackendMode) { console.warn('[LEITOR] registarScan chamado em modo Cloudflare — ignorado.'); return; }
     for (let i = 0; i < quantidade; i++) {
         currentClient.scans_usados = (currentClient.scans_usados || 0) + 1;
     }
@@ -4028,10 +5069,21 @@ function showCompanionModal(guest) {
     yesBtn.replaceWith(newYes);
     noBtn.replaceWith(newNo);
 
-    newYes.addEventListener('click', () => {
+    newYes.addEventListener('click', async () => {
         document.getElementById('companionModal').classList.add('hidden');
         // Titular + acompanhante entraram juntos → registar +1 e bloquear QR
-        registarScan(guest, 1); // +1 para acompanhante
+        // ✅ NOVO — Cloudflare: marca o check-in do acompanhante a sério no
+        // servidor (o do titular já tinha sido marcado antes de chegar
+        // aqui). Nunca chamar registarScan aqui — essa função é só do
+        // Supabase, e ia rebentar (mesmo erro 406 já visto noutros sítios).
+        if (cfBackendMode) {
+            try { await _cfMarcarCheckin(guest.codigo, 'companion_checked_in'); }
+            catch (e) { showScanResult('ERRO', e.message, 'error'); playFeedback('error'); scanPaused = false; showNextScanButton(); return; }
+            currentClient.scans_usados = (currentClient.scans_usados || 0) + 1;
+            updateUI(); renderGuestList();
+        } else {
+            registarScan(guest, 1); // +1 para acompanhante
+        }
         companionScanned.add(guest.id);
         awaitingCompanionScan = null;
         _lastCompanionName = nomeAcompanhante(guest);
@@ -4057,6 +5109,13 @@ function showCompanionModal(guest) {
    DESFAZER SCANS — lê/escreve no Supabase
 ═══════════════════════════════════════════ */
 document.getElementById('undoScansBtn').addEventListener('click', async () => {
+    // ✅ NOVO — desfazer leituras em massa para um evento Cloudflare
+    // ainda não foi ligado (fica para depois desta fase). Nunca falhar
+    // em silêncio.
+    if (cfBackendMode) {
+        showNotification('🚧 Desfazer leituras ainda não está pronto para este evento (Cloudflare).', 'warning');
+        return;
+    }
     if (undoUsagesRemaining <= 0) {
         showNotification('Limite de utilizações atingido', 'error'); return;
     }
@@ -4473,6 +5532,7 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     pararRealtime();
     if (cronometroInterval) clearInterval(cronometroInterval);
     currentClient = null; guests = []; scannedGuests.clear(); companionScanned.clear(); awaitingCompanionScan = null; scanQueue = [];
+    cfBackendMode = false; cfEventData = null;
     undoUsagesRemaining = 3;
     const saved = localStorage.getItem(LS_TOKEN);
     if (saved) { realToken = saved; document.getElementById('leitor_tokenInput').value = '********'; }
@@ -4752,7 +5812,7 @@ document.getElementById('manualSearchInput').addEventListener('input', () => {
     }
 });
 
-function manualCheckin(guestId) {
+async function manualCheckin(guestId) {
     const guest = guests.find(g => g.id == guestId);
     if (!guest) return;
 
@@ -4765,7 +5825,12 @@ function manualCheckin(guestId) {
         // Registar entrada do acompanhante
         _lastCompanionName = nomeAcompanhante(guest);
         awaitingCompanionScan = null;
-        registarScan(guest, 1);
+        if (cfBackendMode) {
+            try { await _cfMarcarCheckin(guest.codigo, 'companion_checked_in'); companionScanned.add(guest.id); updateUI(); renderGuestList(); }
+            catch (e) { showScanResult('ERRO', e.message, 'error'); playFeedback('error'); return; }
+        } else {
+            registarScan(guest, 1);
+        }
         document.getElementById('manualCheckinModal').classList.add('hidden');
         showScanResult('ACOMPANHANTE CONFIRMADO', nomeTitular(guest), 'success');
         playFeedback('success');
@@ -4785,7 +5850,33 @@ function manualCheckin(guestId) {
         return;
     }
 
-    registarScan(guest, 1);
+    // ✅ NOVO — Cloudflare: mesma rota de check-in já usada pelo leitor
+    // de câmara (_cfMarcarCheckin), com a mesma protecção contra dois
+    // dispositivos a fazerem check-in do mesmo convidado ao mesmo tempo.
+    if (cfBackendMode) {
+        try {
+            const { alreadyCheckedIn } = await _cfMarcarCheckin(guest.codigo, 'checked_in');
+            if (alreadyCheckedIn) {
+                scannedGuests.add(guest.id);
+                document.getElementById('manualCheckinModal').classList.add('hidden');
+                showScanResult('JÁ ESCANEADO', guest.nome + ' (noutro aparelho/momento)', 'warning');
+                playFeedback('warning');
+                showNextScanButton();
+                return;
+            }
+        } catch (e) {
+            document.getElementById('manualCheckinModal').classList.add('hidden');
+            showScanResult('ERRO', e.message, 'error');
+            playFeedback('error');
+            showNextScanButton();
+            return;
+        }
+        scannedGuests.add(guest.id);
+        currentClient.scans_usados = (currentClient.scans_usados || 0) + 1;
+        updateUI(); renderGuestList();
+    } else {
+        registarScan(guest, 1);
+    }
 
     if (temAcompanhante(guest)) {
         document.getElementById('manualCheckinModal').classList.add('hidden');
