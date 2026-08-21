@@ -953,8 +953,6 @@ async function _cfDeriveKey(scannerToken) {
 window._cfDeriveKey = _cfDeriveKey; // ✅ ver nota acima — precisa de ser acessível também do bloco do Leitor
 
 async function _cfEncryptToken(rsvpToken, scannerToken) {
-  // 🔍 DIAGNÓSTICO TEMPORÁRIO — remover depois de encontrada a causa.
-  _dbg('[CIFRAR] scannerToken =', scannerToken, '| rsvpToken =', rsvpToken);
   const key = await _cfDeriveKey(scannerToken);
   const enc = new TextEncoder();
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -4005,21 +4003,6 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
                             </div>
                         </div>
 
-                        <!-- ▼ NOVO — painel de diagnóstico, para testar directo no telemóvel -->
-                        <div class="bg-white rounded-xl shadow-sm p-4 mb-3 lg:p-6 lg:mb-6">
-                            <button type="button" onclick="toggleDebugPanel()" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:0;font-weight:600;color:#374151;">
-                                <span>🔍 Diagnóstico técnico <span id="debugLogCount" style="font-size:11px;color:#9ca3af;font-weight:400;"></span></span>
-                                <span id="debugToggleIcon">▼</span>
-                            </button>
-                            <div id="debugPanel" style="display:none;margin-top:10px;">
-                                <div style="display:flex;gap:6px;margin-bottom:8px;">
-                                    <button type="button" onclick="copiarDebugLog()" class="btn-outline" style="width:auto;flex:1;padding:8px;font-size:12.5px;">📋 Copiar tudo</button>
-                                    <button type="button" onclick="limparDebugLog()" class="btn-ghost" style="width:auto;flex:1;padding:8px;font-size:12.5px;">🗑️ Limpar</button>
-                                </div>
-                                <textarea id="debugLogText" readonly style="width:100%;height:180px;font-family:monospace;font-size:11px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;color:#374151;resize:vertical;" placeholder="Ainda sem registos — lê um QR para os ver aqui."></textarea>
-                            </div>
-                        </div>
-
                         <div class="bg-white rounded-xl shadow-sm p-6">
                             <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
                                 <i class="fas fa-chart-line mr-2 text-green-600"></i>Progresso
@@ -4376,51 +4359,9 @@ function _cfAdaptScannerShape(scannerData, guestsData, token) {
 // (cópia local do prefixo — "const" não atravessa blocos <script>
 // diferentes, ao contrário de "function", que já vimos ser global)
 const _CF_QR_PREFIX = 'ADK:';
-// ▼ NOVO — painel de diagnóstico visível no próprio telemóvel, para
-// nunca precisar de ligar a um computador para ver a consola. Guarda
-// tudo num array em memória, mostra-se num <textarea>, com botão de
-// copiar tudo de uma vez.
-let _debugLog = [];
-function _dbg(...args) {
-  const linha = `[${new Date().toLocaleTimeString('pt-PT')}] ` + args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
-  _debugLog.push(linha);
-  console.log(...args);
-  const el = document.getElementById('debugLogText');
-  if (el) el.value = _debugLog.join('\n');
-  const countEl = document.getElementById('debugLogCount');
-  if (countEl) countEl.textContent = _debugLog.length ? `(${_debugLog.length})` : '';
-}
-function toggleDebugPanel() {
-  const panel = document.getElementById('debugPanel');
-  const icon = document.getElementById('debugToggleIcon');
-  const abrir = panel.style.display === 'none';
-  panel.style.display = abrir ? 'block' : 'none';
-  icon.textContent = abrir ? '▲' : '▼';
-}
-async function copiarDebugLog() {
-  const texto = _debugLog.join('\n') || '(sem registos ainda)';
-  try {
-    await navigator.clipboard.writeText(texto);
-    showToast ? showToast('✅ Copiado!') : alert('Copiado!');
-  } catch (e) {
-    // ✅ Alguns browsers/telemóveis bloqueiam a área de transferência
-    // sem um toque directo — como recurso, selecciona o texto para
-    // copiar à mão (premir sem soltar → Copiar).
-    const el = document.getElementById('debugLogText');
-    el.focus(); el.select();
-    alert('Não consegui copiar sozinho — o texto já está seleccionado, usa "Copiar" do teu telemóvel.');
-  }
-}
-function limparDebugLog() {
-  _debugLog = [];
-  const el = document.getElementById('debugLogText'); if (el) el.value = '';
-  const countEl = document.getElementById('debugLogCount'); if (countEl) countEl.textContent = '';
-}
 
 async function _cfDecryptToken(qrText, scannerToken) {
-  // 🔍 DIAGNÓSTICO TEMPORÁRIO — remover depois de encontrada a causa.
-  _dbg('[DECIFRAR] scannerToken =', scannerToken, '| qrText =', qrText);
-  if (!qrText.startsWith(_CF_QR_PREFIX)) { _dbg('[DECIFRAR] Prefixo não bate — esperado', _CF_QR_PREFIX, 'recebido', qrText.slice(0,10)); return null; }
+  if (!qrText.startsWith(_CF_QR_PREFIX)) return null;
   try {
     const b64 = qrText.slice(_CF_QR_PREFIX.length).replace(/-/g,'+').replace(/_/g,'/');
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
@@ -4430,7 +4371,6 @@ async function _cfDecryptToken(qrText, scannerToken) {
     const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
     return new TextDecoder().decode(plain);
   } catch (e) {
-    _dbg('[DECIFRAR] Falhou:', e.message || String(e));
     return null;
   }
 }
@@ -6015,9 +5955,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Expose to global scope
   window.manualCheckin = typeof manualCheckin !== "undefined" ? manualCheckin : window.manualCheckin;
-  window.toggleDebugPanel = typeof toggleDebugPanel !== "undefined" ? toggleDebugPanel : window.toggleDebugPanel;
-  window.copiarDebugLog = typeof copiarDebugLog !== "undefined" ? copiarDebugLog : window.copiarDebugLog;
-  window.limparDebugLog = typeof limparDebugLog !== "undefined" ? limparDebugLog : window.limparDebugLog;
   window.startScanner = typeof startScanner !== "undefined" ? startScanner : window.startScanner;
   window.renderGuestList = typeof renderGuestList !== "undefined" ? renderGuestList : window.renderGuestList;
 })();
