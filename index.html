@@ -1028,11 +1028,36 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
   const qrBytes = Uint8Array.from(atob(qrDataUrl.split(',')[1]), c => c.charCodeAt(0));
   const qrImage = await doc.embedPng(qrBytes);
 
-  // ⚠️ Simplificação da Fase 2: fontes personalizadas (carregadas no
-  // site) ainda não são suportadas aqui — cai sempre numa das
-  // predefinidas. Ajustar mais tarde, se fizer falta.
-  const fontMap = { 'Helvetica':StandardFonts.Helvetica, 'Helvetica-Bold':StandardFonts.HelveticaBold, 'Times-Roman':StandardFonts.TimesRoman, 'Times-Bold':StandardFonts.TimesRomanBold, 'Courier':StandardFonts.Courier };
-  const font = await doc.embedFont(fontMap[t.ticket_name_font] || StandardFonts.Helvetica);
+  // 🔒 CORRIGIDO — pedido explícito: fontes personalizadas (Poppins,
+  // etc., escolhidas no REPRODUTOR — ou carregadas à mão) e negrito/
+  // itálico nunca eram usados aqui, caía sempre numa fonte predefinida
+  // normal. Mesmo padrão já usado no site oficial: tenta a fonte a
+  // sério primeiro (ticket_name_font_url); só cai para as predefinidas
+  // do PDF se não houver nenhuma, ou se o carregamento falhar.
+  let font = null;
+  // ✅ CORRIGIDO — reconhece também um URL directo no campo antigo
+  // "ticket_name_font" (o mesmo formato que o site oficial já usa) —
+  // sem isto, uma fonte definida a partir do SITE (não do REPRODUTOR)
+  // ficava sem efeito aqui, caindo sempre em Helvetica.
+  const fontUrlParaCarregar = t.ticket_name_font_url
+    || (typeof t.ticket_name_font === 'string' && (t.ticket_name_font.startsWith('http') || t.ticket_name_font.startsWith('//')) ? t.ticket_name_font : null);
+  if (fontUrlParaCarregar) {
+    try {
+      doc.registerFontkit(window.fontkit);
+      const fontBytes = await fetch(fontUrlParaCarregar).then(r => r.arrayBuffer());
+      font = await doc.embedFont(fontBytes);
+    } catch (e) { console.warn('[Gerador] Fonte personalizada falhou, a usar predefinida:', e); font = null; }
+  }
+  if (!font) {
+    const negrito = !!t.ticket_name_bold, italico = !!t.ticket_name_italic;
+    if (negrito && italico) font = await doc.embedFont(StandardFonts.HelveticaBoldOblique);
+    else if (negrito) font = await doc.embedFont(StandardFonts.HelveticaBold);
+    else if (italico) font = await doc.embedFont(StandardFonts.HelveticaOblique);
+    else {
+      const fontMap = { 'Helvetica':StandardFonts.Helvetica, 'Helvetica-Bold':StandardFonts.HelveticaBold, 'Times-Roman':StandardFonts.TimesRoman, 'Times-Bold':StandardFonts.TimesRomanBold, 'Courier':StandardFonts.Courier };
+      font = await doc.embedFont(fontMap[t.ticket_name_font] || StandardFonts.Helvetica);
+    }
+  }
   const nameSize = t.ticket_name_size || 24;
   const { r:hr, g:hg, b:hb } = _cfHexToRgbSafe(t.ticket_name_color);
   const { width, height } = namePage.getSize();
