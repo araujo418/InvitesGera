@@ -1010,7 +1010,7 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
     { method: 'POST', headers: { 'Content-Type': 'application/json' } }
   );
   const t = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(t.message || 'Não foi possível gerar o bilhete.');
+  if (!res.ok) throw new Error(t.error || t.message || 'Não foi possível gerar o bilhete.');
 
   if (typeof window.PDFLib === 'undefined') throw new Error('Biblioteca de PDF não carregada — recarrega a página e tenta outra vez.');
   const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
@@ -2352,7 +2352,13 @@ async function atualizarSecaoConfirmados() {
     const rsvps = (cfEventData?.rsvps || [])
       .filter(r => !r.is_manual_ticket)
       .map(r => ({ ...r, attending: (r.attending === true || r.attending === 1) }));
-    eventoRsvpCache = { rsvps, side1_name: cfEventData?.groom_name, side2_name: cfEventData?.bride_name };
+    // 🔒 CORRIGIDO — usava groom_name/bride_name (os nomes do CASAL, ex:
+    // "Afonso"/"Filipa", usados no título do evento) em vez de
+    // side1_name/side2_name (as etiquetas do PRÓPRIO formulário de
+    // confirmação, o que aparece como "Noivo"/"Noiva" — personalizável,
+    // podia até ser outra coisa qualquer). Nunca batiam certo com o que
+    // o convidado via a sério no formulário.
+    eventoRsvpCache = { rsvps, side1_name: cfEventData?.side1_name || 'Noivo', side2_name: cfEventData?.side2_name || 'Noiva' };
     // 🔒 CORRIGIDO — a aba "Confirmações" ficava escondida por completo
     // sempre que não havia NENHUMA confirmação a sério (sem contar
     // manuais) — ex: um evento onde, por agora, só existem bilhetes
@@ -2595,7 +2601,7 @@ async function confirmarEliminarRsvp(r) {
         CF_API_BASE + '/api/public/client-view/' + encodeURIComponent(eventRef) + '/' + encodeURIComponent(clienteData.token) + '/rsvps/' + encodeURIComponent(r.id),
         { method: 'DELETE' }
       );
-      if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || 'Não foi possível eliminar.'); }
+      if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.error || d.message || 'Não foi possível eliminar.'); }
       if (eventoRsvpCache?.rsvps) eventoRsvpCache.rsvps = eventoRsvpCache.rsvps.filter(x => x.id !== r.id);
       if (cfEventData?.rsvps) cfEventData.rsvps = cfEventData.rsvps.filter(x => x.id !== r.id);
       todosConvites = todosConvites.filter(c => c.id !== r.id);
@@ -3075,7 +3081,7 @@ async function _eliminarConviteNoServidor(id) {
       CF_API_BASE + '/api/public/client-view/' + encodeURIComponent(eventRef) + '/' + encodeURIComponent(clienteData.token) + '/rsvps/' + encodeURIComponent(id),
       { method: 'DELETE' }
     );
-    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.message || 'Não foi possível eliminar.'); }
+    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.error || d.message || 'Não foi possível eliminar.'); }
     clienteData.convites_gerados = Math.max(0, (clienteData.convites_gerados || 0) - 1);
     if (cfEventData?.rsvps) cfEventData.rsvps = cfEventData.rsvps.filter(r => r.id !== id);
   } else {
@@ -3339,7 +3345,7 @@ async function guardarEdicaoConvite() {
         { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guest_name: novoNome }) }
       );
       const editData = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(editData.message || 'Não foi possível corrigir o bilhete.');
+      if (!res.ok) throw new Error(editData.error || editData.message || 'Não foi possível corrigir o bilhete.');
 
       const local = todosConvites.find(c => c.id === conviteEmEdicao.id);
       if (local) { local.nome = novoNome; local.editado = true; }
@@ -4298,6 +4304,7 @@ window._cfTryLogin = async function _cfTryLogin(token) {
    rota nunca dava (nem devia dar, por segurança).
 ═══════════════════════════════════════════ */
 let cfScannerQrKey = null;
+let cfScannerTodosConfirmados = []; // ✅ "esperados no evento" — tem bilhete OU confirmou pelo formulário (nunca só um dos dois); só para o relatório de ausentes
 let cfScannerEventId = null;
 
 async function _cfTryScannerLogin(token) {
@@ -4318,7 +4325,7 @@ async function _cfTryScannerLogin(token) {
 async function _cfLoadScannerGuests(eventId, token) {
   const res = await fetch(CF_API_BASE + '/api/scanner/' + encodeURIComponent(eventId) + '?token=' + encodeURIComponent(token));
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Não foi possível carregar a lista do leitor.');
+  if (!res.ok) throw new Error(data.error || data.message || 'Não foi possível carregar a lista do leitor.');
   return data;
 }
 
@@ -4333,7 +4340,13 @@ function _cfAdaptScannerShape(scannerData, guestsData, token) {
     undo_usages_remaining: 3,
     event_code_confirmacao: scannerData.event.event_code || scannerData.event.id,
   };
-  guests = (guestsData.rsvps || []).map(r => ({
+  // 🔒 CORRIGIDO — a rota agora traz também quem confirmou presença
+  // mas ainda não tem bilhete (precisa disto o relatório "Confirmou
+  // mas não veio", mais abaixo) — mas a lista usada para ESCANEAR/
+  // procurar por nome tem de continuar restrita a quem TEM bilhete a
+  // sério, ou apareceriam pessoas sem QR nenhum na busca do leitor.
+  const comBilhete = (guestsData.rsvps || []).filter(r => r.ticket_issued);
+  guests = comBilhete.map(r => ({
     id: r.id,
     nome: r.guest_name,
     codigo: r.rsvp_token,
@@ -4344,8 +4357,20 @@ function _cfAdaptScannerShape(scannerData, guestsData, token) {
   }));
   // ✅ Ao contrário da Fase 1, aqui já se sabe mesmo quem entrou —
   // vem directamente do servidor, não fica sempre vazio.
-  scannedGuests = new Set(guestsData.rsvps.filter(r => r.checked_in).map(r => r.id));
-  companionScanned = new Set(guestsData.rsvps.filter(r => r.companion_checked_in).map(r => r.id));
+  scannedGuests = new Set(comBilhete.filter(r => r.checked_in).map(r => r.id));
+  companionScanned = new Set(comBilhete.filter(r => r.companion_checked_in).map(r => r.id));
+  // ✅ NOVO — lista completa (com ou sem bilhete), só para o relatório
+  // "Confirmou mas não veio" — nunca usada para escanear.
+  // 🔒 CORRIGIDO — pedido explícito: alguém pode ter bilhete (QR
+  // válido, já enviado) sem nunca ter "confirmado" pelo formulário —
+  // e vai mesmo aparecer no evento. Antes, este relatório só contava
+  // quem confirmou pelo formulário, deixando de fora exactamente estas
+  // pessoas (incluindo bilhetes manuais, que existem exactamente para
+  // convidados que Bruce sabe que vêm, sem precisarem de confirmar
+  // nada). "Esperado no evento" passa a ser: tem bilhete emitido OU
+  // confirmou pelo formulário — o que vier primeiro, nunca exclui
+  // ninguém por causa da origem do bilhete.
+  cfScannerTodosConfirmados = (guestsData.rsvps || []).filter(r => r.ticket_issued || r.attending === true || r.attending === 1);
   cfBackendMode = true;
   cfEventData = scannerData.event;
   cfScannerQrKey = scannerData.qr_key;
@@ -4388,7 +4413,7 @@ async function _cfMarcarCheckin(rsvpToken, campo) {
     { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Não foi possível registar a entrada.');
+  if (!res.ok) throw new Error(data.error || data.message || 'Não foi possível registar a entrada.');
   return data; // { rsvp, alreadyCheckedIn }
 }
 
@@ -5143,7 +5168,7 @@ document.getElementById('undoScansBtn').addEventListener('click', async () => {
                 { method: 'PATCH' }
             );
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data.message || 'Não foi possível desfazer as leituras.');
+            if (!res.ok) throw new Error(data.error || data.message || 'Não foi possível desfazer as leituras.');
             scannedGuests.clear();
             companionScanned.clear();
             awaitingCompanionScan = null;
@@ -5626,29 +5651,47 @@ function nomeCombinaComRsvpLeitor(nomeConvidado, guestName) {
 }
 
 async function generateRelatorioAusentesPDF() {
-  if (!currentClient?.event_code_confirmacao) {
-    throw new Error('Este evento não está ligado ao site de Confirmação de Presença.');
+  let evento, confirmados, presentes, ausentes;
+
+  if (cfBackendMode) {
+    // 🔒 CORRIGIDO — ia sempre direito ao Supabase antigo da
+    // Confirmação de Presença, que nunca soube nada sobre eventos
+    // Cloudflare — dava sempre "Evento não encontrado". Os dados já
+    // tinham vindo no login (cfScannerTodosConfirmados) — e, ao
+    // contrário do Supabase (duas tabelas separadas, é preciso
+    // adivinhar por nome quem é quem), aqui é a MESMA linha para
+    // confirmação e bilhete — comparar por id é sempre exacto, nunca
+    // por nome.
+    evento = { title: currentClient.nome };
+    confirmados = cfScannerTodosConfirmados;
+    if (confirmados.length === 0) throw new Error('Ainda não há confirmações de presença para este evento.');
+    presentes = confirmados.filter(r => scannedGuests.has(r.id) || companionScanned.has(r.id));
+    ausentes = confirmados.filter(r => !scannedGuests.has(r.id) && !companionScanned.has(r.id));
+  } else {
+    if (!currentClient?.event_code_confirmacao) {
+      throw new Error('Este evento não está ligado ao site de Confirmação de Presença.');
+    }
+    if (!DB_RSVP) throw new Error('Sem ligação à Confirmação de Presença agora.');
+
+    const { data, error } = await DB_RSVP.from('events')
+      .select('title,rsvps(guest_name,attending,side,companions,kids)')
+      .eq('event_code', currentClient.event_code_confirmacao)
+      .limit(1);
+    if (error) throw error;
+    evento = data && data[0];
+    if (!evento) throw new Error('Evento não encontrado na Confirmação de Presença.');
+
+    confirmados = (evento.rsvps || []).filter(r => r.attending === true || r.attending === 'yes');
+    if (confirmados.length === 0) throw new Error('Ainda não há confirmações de presença para este evento.');
+
+    presentes = [];
+    ausentes = [];
+    confirmados.forEach(r => {
+      const convidado = guests.find(g => nomeCombinaComRsvpLeitor(g.nome, r.guest_name));
+      const veio = !!(convidado && scannedGuests.has(convidado.id));
+      (veio ? presentes : ausentes).push(r);
+    });
   }
-  if (!DB_RSVP) throw new Error('Sem ligação à Confirmação de Presença agora.');
-
-  const { data, error } = await DB_RSVP.from('events')
-    .select('title,rsvps(guest_name,attending,side,companions,kids)')
-    .eq('event_code', currentClient.event_code_confirmacao)
-    .limit(1);
-  if (error) throw error;
-  const evento = data && data[0];
-  if (!evento) throw new Error('Evento não encontrado na Confirmação de Presença.');
-
-  const confirmados = (evento.rsvps || []).filter(r => r.attending === true || r.attending === 'yes');
-  if (confirmados.length === 0) throw new Error('Ainda não há confirmações de presença para este evento.');
-
-  const presentes = [];
-  const ausentes = [];
-  confirmados.forEach(r => {
-    const convidado = guests.find(g => nomeCombinaComRsvpLeitor(g.nome, r.guest_name));
-    const veio = !!(convidado && scannedGuests.has(convidado.id));
-    (veio ? presentes : ausentes).push(r);
-  });
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -5664,9 +5707,14 @@ async function generateRelatorioAusentesPDF() {
   doc.setTextColor(255, 255, 255); doc.setFont(undefined, 'bold'); doc.setFontSize(17);
   doc.text(currentClient.nome || evento.title || 'Evento', margemX, 16);
   doc.setFont(undefined, 'normal'); doc.setFontSize(10);
-  doc.text(`Confirmou presença × apareceu no evento · ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
+  // ✅ CORRIGIDO — no Cloudflare, "esperado" já não é só "confirmou pelo
+  // formulário" (ver cfScannerTodosConfirmados) — inclui também quem
+  // só tem bilhete, sem nunca ter confirmado nada. O texto no PDF
+  // precisa de reflectir isto, para nunca sugerir que só entrou quem
+  // confirmou a sério.
+  doc.text(`${cfBackendMode ? 'Esperados no evento' : 'Confirmou presença'} × apareceu no evento · ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
   doc.setFontSize(9);
-  doc.text(`${confirmados.length} confirmações  ·  ${presentes.length} apareceram  ·  ${ausentes.length} não apareceram`, margemX, 30);
+  doc.text(`${confirmados.length} ${cfBackendMode ? 'esperados' : 'confirmações'}  ·  ${presentes.length} apareceram  ·  ${ausentes.length} não apareceram`, margemX, 30);
   doc.setTextColor(0, 0, 0);
   y = 46;
 
@@ -5686,11 +5734,18 @@ async function generateRelatorioAusentesPDF() {
       y += 10; return;
     }
     lista.forEach((r, i) => {
-      const acomp = nomesPipeLocal(r.companions);
-      const criancas = nomesPipeLocal(r.kids);
+      // 🔒 CORRIGIDO — mesmo ajuste já feito no outro relatório: no
+      // Cloudflare, "companions"/"kids" são números (uma contagem), não
+      // uma lista de nomes separados por "|" como no Supabase.
+      const acompNum = typeof r.companions === 'number' ? r.companions : null;
+      const criancasNum = typeof r.kids === 'number' ? r.kids : null;
+      const acomp = acompNum === null ? nomesPipeLocal(r.companions) : [];
+      const criancas = criancasNum === null ? nomesPipeLocal(r.kids) : [];
       const extras = [];
-      if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
-      if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
+      if (acompNum) extras.push(`${acompNum} acompanhante${acompNum===1?'':'s'}`);
+      else if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
+      if (criancasNum) extras.push(`${criancasNum} criança${criancasNum===1?'':'s'}`);
+      else if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
       const altura = extras.length ? 13 : 9;
       novaPaginaSeNecessario(altura + 2);
       if (i % 2 === 0) { doc.setFillColor(248, 250, 249); doc.rect(margemX, y - 5.5, pageW - margemX * 2, altura, 'F'); }
