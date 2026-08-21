@@ -1077,6 +1077,11 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
     qrPage.drawImage(qrImage, { x: qx, y: qy, width: qrSize, height: qrSize });
   }
 
+  // 🔍 DIAGNÓSTICO TEMPORÁRIO — remover depois de encontrada a causa.
+  console.log('[DIAGNÓSTICO Link] ticket_link_enabled =', t.ticket_link_enabled, '| guest_link_url =', t.guest_link_url, '| ticket_link_image_url =', t.ticket_link_image_url);
+  if (t.ticket_link_enabled && !t.guest_link_url) {
+    console.log('[DIAGNÓSTICO Link] ⚠️ O Link está ligado e a imagem está gravada, mas "guest_link_url" (o link pessoal do convidado) está vazio — é ISTO que está a impedir o desenho, mesmo com tudo o resto certo.');
+  }
   if (t.ticket_link_enabled && t.guest_link_url) {
     try {
       const linkPage = _pageAt(t.ticket_link_page);
