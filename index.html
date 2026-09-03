@@ -1645,6 +1645,7 @@ async function tentarRestaurarSessao(token) {
       if (todosConvites.length > 0) document.getElementById('convitesSearch').style.display = 'block';
       renderizarConvites(obterListaCompletaConvites(), '');
       await verificarLigacaoRsvp();
+      aplicarModoSoConfirmacoes();
     }
     iniciarTimerValidade();
     verificarPedidosAprovados(); // ▼ NOVO
@@ -1785,6 +1786,7 @@ async function validarToken() {
       if (todosConvites.length > 0) document.getElementById('convitesSearch').style.display = 'block';
       renderizarConvites(obterListaCompletaConvites(), '');
       await verificarLigacaoRsvp(); // ✅ NOVO — popula a aba "Confirmações" também para clientes Cloudflare
+      aplicarModoSoConfirmacoes();
     }
     iniciarTimerValidade();
     verificarPedidosAprovados(); // ▼ NOVO
@@ -2454,7 +2456,41 @@ async function atualizarSecaoConfirmados() {
 let mainTabAtual = 'convites'; // 'convites' ou 'confirmacoes'
 let tabRestaurada = false; // ▼ NOVO: garante que só restauramos a aba guardada uma vez por sessão
 
+// 🆕 Modo "só confirmações": há eventos que não usam links únicos por
+// convidado — têm um único link partilhado por todos. Nesses, o cliente entra
+// aqui apenas para VER quem confirmou; não há bilhetes para gerar.
+//
+// Quem decide é o campo "client_area_tickets_enabled" do evento, o mesmo que
+// o servidor já impõe na rota de emissão (ver handlePublicClientViewGenerateTicket
+// no worker: devolve 403 TICKETS_DISABLED_FOR_CLIENT quando está a false).
+// Aqui só se esconde o que deixou de fazer sentido — a proteção verdadeira
+// continua a ser do lado do servidor, e não deste ecrã.
+//
+// Por omissão está LIGADO: só fica em modo de leitura quando o campo vier
+// explicitamente a false. Nenhum evento já existente muda de comportamento.
+function podeGerarConvites() {
+  if (!cfBackendMode) return true;            // Supabase antigo — como sempre
+  return cfEventData?.client_area_tickets_enabled !== false;
+}
+
+function aplicarModoSoConfirmacoes() {
+  if (podeGerarConvites()) return;
+  // Sem geração: a aba "Convites" e o contador de bilhetes deixam de existir,
+  // e fica-se sempre nas confirmações.
+  const btnConvites = document.getElementById('mainTabConvites');
+  if (btnConvites) btnConvites.style.display = 'none';
+  // O contador de bilhetes (Disponíveis / Já gerados / Restantes) não faz
+  // sentido nenhum num evento que não emite bilhetes.
+  ['counterBox', 'btnAderirMais', 'btnPdfConvites'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.style.display = 'none';
+  });
+  mudarMainTab('confirmacoes', true);
+}
+
 function mudarMainTab(tab, semGuardar) {
+  // Num evento sem geração de convites, qualquer tentativa de ir para essa
+  // aba (por exemplo, a aba guardada de uma sessão anterior) volta aqui.
+  if (tab === 'convites' && !podeGerarConvites()) tab = 'confirmacoes';
   mainTabAtual = tab;
   document.getElementById('mainTabConfirmacoes').className = 'tab-btn' + (tab==='confirmacoes' ? ' tab-active' : '');
   document.getElementById('mainTabConvites').className = 'tab-btn' + (tab==='convites' ? ' tab-active' : '');
@@ -2517,15 +2553,21 @@ function renderizarConfirmacoes(termo) {
     if (criancas.length) extras.push(`${criancas.length} criança${criancas.length===1?'':'s'}`);
     if (ladoLbl) extras.push(ladoLbl);
 
-    const jaGerado = confirmou ? encontrarConviteDoRsvp(r.guest_name, r.id) : null;
+    // 🔒 ALTERADO — esta aba passa a ser SÓ leitura das respostas dos
+    // convidados. Antes mostrava também o estado do bilhete ("Por gerar" /
+    // "Convite gerado") e um botão de gerar, o que misturava duas coisas
+    // diferentes: o que o CONVIDADO respondeu, e o que o DONO ainda tem de
+    // fazer. A geração vive agora só na aba "Convites"; aqui mostra-se
+    // apenas se a pessoa vem ou não vem.
 
     const item = document.createElement('div');
     item.className = 'convite-item';
     const initials = (r.guest_name||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
     let statusTag;
     if (!confirmou) statusTag = `<div class="convite-item-tag" style="color:#b91c1c;"><i class="ti ti-x" aria-hidden="true"></i> Declinou</div>`;
-    else if (jaGerado) statusTag = `<div class="convite-item-tag verde"><i class="ti ti-check" aria-hidden="true"></i> Convite gerado</div>`;
-    else statusTag = `<div class="convite-item-tag" style="color:#b45309;"><i class="ti ti-clock" aria-hidden="true"></i> Por gerar</div>`;
+    else statusTag = `<div class="convite-item-tag verde"><i class="ti ti-check" aria-hidden="true"></i> Confirmou presença</div>`;
+    /* estados antigos, movidos para a aba "Convites":
+       jaGerado -> "Convite gerado" | caso contrário -> "Por gerar" */
     const extrasTag = extras.length ? `<div class="convite-item-tag" style="color:#9ca3af;">${escHtml(extras.join(' · '))}</div>` : '';
 
     item.innerHTML = `
@@ -2534,17 +2576,12 @@ function renderizarConfirmacoes(termo) {
         <div class="convite-item-nome">${escHtml(r.guest_name || '')}</div>${statusTag}${extrasTag}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
-        ${(confirmou && !jaGerado) ? `<button class="btn-dl" style="background:#5ba189;color:white;" title="Gerar convite" aria-label="Gerar convite de ${escHtml(r.guest_name)}"><i class="ti ti-ticket" aria-hidden="true"></i></button>` : ''}
         <button class="btn-dl" style="background:#fef2f2;color:#b91c1c;" title="Eliminar confirmação" aria-label="Eliminar confirmação de ${escHtml(r.guest_name)}"><i class="ti ti-trash" aria-hidden="true"></i></button>
       </div>`;
 
+    // Só sobra o botão de eliminar — a geração passou para a aba "Convites".
     const btns = item.querySelectorAll('button');
-    if (confirmou && !jaGerado) {
-      btns[0].onclick = () => gerarConviteDeConfirmado(r.guest_name, acompanhantes, r.id);
-      btns[1].onclick = () => pedirConfirmacaoEliminarRsvp(r);
-    } else {
-      btns[0].onclick = () => pedirConfirmacaoEliminarRsvp(r);
-    }
+    btns[0].onclick = () => pedirConfirmacaoEliminarRsvp(r);
     el.appendChild(item);
     } catch (erroLinha) {
       falhas++;
