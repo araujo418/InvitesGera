@@ -11,16 +11,22 @@
 
   <!-- Gerador scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-  <script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script defer src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- Leitor scripts -->
   
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <script src="https://cdn.tailwindcss.com?v=3.4.0"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" rel="stylesheet">
+  <script defer src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- 🔒 O Tailwind são ~400 KB e ainda compila o CSS no próprio telemóvel.
+       A bloquear, era o maior responsável pelo ecrã branco em dados móveis.
+       O ecrã de arranque (#gera-boot) usa estilos embutidos e cobre tudo até
+       a aplicação estar pronta, por isso nada chega a ser visto sem estilo. -->
+  <script defer src="https://cdn.tailwindcss.com?v=3.4.0"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></noscript>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css"></noscript>
   <script>
   /* ═══════════════════════════════════════════════════════════
      CIFRA DOS QR CODES (AES-256-GCM, Web Crypto API)
@@ -575,6 +581,53 @@
   </style>
 </head>
 <body>
+
+<!-- ═══ ECRÃ DE ARRANQUE ═══════════════════════════════════════════════
+     Escrito no HTML, com estilos embutidos: é a única coisa que o browser
+     consegue pintar sem esperar por nenhum ficheiro. Sem isto, quem abrisse
+     em dados móveis via um ecrã branco durante muitos segundos — as
+     bibliotecas somam vários megabytes, vindos de quatro servidores
+     diferentes, e nada aparecia até todas chegarem. -->
+<div id="gera-boot" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;
+     align-items:center;justify-content:center;gap:16px;background:#f4f7f5;color:#2f4f43;
+     font-family:system-ui,-apple-system,'Segoe UI',sans-serif">
+  <div style="width:60px;height:60px;border-radius:16px;background:#5ba189;display:flex;
+       align-items:center;justify-content:center">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M15 5v2M15 11v2M15 17v2M5 5h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4V7a2 2 0 0 1 2-2z"/>
+    </svg>
+  </div>
+  <div style="width:28px;height:28px;border:3px solid rgba(91,161,137,.25);border-top-color:#5ba189;
+       border-radius:50%;animation:gerabgira .9s linear infinite"></div>
+  <p style="margin:0;font-size:.9rem;font-weight:600">A carregar…</p>
+  <p id="gera-boot-lento" style="margin:0;font-size:.76rem;opacity:0;max-width:270px;text-align:center;
+     line-height:1.5;color:#6b7f76">A ligação está lenta. Isto pode demorar um pouco na primeira vez —
+     depois fica guardado no telemóvel.</p>
+  <style>
+    @keyframes gerabgira { to { transform: rotate(360deg) } }
+    #gera-boot-lento { animation: gerabootlento 0s linear 5s forwards }
+    @keyframes gerabootlento { to { opacity: 1 } }
+  </style>
+</div>
+<script>
+  // Retirado assim que a página acaba de carregar. O "load" é de propósito e
+  // não o "DOMContentLoaded": só nessa altura o Tailwind já aplicou os
+  // estilos, e sem isso via-se o painel sem formatação nenhuma por um
+  // instante. O temporizador é a rede de segurança — mais vale a página
+  // aparecer imperfeita do que ficar presa aqui para sempre.
+  (function () {
+    var tirar = function () {
+      var e = document.getElementById('gera-boot');
+      if (!e) return;
+      e.style.transition = 'opacity .25s';
+      e.style.opacity = '0';
+      setTimeout(function () { e.remove(); }, 260);
+    };
+    window.addEventListener('load', function () { setTimeout(tirar, 120); });
+    setTimeout(tirar, 25000);
+  })();
+</script>
 
 <!-- NAVEGAÇÃO PRINCIPAL -->
 <div class="offline-banner"      id="offlineBanner">📵 Sem ligação à internet — verifique o WiFi ou dados móveis</div>
@@ -4371,6 +4424,10 @@ window._cfTryLogin = async function _cfTryLogin(token) {
    rota nunca dava (nem devia dar, por segurança).
 ═══════════════════════════════════════════ */
 let cfScannerQrKey = null;
+// Todas as chaves aceites: a actual primeiro, depois as antigas (ver
+// handleGetPublicClientScannerByToken no worker). Um bilhete emitido antes de
+// a chave ter sido substituída continua a ser lido, sem reemitir nada.
+let cfScannerQrKeys = [];
 let cfScannerTodosConfirmados = []; // ✅ "esperados no evento" — tem bilhete OU confirmou pelo formulário (nunca só um dos dois); só para o relatório de ausentes
 let cfScannerEventId = null;
 
@@ -4441,6 +4498,9 @@ function _cfAdaptScannerShape(scannerData, guestsData, token) {
   cfBackendMode = true;
   cfEventData = scannerData.event;
   cfScannerQrKey = scannerData.qr_key;
+  cfScannerQrKeys = Array.isArray(scannerData.qr_keys) && scannerData.qr_keys.length
+    ? scannerData.qr_keys
+    : (scannerData.qr_key ? [scannerData.qr_key] : []);
   cfScannerEventId = scannerData.event.id;
 }
 
@@ -4465,6 +4525,23 @@ async function _cfDecryptToken(qrText, scannerToken) {
   } catch (e) {
     return null;
   }
+}
+
+// Tenta a chave actual e, se não der, as antigas — uma a uma. O AES-GCM traz
+// verificação de integridade, por isso uma chave errada NUNCA devolve texto
+// errado: falha e passa-se à seguinte. Não há risco de ler o bilhete de outra
+// pessoa por engano.
+async function _cfDecryptTokenQualquerChave(qrText) {
+  const chaves = (cfScannerQrKeys && cfScannerQrKeys.length) ? cfScannerQrKeys : [cfScannerQrKey];
+  for (const chave of chaves) {
+    if (!chave) continue;
+    const r = await _cfDecryptToken(qrText, chave);
+    if (r) {
+      if (chave !== cfScannerQrKey) console.warn('[LEITOR] bilhete lido com uma chave ANTIGA deste evento.');
+      return r;
+    }
+  }
+  return null;
 }
 
 // ✅ Marca o check-in a sério no servidor — "only_if_not_checked_in"
@@ -4953,7 +5030,7 @@ window.addEventListener('pagehide', pausarScannerPorInvisibilidade);
 // escanearem o mesmo bilhete quase ao mesmo tempo nunca duplicam a
 // entrada — só um consegue, o servidor decide isso sozinho.
 async function _cfOnScanSuccess(decodedText) {
-    const decifrado = await _cfDecryptToken(decodedText, cfScannerQrKey);
+    const decifrado = await _cfDecryptTokenQualquerChave(decodedText);
     if (!decifrado) {
         showScanResult('CÓDIGO INVÁLIDO', 'Este QR não pertence a este evento.', 'error');
         playFeedback('error');
