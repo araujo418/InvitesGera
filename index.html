@@ -2434,8 +2434,20 @@ async function atualizarSecaoConfirmados() {
   // (mesmo princípio já usado no resto do site: não são confirmações a
   // sério).
   if (cfBackendMode) {
+    // 🔒 CORRIGIDO — "as confirmações não aparecem". Esta lista excluía TODOS
+    // os bilhetes manuais, com o raciocínio de que "não são confirmações a
+    // sério". Isso valia quando um bilhete manual era apenas um convidado
+    // inscrito à mão. Mas essas pessoas recebem o convite e RESPONDEM — num
+    // evento real houve quatro a declinar e seis a confirmar, todas invisíveis
+    // aqui. E há eventos em que praticamente toda a lista foi criada como
+    // bilhete manual, ficando a aba vazia.
+    //
+    // Passa a mostrar quem RESPONDEU, seja qual for a origem da linha. Quem
+    // ainda não respondeu continua de fora: é o que distingue "confirmou" de
+    // "tem bilhete". O sinal é o updated_at — uma linha criada pela emissão do
+    // bilhete nunca o tem; uma resposta do convidado tem sempre.
     const rsvps = (cfEventData?.rsvps || [])
-      .filter(r => !r.is_manual_ticket)
+      .filter(r => !r.is_manual_ticket || r.updated_at)
       .map(r => ({ ...r, attending: (r.attending === true || r.attending === 1) }));
     // 🔒 CORRIGIDO — usava groom_name/bride_name (os nomes do CASAL, ex:
     // "Afonso"/"Filipa", usados no título do evento) em vez de
