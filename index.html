@@ -2887,7 +2887,15 @@ function gerarConviteDeConfirmado(nome, acompanhantes, rsvpId) {
 function baixarRelatorioConfirmados() {
   if (!eventoRsvpCache) return;
   haptic('light');
-  const todasRespostas = eventoRsvpCache.rsvps || [];
+  // 🔒 CORRIGIDO — o PDF usava a tabela inteira do evento, enquanto a aba
+  // "Confirmações" filtra os bilhetes manuais que nunca tiveram resposta. Os
+  // dois números nunca batiam certo: a aba mostrava 102 e o relatório 268,
+  // porque somava também os convidados que o dono inscreveu ao gerar
+  // convites.
+  //
+  // O relatório passa a usar exactamente a mesma lista que o dono vê no ecrã.
+  const todasRespostas = (eventoRsvpCache.rsvps || [])
+    .filter(r => !r.is_manual_ticket || rsvpConfirmou(r) || rsvpDeclinou(r));
   const confirmados = todasRespostas.filter(rsvpConfirmou);
   const declinaram = todasRespostas.filter(rsvpDeclinou);
   const semResposta = todasRespostas.filter(r => !rsvpConfirmou(r) && !rsvpDeclinou(r));
