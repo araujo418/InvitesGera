@@ -2870,7 +2870,7 @@ function baixarRelatorioConfirmados() {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10);
     doc.text(`Confirmações de presença · gerado em ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
     doc.setFontSize(9);
-    doc.text(`${todasRespostas.length} resposta${todasRespostas.length===1?'':'s'} no total  ·  ${comConvite.length} com convite  ·  ${semConvite.length} por gerar  ·  ${declinaram.length} declinaram`, margemX, 30);
+    doc.text(`${confirmados.length} confirmaram  ·  ${declinaram.length} declinaram  ·  ${semResposta.length} sem resposta  ·  ${todasRespostas.length} no total`, margemX, 30);
     doc.setTextColor(...corTextoEscuro);
     y = 46;
   }
@@ -2917,6 +2917,13 @@ function baixarRelatorioConfirmados() {
       const criancas = criancasNum === null ? nomesPipe(r.kids) : [];
       const ladoLbl = labelLado(r.side, eventoRsvpCache);
       const extras = [];
+      // 🆕 A resposta do convidado passa a vir escrita em cada linha. Sem isto,
+      // o relatório mostrava só nomes, e o dono não sabia quem tinha
+      // confirmado, quem tinha declinado, e quem ainda não respondera — que é
+      // exactamente a informação que ele precisa para contar lugares.
+      extras.unshift(rsvpConfirmou(r) ? 'Confirmou presença'
+                   : rsvpDeclinou(r) ? 'Declinou'
+                   : 'Ainda não respondeu');
       if (acompNum) extras.push(`${acompNum} acompanhante${acompNum===1?'':'s'}`);
       else if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
       if (criancasNum) extras.push(`${criancasNum} criança${criancasNum===1?'':'s'}`);
@@ -2953,8 +2960,17 @@ function baixarRelatorioConfirmados() {
   }
 
   desenharCabecalho();
-  desenharSeccao('Convite já gerado', comConvite, [214, 237, 229], [40, 90, 72]);
-  desenharSeccao('Convite por gerar', semConvite, [255, 243, 205], [146, 90, 8]);
+  // 🆕 As secções passam a ser por RESPOSTA, não por estado do convite.
+  //
+  // Antes dividia-se em "convite já gerado" e "convite por gerar" — que é a
+  // lista de trabalho do dono, não a resposta dos convidados. Quem lia o
+  // relatório via só nomes agrupados por uma coisa que não lhe interessava, e
+  // não conseguia saber quantas pessoas vão de facto ao casamento.
+  //
+  // Dentro dos confirmados mantém-se a distinção de convite, porque também é
+  // útil — mas agora como subgrupo, não como divisão principal.
+  desenharSeccao('Confirmaram presença — convite já gerado', comConvite, [214, 237, 229], [40, 90, 72]);
+  desenharSeccao('Confirmaram presença — convite por gerar', semConvite, [255, 243, 205], [146, 90, 8]);
   desenharSeccao('Declinaram', declinaram, [254, 226, 226], [153, 27, 27]);
   desenharSeccao('Ainda não responderam', semResposta, [241, 245, 249], [71, 85, 105]);
   desenharRodape();
