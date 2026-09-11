@@ -2455,7 +2455,14 @@ async function atualizarSecaoConfirmados() {
     // "tem bilhete". O sinal é o updated_at — uma linha criada pela emissão do
     // bilhete nunca o tem; uma resposta do convidado tem sempre.
     const rsvps = (cfEventData?.rsvps || [])
-      .filter(r => !r.is_manual_ticket || r.updated_at)
+      // 🔒 CORRIGIDO — usava o updated_at como sinal de "respondeu". Mas essa
+      // data marca QUALQUER alteração à linha: editar o nome de um convidado
+      // também a preenche. Assim, um convite manual que nunca teve resposta
+      // aparecia na aba de confirmações só por ter sido editado.
+      //
+      // O sinal certo é o próprio attending: quem respondeu tem-no preenchido
+      // (1 ou 0), quem não respondeu tem-no vazio.
+      .filter(r => !r.is_manual_ticket || rsvpConfirmou(r) || rsvpDeclinou(r))
       .map(r => ({ ...r, attending: (r.attending === true || r.attending === 1) }));
     // 🔒 CORRIGIDO — usava groom_name/bride_name (os nomes do CASAL, ex:
     // "Afonso"/"Filipa", usados no título do evento) em vez de
@@ -2463,7 +2470,10 @@ async function atualizarSecaoConfirmados() {
     // confirmação, o que aparece como "Noivo"/"Noiva" — personalizável,
     // podia até ser outra coisa qualquer). Nunca batiam certo com o que
     // o convidado via a sério no formulário.
-    eventoRsvpCache = { rsvps, side1_name: cfEventData?.side1_name || 'Noivo', side2_name: cfEventData?.side2_name || 'Noiva' };
+    // Guardam-se também os visuals do evento: é neles que está se os
+    // convidados podem confirmar presença, e a aba "Confirmações" depende
+    // disso para saber se deve aparecer.
+    eventoRsvpCache = { rsvps, visuals: cfEventData?.visuals || cfEventData || {}, side1_name: cfEventData?.side1_name || 'Noivo', side2_name: cfEventData?.side2_name || 'Noiva' };
     // 🔒 CORRIGIDO — a aba "Confirmações" ficava escondida por completo
     // sempre que não havia NENHUMA confirmação a sério (sem contar
     // manuais) — ex: um evento onde, por agora, só existem bilhetes
@@ -2500,6 +2510,26 @@ async function atualizarSecaoConfirmados() {
     return;
   }
   if (!eventoRsvpCache) { tabsWrap.style.display = 'none'; return; }
+
+  // 🆕 A aba "Confirmações" só faz sentido quando os convidados PODEM
+  // confirmar. Num evento com o RSVP desligado e sem Save the Date, ninguém
+  // tem por onde responder — e a aba aparecia vazia ou, pior, cheia de
+  // convidados marcados como "declinou" que nunca tinham sido perguntados.
+  const _v = eventoRsvpCache.visuals || cfEventData?.visuals || {};
+  const _lig = (x) => x === true || x === 1 || x === '1' || x === 'yes';
+  const _usaPdf = _lig(_v.pdf_invite_enabled);
+  const _podeConfirmar = _usaPdf
+    ? (_lig(_v.pdf_invite_rsvp_enabled) || _lig(_v.pdf_invite_std_enabled))
+    : !_lig(_v.rsvp_disabled);
+  if (!_podeConfirmar) {
+    // Sem confirmação no evento: fica só a aba "Convites", sem separadores.
+    tabsWrap.style.display = 'none';
+    const cv = document.getElementById('convitesTabContent');
+    const cf = document.getElementById('confirmacoesTabContent');
+    if (cv) cv.style.display = '';
+    if (cf) cf.style.display = 'none';
+    return;
+  }
 
   tabsWrap.style.display = 'flex';
   const confirmados = (eventoRsvpCache.rsvps || []).filter(rsvpConfirmou);
@@ -2636,9 +2666,14 @@ function renderizarConfirmacoes(termo) {
     const item = document.createElement('div');
     item.className = 'convite-item';
     const initials = (r.guest_name||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+    // 🔒 CORRIGIDO — só havia dois estados aqui: ou confirmou, ou "Declinou".
+    // Quem ainda NÃO respondeu (attending por preencher) caía no segundo e
+    // aparecia como tendo recusado o convite — o que é falso e leva o dono a
+    // contar mal os lugares. São três estados, não dois.
     let statusTag;
-    if (!confirmou) statusTag = `<div class="convite-item-tag" style="color:#b91c1c;"><i class="ti ti-x" aria-hidden="true"></i> Declinou</div>`;
-    else statusTag = `<div class="convite-item-tag verde"><i class="ti ti-check" aria-hidden="true"></i> Confirmou presença</div>`;
+    if (confirmou) statusTag = `<div class="convite-item-tag verde"><i class="ti ti-check" aria-hidden="true"></i> Confirmou presença</div>`;
+    else if (rsvpDeclinou(r)) statusTag = `<div class="convite-item-tag" style="color:#b91c1c;"><i class="ti ti-x" aria-hidden="true"></i> Declinou</div>`;
+    else statusTag = `<div class="convite-item-tag" style="color:#64748b;"><i class="ti ti-clock" aria-hidden="true"></i> Ainda não respondeu</div>`;
     /* estados antigos, movidos para a aba "Convites":
        jaGerado -> "Convite gerado" | caso contrário -> "Por gerar" */
     const extrasTag = extras.length ? `<div class="convite-item-tag" style="color:#9ca3af;">${escHtml(extras.join(' · '))}</div>` : '';
