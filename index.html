@@ -1050,7 +1050,15 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
     const manualToken = 'manual_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
     const createRes = await fetch(CF_API_BASE + '/api/events/' + encodeURIComponent(cfEventData.id) + '/rsvps', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ guest_name: nome, attending: true, is_manual_ticket: true, rsvp_token: manualToken }),
+      // 🔒 CORRIGIDO — criar um convite marcava a pessoa como tendo CONFIRMADO
+      // presença (attending: true). Mas gerar um convite é o dono a convidar
+      // alguém; a confirmação é a resposta dessa pessoa, e ainda não
+      // aconteceu. Isso enchia a lista de confirmações de gente que nunca
+      // respondeu, e o dono deixava de saber quem vem de facto.
+      //
+      // Fica sem resposta até o convidado responder pelo convite — e nesse
+      // momento é a própria confirmação que actualiza esta linha.
+      body: JSON.stringify({ guest_name: nome, attending: null, is_manual_ticket: true, rsvp_token: manualToken }),
     });
     const createData = await createRes.json().catch(() => ({}));
     if (!createRes.ok) throw new Error(createData.message || 'Não foi possível criar a confirmação manual.');
@@ -2764,8 +2772,21 @@ function nomesPipe(str) {
 // TEXTO ("yes"/"no"), não verdadeiro/falso. Um simples `if (r.attending)`
 // dá sempre verdadeiro mesmo para "no", porque é uma string não-vazia —
 // e por isso é que quem tinha DECLINADO estava a aparecer como confirmado.
+// 🔒 CORRIGIDO — faltava o número 1, que é como o D1 (SQLite) guarda os
+// booleanos. Um convidado que tinha confirmado chegava aqui com attending = 1,
+// esta função dizia que não, e ele acabava na secção "Declinaram" do
+// relatório. Toda a lista saía trocada.
 function rsvpConfirmou(r) {
-  return r?.attending === true || r?.attending === 'yes';
+  const a = r?.attending;
+  return a === true || a === 1 || a === '1' || a === 'yes';
+}
+
+// Quem ainda NÃO respondeu (attending por preencher) não é a mesma coisa que
+// ter declinado. Antes ia tudo para o mesmo saco, e o relatório dava como
+// recusas pessoas que apenas não tinham respondido ainda.
+function rsvpDeclinou(r) {
+  const a = r?.attending;
+  return a === false || a === 0 || a === '0' || a === 'no';
 }
 
 function nomeCorrespondeARsvp(nomeConvite, guestName) {
@@ -2823,7 +2844,8 @@ function baixarRelatorioConfirmados() {
   haptic('light');
   const todasRespostas = eventoRsvpCache.rsvps || [];
   const confirmados = todasRespostas.filter(rsvpConfirmou);
-  const declinaram = todasRespostas.filter(r => !rsvpConfirmou(r));
+  const declinaram = todasRespostas.filter(rsvpDeclinou);
+  const semResposta = todasRespostas.filter(r => !rsvpConfirmou(r) && !rsvpDeclinou(r));
   const comConvite = confirmados.filter(r => !!encontrarConviteDoRsvp(r.guest_name, r.id));
   const semConvite = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
   const nomeEvento = clienteData?.nome || eventoRsvpCache.title || 'Evento';
@@ -2934,6 +2956,7 @@ function baixarRelatorioConfirmados() {
   desenharSeccao('Convite já gerado', comConvite, [214, 237, 229], [40, 90, 72]);
   desenharSeccao('Convite por gerar', semConvite, [255, 243, 205], [146, 90, 8]);
   desenharSeccao('Declinaram', declinaram, [254, 226, 226], [153, 27, 27]);
+  desenharSeccao('Ainda não responderam', semResposta, [241, 245, 249], [71, 85, 105]);
   desenharRodape();
 
 
@@ -5837,7 +5860,10 @@ async function generateRelatorioAusentesPDF() {
     evento = data && data[0];
     if (!evento) throw new Error('Evento não encontrado na Confirmação de Presença.');
 
-    confirmados = (evento.rsvps || []).filter(r => r.attending === true || r.attending === 'yes');
+    // 🔒 CORRIGIDO — faltava o número 1, que é como o D1 guarda os booleanos.
+    // Sem ele, nenhum convidado contava como confirmado e esta função dizia
+    // sempre "ainda não há confirmações", mesmo com a lista cheia.
+    confirmados = (evento.rsvps || []).filter(r => rsvpConfirmou(r));
     if (confirmados.length === 0) throw new Error('Ainda não há confirmações de presença para este evento.');
 
     presentes = [];
