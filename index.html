@@ -1050,7 +1050,15 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
     const manualToken = 'manual_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
     const createRes = await fetch(CF_API_BASE + '/api/events/' + encodeURIComponent(cfEventData.id) + '/rsvps', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ guest_name: nome, attending: true, is_manual_ticket: true, rsvp_token: manualToken }),
+      // 🔒 CORRIGIDO — criar um convite marcava a pessoa como tendo CONFIRMADO
+      // presença (attending: true). Mas gerar um convite é o dono a convidar
+      // alguém; a confirmação é a resposta dessa pessoa, e ainda não
+      // aconteceu. Isso enchia a lista de confirmações de gente que nunca
+      // respondeu, e o dono deixava de saber quem vem de facto.
+      //
+      // Fica sem resposta até o convidado responder pelo convite — e nesse
+      // momento é a própria confirmação que actualiza esta linha.
+      body: JSON.stringify({ guest_name: nome, attending: null, is_manual_ticket: true, rsvp_token: manualToken }),
     });
     const createData = await createRes.json().catch(() => ({}));
     if (!createRes.ok) throw new Error(createData.message || 'Não foi possível criar a confirmação manual.');
@@ -2434,8 +2442,20 @@ async function atualizarSecaoConfirmados() {
   // (mesmo princípio já usado no resto do site: não são confirmações a
   // sério).
   if (cfBackendMode) {
+    // 🔒 CORRIGIDO — "as confirmações não aparecem". Esta lista excluía TODOS
+    // os bilhetes manuais, com o raciocínio de que "não são confirmações a
+    // sério". Isso valia quando um bilhete manual era apenas um convidado
+    // inscrito à mão. Mas essas pessoas recebem o convite e RESPONDEM — num
+    // evento real houve quatro a declinar e seis a confirmar, todas invisíveis
+    // aqui. E há eventos em que praticamente toda a lista foi criada como
+    // bilhete manual, ficando a aba vazia.
+    //
+    // Passa a mostrar quem RESPONDEU, seja qual for a origem da linha. Quem
+    // ainda não respondeu continua de fora: é o que distingue "confirmou" de
+    // "tem bilhete". O sinal é o updated_at — uma linha criada pela emissão do
+    // bilhete nunca o tem; uma resposta do convidado tem sempre.
     const rsvps = (cfEventData?.rsvps || [])
-      .filter(r => !r.is_manual_ticket)
+      .filter(r => !r.is_manual_ticket || r.updated_at)
       .map(r => ({ ...r, attending: (r.attending === true || r.attending === 1) }));
     // 🔒 CORRIGIDO — usava groom_name/bride_name (os nomes do CASAL, ex:
     // "Afonso"/"Filipa", usados no título do evento) em vez de
@@ -2752,8 +2772,21 @@ function nomesPipe(str) {
 // TEXTO ("yes"/"no"), não verdadeiro/falso. Um simples `if (r.attending)`
 // dá sempre verdadeiro mesmo para "no", porque é uma string não-vazia —
 // e por isso é que quem tinha DECLINADO estava a aparecer como confirmado.
+// 🔒 CORRIGIDO — faltava o número 1, que é como o D1 (SQLite) guarda os
+// booleanos. Um convidado que tinha confirmado chegava aqui com attending = 1,
+// esta função dizia que não, e ele acabava na secção "Declinaram" do
+// relatório. Toda a lista saía trocada.
 function rsvpConfirmou(r) {
-  return r?.attending === true || r?.attending === 'yes';
+  const a = r?.attending;
+  return a === true || a === 1 || a === '1' || a === 'yes';
+}
+
+// Quem ainda NÃO respondeu (attending por preencher) não é a mesma coisa que
+// ter declinado. Antes ia tudo para o mesmo saco, e o relatório dava como
+// recusas pessoas que apenas não tinham respondido ainda.
+function rsvpDeclinou(r) {
+  const a = r?.attending;
+  return a === false || a === 0 || a === '0' || a === 'no';
 }
 
 function nomeCorrespondeARsvp(nomeConvite, guestName) {
@@ -2811,7 +2844,8 @@ function baixarRelatorioConfirmados() {
   haptic('light');
   const todasRespostas = eventoRsvpCache.rsvps || [];
   const confirmados = todasRespostas.filter(rsvpConfirmou);
-  const declinaram = todasRespostas.filter(r => !rsvpConfirmou(r));
+  const declinaram = todasRespostas.filter(rsvpDeclinou);
+  const semResposta = todasRespostas.filter(r => !rsvpConfirmou(r) && !rsvpDeclinou(r));
   const comConvite = confirmados.filter(r => !!encontrarConviteDoRsvp(r.guest_name, r.id));
   const semConvite = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
   const nomeEvento = clienteData?.nome || eventoRsvpCache.title || 'Evento';
@@ -2836,7 +2870,7 @@ function baixarRelatorioConfirmados() {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10);
     doc.text(`Confirmações de presença · gerado em ${new Date().toLocaleDateString('pt-PT')}`, margemX, 24);
     doc.setFontSize(9);
-    doc.text(`${todasRespostas.length} resposta${todasRespostas.length===1?'':'s'} no total  ·  ${comConvite.length} com convite  ·  ${semConvite.length} por gerar  ·  ${declinaram.length} declinaram`, margemX, 30);
+    doc.text(`${confirmados.length} confirmaram  ·  ${declinaram.length} declinaram  ·  ${semResposta.length} sem resposta  ·  ${todasRespostas.length} no total`, margemX, 30);
     doc.setTextColor(...corTextoEscuro);
     y = 46;
   }
@@ -2883,6 +2917,11 @@ function baixarRelatorioConfirmados() {
       const criancas = criancasNum === null ? nomesPipe(r.kids) : [];
       const ladoLbl = labelLado(r.side, eventoRsvpCache);
       const extras = [];
+      // 🆕 A resposta do convidado passa a vir escrita em cada linha. Sem isto,
+      // o relatório mostrava só nomes, e o dono não sabia quem tinha
+      // confirmado, quem tinha declinado, e quem ainda não respondera — que é
+      // exactamente a informação que ele precisa para contar lugares.
+
       if (acompNum) extras.push(`${acompNum} acompanhante${acompNum===1?'':'s'}`);
       else if (acomp.length) extras.push(`Acompanhante${acomp.length===1?'':'s'}: ${acomp.join(', ')}`);
       if (criancasNum) extras.push(`${criancasNum} criança${criancasNum===1?'':'s'}`);
@@ -2919,9 +2958,23 @@ function baixarRelatorioConfirmados() {
   }
 
   desenharCabecalho();
-  desenharSeccao('Convite já gerado', comConvite, [214, 237, 229], [40, 90, 72]);
-  desenharSeccao('Convite por gerar', semConvite, [255, 243, 205], [146, 90, 8]);
+  // 🆕 As secções passam a ser por RESPOSTA, não por estado do convite.
+  //
+  // Antes dividia-se em "convite já gerado" e "convite por gerar" — que é a
+  // lista de trabalho do dono, não a resposta dos convidados. Quem lia o
+  // relatório via só nomes agrupados por uma coisa que não lhe interessava, e
+  // não conseguia saber quantas pessoas vão de facto ao casamento.
+  //
+  // Dentro dos confirmados mantém-se a distinção de convite, porque também é
+  // útil — mas agora como subgrupo, não como divisão principal.
+  // 🆕 Três secções, por RESPOSTA do convidado — nada sobre o estado do
+  // convite. O dono usa este PDF para saber quantas pessoas vão à festa;
+  // saber a quem falta gerar bilhete é trabalho dele, e vive na aba
+  // "Convites". Misturar as duas coisas fazia com que quem lesse o relatório
+  // não conseguisse contar lugares, que é a única razão de o abrir.
+  desenharSeccao('Confirmaram presença', confirmados, [214, 237, 229], [40, 90, 72]);
   desenharSeccao('Declinaram', declinaram, [254, 226, 226], [153, 27, 27]);
+  desenharSeccao('Ainda não responderam', semResposta, [241, 245, 249], [71, 85, 105]);
   desenharRodape();
 
 
@@ -5825,7 +5878,10 @@ async function generateRelatorioAusentesPDF() {
     evento = data && data[0];
     if (!evento) throw new Error('Evento não encontrado na Confirmação de Presença.');
 
-    confirmados = (evento.rsvps || []).filter(r => r.attending === true || r.attending === 'yes');
+    // 🔒 CORRIGIDO — faltava o número 1, que é como o D1 guarda os booleanos.
+    // Sem ele, nenhum convidado contava como confirmado e esta função dizia
+    // sempre "ainda não há confirmações", mesmo com a lista cheia.
+    confirmados = (evento.rsvps || []).filter(r => rsvpConfirmou(r));
     if (confirmados.length === 0) throw new Error('Ainda não há confirmações de presença para este evento.');
 
     presentes = [];
