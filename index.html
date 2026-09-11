@@ -1633,7 +1633,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 // matemática de posições do PDF, só listar o que já está gravado.
 function _cfAdaptGeneratedTickets(cfEvent) {
   return (cfEvent?.rsvps || [])
-    .filter(r => (r.attending === true || r.attending === 1) && r.ticket_issued)
+    // 🔒 CORRIGIDO — a lista de convites exigia attending = 1, ou seja, só
+    // mostrava o convite de quem tinha confirmado presença. São duas coisas
+    // diferentes: o convite existe porque o dono o gerou, e existe na mesma
+    // se o convidado ainda não respondeu — ou se recusou.
+    //
+    // Isso funcionava por acidente, enquanto criar um convite marcava toda a
+    // gente como "vai". Corrigido esse comportamento, a lista esvaziou-se e o
+    // dono deixou de ver os convites que tinha emitido.
+    //
+    // O que define um convite é o bilhete ter sido emitido. Nada mais.
+    .filter(r => r.ticket_issued)
     .map(r => ({
       id: r.id,
       nome: r.guest_name,
