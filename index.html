@@ -4741,21 +4741,20 @@ function temAcompanhante(guest) {
     return / e /i.test(guest.nome);
 }
 
-// 🔒 CORRIGIDO — cortava o nome no primeiro " e ", para separar titular de
-// acompanhante. Isso funciona com "João e Maria", mas destrói o nome quando o
-// segundo não é uma pessoa nomeada: "Araújo e esposa" aparecia à porta como
-// "Araújo", e quem estava a validar deixava de ver o convite completo.
-//
-// Só se corta quando o que vem depois do " e " parece mesmo um NOME — começa
-// por maiúscula. "esposa", "acompanhante", "convidado" e afins ficam no nome,
-// que é onde o dono os escreveu.
 function nomeTitular(guest) {
     if (!guest || !guest.nome) return '';
-    const partes = String(guest.nome).split(/ e /i);
-    if (partes.length < 2) return String(guest.nome).trim();
-    const depois = partes.slice(1).join(' e ').trim();
-    const pareceNome = /^[A-ZÀ-Þ]/.test(depois);
-    return pareceNome ? partes[0].trim() : String(guest.nome).trim();
+    return guest.nome.split(/ e /i)[0].trim();
+}
+
+// Só para MOSTRAR no ecrã. O nomeTitular acima continua a separar titular de
+// acompanhante — é dele que depende a contagem de entradas e a pergunta "o
+// acompanhante veio?". Mexer nisso partia o Leitor.
+//
+// Mas à porta o que interessa é reconhecer o convite: "Araújo e esposa"
+// mostrado como "Araújo" deixava quem valida sem saber se era o convite
+// certo. Aqui devolve-se o nome como o dono o escreveu.
+function nomeParaMostrar(guest) {
+    return (guest && guest.nome) ? String(guest.nome).trim() : '';
 }
 
 function nomeAcompanhante(guest) {
@@ -5434,7 +5433,7 @@ function showCompanionModal(guest) {
         companionScanned.add(guest.id);
         awaitingCompanionScan = null;
         _lastCompanionName = nomeAcompanhante(guest);
-        showScanResult('ENTRADA CONFIRMADA (+ACOMPANHANTE)', nomeTitular(guest), 'success');
+        showScanResult('ENTRADA CONFIRMADA (+ACOMPANHANTE)', nomeParaMostrar(guest), 'success');
         playFeedback('success');
         scanPaused = false;
         showNextScanButton();
@@ -5445,7 +5444,7 @@ function showCompanionModal(guest) {
         // Acompanhante virá depois → deixar QR disponível para 2ª leitura
         awaitingCompanionScan = guest;
         _lastCompanionName = nomeAcompanhante(guest);
-        showScanResult('PERMITIDO (ACOMPANHANTE PENDENTE)', nomeTitular(guest), 'success');
+        showScanResult('PERMITIDO (ACOMPANHANTE PENDENTE)', nomeParaMostrar(guest), 'success');
         playFeedback('success');
         scanPaused = false;
         showNextScanButton();
