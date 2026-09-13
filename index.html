@@ -2464,7 +2464,15 @@ async function atualizarSecaoConfirmados() {
     // ainda não respondeu continua de fora: é o que distingue "confirmou" de
     // "tem bilhete". O sinal é o updated_at — uma linha criada pela emissão do
     // bilhete nunca o tem; uma resposta do convidado tem sempre.
-    const rsvps = (cfEventData?.rsvps || [])
+    // 🆕 Quando o evento tem um IRMÃO (o par Save the Date + convite, ligados
+    // pelo mesmo token do cliente), as confirmações vêm de lá: é no Save the
+    // Date que os convidados respondem, enquanto os convites são emitidos
+    // neste. Assim o dono vê as duas fases no mesmo sítio, sem trocar de link.
+    //
+    // Sem irmão, lê do próprio evento como sempre — nada muda nos eventos que
+    // já existem.
+    const _fonteRsvps = (cfEventData?.sibling?.rsvps?.length ? cfEventData.sibling.rsvps : (cfEventData?.rsvps || []));
+    const rsvps = _umaLinhaPorConvidado(_fonteRsvps
       // 🔒 CORRIGIDO — usava o updated_at como sinal de "respondeu". Mas essa
       // data marca QUALQUER alteração à linha: editar o nome de um convidado
       // também a preenche. Assim, um convite manual que nunca teve resposta
@@ -2472,7 +2480,7 @@ async function atualizarSecaoConfirmados() {
       //
       // O sinal certo é o próprio attending: quem respondeu tem-no preenchido
       // (1 ou 0), quem não respondeu tem-no vazio.
-      .filter(r => !r.is_manual_ticket || rsvpConfirmou(r) || rsvpDeclinou(r))
+      .filter(r => !r.is_manual_ticket || rsvpConfirmou(r) || rsvpDeclinou(r)))
       .map(r => ({ ...r, attending: (r.attending === true || r.attending === 1) }));
     // 🔒 CORRIGIDO — usava groom_name/bride_name (os nomes do CASAL, ex:
     // "Afonso"/"Filipa", usados no título do evento) em vez de
@@ -2821,6 +2829,28 @@ function nomesPipe(str) {
 // booleanos. Um convidado que tinha confirmado chegava aqui com attending = 1,
 // esta função dizia que não, e ele acabava na secção "Declinaram" do
 // relatório. Toda a lista saía trocada.
+// Uma linha por convidado. A base tem o mesmo nome repetido várias vezes —
+// confirmações que nasceram duplicadas antes da correcção no servidor. Não se
+// apagam (são dados do cliente, com bilhetes e links agarrados), mas nem a
+// lista nem o relatório os devem mostrar: quem conta lugares ficaria com o
+// mesmo convidado três ou quatro vezes.
+//
+// Fica a linha mais informativa de cada nome: a que tem resposta, e entre
+// essas a que tem recado ou acompanhante — é a que o convidado preencheu.
+function _umaLinhaPorConvidado(lista) {
+  const porNome = new Map();
+  for (const r of (lista || [])) {
+    const chave = String(r.guest_name || '').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+    const peso = ((rsvpConfirmou(r) || rsvpDeclinou(r)) ? 4 : 0)
+               + (r.message ? 2 : 0)
+               + (r.companions && String(r.companions) !== '0' ? 1 : 0);
+    const atual = porNome.get(chave);
+    if (!atual || peso > atual.peso) porNome.set(chave, { r, peso });
+  }
+  return [...porNome.values()].map((x) => x.r);
+}
+
 function rsvpConfirmou(r) {
   const a = r?.attending;
   return a === true || a === 1 || a === '1' || a === 'yes';
@@ -2894,8 +2924,20 @@ function baixarRelatorioConfirmados() {
   // convites.
   //
   // O relatório passa a usar exactamente a mesma lista que o dono vê no ecrã.
-  const todasRespostas = (eventoRsvpCache.rsvps || [])
+  const _visiveis = (eventoRsvpCache.rsvps || [])
     .filter(r => !r.is_manual_ticket || rsvpConfirmou(r) || rsvpDeclinou(r));
+
+  // 🆕 Uma linha por convidado no relatório.
+  //
+  // A base tem o mesmo convidado repetido várias vezes — confirmações que
+  // nasceram duplicadas antes da correcção no servidor. Não se apagam aqui
+  // (são dados do cliente, com bilhetes e links agarrados), mas o relatório
+  // não os deve mostrar: quem conta lugares a partir deste PDF ficaria com
+  // "Carlos Lopes e Esposa" quatro vezes e contaria oito pessoas.
+  //
+  // Fica a linha mais informativa de cada nome: a que tem resposta, e entre
+  // essas a que tem recado ou acompanhante — é a que o convidado preencheu.
+  const todasRespostas = _umaLinhaPorConvidado(_visiveis);
   const confirmados = todasRespostas.filter(rsvpConfirmou);
   const declinaram = todasRespostas.filter(rsvpDeclinou);
   const semResposta = todasRespostas.filter(r => !rsvpConfirmou(r) && !rsvpDeclinou(r));
