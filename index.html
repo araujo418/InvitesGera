@@ -1136,13 +1136,6 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
   //
   // Só se desenha quando o convidado TEM mesa atribuída. Sem mesa não há o
   // que escrever, e um bilhete não deve levar espaço vazio reservado.
-  // 🔍 Registo temporário — para ver se a mesa chega aqui. Remover depois de
-  // confirmado que o texto sai no bilhete.
-  console.log('[MESA] recebida na geração:', JSON.stringify(mesa),
-              '| posição:', t.ticket_table_x, t.ticket_table_y,
-              '| tamanho:', t.ticket_table_size,
-              '| página:', t.ticket_table_page);
-
   if (mesa && String(mesa).trim()) {
     try {
       // O mesmo rótulo que aparece na lista: "5" vira "Mesa 5", e quem já
