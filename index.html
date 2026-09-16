@@ -1127,6 +1127,41 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
   const textW = font.widthOfTextAtSize(t.guest_name, nameSize);
   namePage.drawText(t.guest_name, { x: nx - textW/2, y: ny - nameSize/2, size: nameSize, font, color: rgb(hr,hg,hb) });
 
+  // 🆕 MESA DO CONVIDADO
+  //
+  // A posição, o tamanho e a cor já eram configurados no Template do Bilhete
+  // e vinham no evento — mas nunca chegavam a ser desenhados aqui. O dono
+  // arrastava o marcador, gravava, escrevia a mesa ao gerar, e nada aparecia
+  // no PDF: faltava esta parte por escrever.
+  //
+  // Só se desenha quando o convidado TEM mesa atribuída. Sem mesa não há o
+  // que escrever, e um bilhete não deve levar espaço vazio reservado.
+  if (mesa && String(mesa).trim()) {
+    try {
+      // O mesmo rótulo que aparece na lista: "5" vira "Mesa 5", e quem já
+      // escreveu "Mesa França" não fica com "Mesa Mesa França".
+      const mesaTxt = _rotuloMesa(mesa);
+      const mesaSize = t.ticket_table_size || 24;
+      const mesaPage = _pageAt(t.ticket_table_page);
+      const { width: mw, height: mh } = mesaPage.getSize();
+      const { r: mr, g: mg, b: mb } = _cfHexToRgbSafe(t.ticket_table_color);
+      const mxCentro = (t.ticket_table_x != null ? t.ticket_table_x : 0.5) * mw;
+      const myTopo = mh - (t.ticket_table_y != null ? t.ticket_table_y : 0.9) * mh;
+      const mesaW = font.widthOfTextAtSize(mesaTxt, mesaSize);
+      mesaPage.drawText(mesaTxt, {
+        x: mxCentro - mesaW / 2,
+        y: myTopo - mesaSize / 2,
+        size: mesaSize,
+        font,
+        color: rgb(mr, mg, mb),
+      });
+    } catch (e) {
+      // Uma mesa que não se consiga desenhar nunca pode impedir a emissão do
+      // bilhete: o convidado precisa do QR para entrar, a mesa é secundária.
+      console.warn('[MESA] não foi possível desenhar no bilhete:', e.message);
+    }
+  }
+
   // 🔒 CORRIGIDO — mesmo bug encontrado e corrigido no site (js/tickets.js):
   // faltava excluir "off" — sem isto, desligar o QR nunca fazia nada,
   // saía sempre à mesma.
@@ -2877,6 +2912,15 @@ function _umaLinhaPorConvidado(lista) {
   return [...porNome.values()].map((x) => x.r);
 }
 
+// O dono escreve a mesa como quiser: "5", "Mesa 5", "VIP", "Mesa França".
+// Prefixar sempre com "Mesa " dava "Mesa Mesa França" a quem já a tinha
+// escrito. Só se acrescenta quando o texto ainda não começa por "mesa".
+function _rotuloMesa(v) {
+  const t = String(v || '').trim();
+  if (!t) return '';
+  return /^mesa\b/i.test(t) ? t : 'Mesa ' + t;
+}
+
 function rsvpConfirmou(r) {
   const a = r?.attending;
   return a === true || a === 1 || a === '1' || a === 'yes';
@@ -3161,7 +3205,7 @@ function baixarRelatorioConvites() {
   todos.forEach((c, i) => {
     const confirmado = estaConfirmadoRSVP(c.nome, c.rsvp_id);
     const extras = [];
-    if (mesasActivas && c.mesa) extras.push(`Mesa ${c.mesa}`);
+    if (mesasActivas && c.mesa) extras.push(_rotuloMesa(c.mesa));
     extras.push(confirmado ? '✓ Confirmou presença' : '— sem confirmação ligada');
     if (c.created_at) { try { extras.push(new Date(c.created_at).toLocaleDateString('pt-PT')); } catch(e) {} }
     const linhaAltura = 13;
@@ -3312,7 +3356,7 @@ function renderizarConvites(lista, termo) {
     item.className = 'convite-item' + (jaDl?' ja-descarregado':isPend?' offline-pendente':'');
     const initials = conv.nome.trim().split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
     let tag='', btnCls='btn-dl', btnIcon = isIOS ? '<i class="ti ti-share-2" aria-hidden="true"></i>' : '<i class="ti ti-download" aria-hidden="true"></i>';
-    const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#5ba189;">Mesa ${escHtml(conv.mesa)}</div>` : '';
+    const mesaTag = (configData?.mesa_ativa && conv.mesa) ? `<div class="convite-item-tag" style="color:#5ba189;">${escHtml(_rotuloMesa(conv.mesa))}</div>` : '';
     // Num evento com irmão, a confirmação veio do Save the Date — e o dono
     // deve saber isso, senão a etiqueta parece dizer que o convidado
     // respondeu a um convite que ainda nem permite respostas.
