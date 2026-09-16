@@ -1697,7 +1697,20 @@ async function tentarRestaurarSessao(token) {
         event_code_confirmacao: cfEvent.event_code || cfEvent.id,
         ilimitado: false,
       };
-      configData = { mesa_ativa: false, pdf_base: null, elementos: {} }; // ⚠️ completo na Fase 2
+      // 🔒 CORRIGIDO — o "mesa_ativa" estava fixo em false, com um comentário
+      // a dizer que ficava para depois. Nunca foi ligado: por muito que o
+      // dono configurasse a mesa no Template do Bilhete, o campo nunca
+      // aparecia aqui e a mesa nunca chegava ao bilhete.
+      //
+      // Liga-se agora ao que o evento traz. O sinal é o "tickets_with_table";
+      // quando ele não vem, serve a posição da mesa já configurada — se o
+      // dono a arrastou no template, é porque quer mesas.
+      configData = {
+        mesa_ativa: !!(cfEvent.tickets_with_table
+                       || (cfEvent.ticket_table_x != null && cfEvent.ticket_table_size)),
+        pdf_base: null,
+        elementos: {},
+      };
       cfBackendMode = true;
       cfEventData = cfEvent;
     }
@@ -1837,7 +1850,20 @@ async function validarToken() {
         event_code_confirmacao: cfEvent.event_code || cfEvent.id,
         ilimitado: false,
       };
-      configData = { mesa_ativa: false, pdf_base: null, elementos: {} }; // ⚠️ completo na Fase 2
+      // 🔒 CORRIGIDO — o "mesa_ativa" estava fixo em false, com um comentário
+      // a dizer que ficava para depois. Nunca foi ligado: por muito que o
+      // dono configurasse a mesa no Template do Bilhete, o campo nunca
+      // aparecia aqui e a mesa nunca chegava ao bilhete.
+      //
+      // Liga-se agora ao que o evento traz. O sinal é o "tickets_with_table";
+      // quando ele não vem, serve a posição da mesa já configurada — se o
+      // dono a arrastou no template, é porque quer mesas.
+      configData = {
+        mesa_ativa: !!(cfEvent.tickets_with_table
+                       || (cfEvent.ticket_table_x != null && cfEvent.ticket_table_size)),
+        pdf_base: null,
+        elementos: {},
+      };
       cfBackendMode = true;
       cfEventData = cfEvent;
     }
