@@ -1737,12 +1737,18 @@ async function tentarRestaurarSessao(token) {
       // dono configurasse a mesa no Template do Bilhete, o campo nunca
       // aparecia aqui e a mesa nunca chegava ao bilhete.
       //
-      // Liga-se agora ao que o evento traz. O sinal é o "tickets_with_table";
-      // quando ele não vem, serve a posição da mesa já configurada — se o
-      // dono a arrastou no template, é porque quer mesas.
+      // 🔒 CORRIGIDO — eu aceitava também a posição da mesa como sinal de que
+      // o dono a queria ("se arrastou o marcador, é porque quer mesas"). Mas
+      // essa posição existe por omissão em eventos que nunca pediram mesas, e
+      // o resultado foi o Gerador passar a exigir mesa a clientes que não a
+      // usam — a bloquear a emissão de bilhetes de quem deixava o campo
+      // vazio.
+      //
+      // O único sinal válido é o interruptor: "tickets_with_table", que o
+      // dono liga de propósito. Sem ele, não há mesa.
       configData = {
-        mesa_ativa: !!(cfEvent.tickets_with_table
-                       || (cfEvent.ticket_table_x != null && cfEvent.ticket_table_size)),
+        mesa_ativa: cfEvent.tickets_with_table === true
+                 || cfEvent.tickets_with_table === 1,
         pdf_base: null,
         elementos: {},
       };
@@ -1890,12 +1896,18 @@ async function validarToken() {
       // dono configurasse a mesa no Template do Bilhete, o campo nunca
       // aparecia aqui e a mesa nunca chegava ao bilhete.
       //
-      // Liga-se agora ao que o evento traz. O sinal é o "tickets_with_table";
-      // quando ele não vem, serve a posição da mesa já configurada — se o
-      // dono a arrastou no template, é porque quer mesas.
+      // 🔒 CORRIGIDO — eu aceitava também a posição da mesa como sinal de que
+      // o dono a queria ("se arrastou o marcador, é porque quer mesas"). Mas
+      // essa posição existe por omissão em eventos que nunca pediram mesas, e
+      // o resultado foi o Gerador passar a exigir mesa a clientes que não a
+      // usam — a bloquear a emissão de bilhetes de quem deixava o campo
+      // vazio.
+      //
+      // O único sinal válido é o interruptor: "tickets_with_table", que o
+      // dono liga de propósito. Sem ele, não há mesa.
       configData = {
-        mesa_ativa: !!(cfEvent.tickets_with_table
-                       || (cfEvent.ticket_table_x != null && cfEvent.ticket_table_size)),
+        mesa_ativa: cfEvent.tickets_with_table === true
+                 || cfEvent.tickets_with_table === 1,
         pdf_base: null,
         elementos: {},
       };
@@ -3542,7 +3554,10 @@ function pedirConfirmacaoGerar() {
   const mesaRaw = (configData?.mesa_ativa ? document.getElementById('mesaInput')?.value.trim() : '') || '';
   const { ok, msg } = validarNome(nomeRaw);
   if (!ok) { haptic('warning'); showInfo('step2Info', msg, 'yellow'); validarNomeInput(); return; }
-  if (configData?.mesa_ativa && !mesaRaw && !veioDeConfirmado) { haptic('warning'); showInfo('step2Info', '⚠️ Introduza a mesa do convidado.', 'yellow'); return; }
+  // 🆕 A mesa deixa de ser obrigatória ao gerar. Nem todos os convidados têm
+  // mesa atribuída no momento em que o bilhete é emitido, e bloquear a
+  // emissão por causa disso impedia o dono de trabalhar. Quem quiser
+  // preenche depois, pelo botão de editar o convite.
   if (!clienteData || !configData) { haptic('error'); showInfo('step2Info','Sessão expirada.','red'); return; }
   if (!navigator.onLine) {
     if (!modoOfflinePermitido()) { haptic('error'); showInfo('step2Info','📵 Este evento requer QR Code — necessita de internet para gerar convites.','red'); return; }
