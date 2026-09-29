@@ -440,6 +440,18 @@
     .btn-dl.ja-dl    { background: #d1fae5; color: #065f46; }
     .btn-dl.ja-dl:active { background: #a7f3d0; }
     .btn-dl.pendente { background: #fef3c7; color: #92400e; }
+    .btn-dl.btn-dl-wa { background: #e7f9ee; color: #128C7E; font-size: 19px; }
+    .btn-dl.btn-dl-wa:active { background: #c8f0d6; }
+    .btn-main.btn-wa { background: #25D366; color: #fff; }
+    .btn-main.btn-wa:active { background: #1ebe5a; }
+    /* Com o botão de WhatsApp há 3 botões por linha — em ecrãs estreitos
+       esconde-se o avatar e o nome pode ocupar 2 linhas, para não ficar cortado. */
+    @media (max-width: 440px) {
+      .convite-item { gap: 8px; padding: 10px 10px; }
+      .convite-item .convite-avatar { display: none; }
+      .convite-item-nome { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+      .convite-item .btn-dl-wa { margin-right: 0 !important; }
+    }
 
     .section-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
 
@@ -637,6 +649,7 @@
 <nav class="app-nav">
   <button class="app-nav-btn active" id="navGerador" onclick="switchApp('gerador')"><i class="ti ti-ticket" aria-hidden="true"></i> Gerador</button>
   <button class="app-nav-btn"        id="navLeitor"  onclick="switchApp('leitor')"><i class="ti ti-qrcode" aria-hidden="true"></i> Leitor</button>
+  <button class="app-nav-ajuda" id="navAjuda" onclick="InvitesTour.iniciar()" aria-label="Como usar (tutorial)" title="Como usar"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
 </nav>
 
 <!-- PAINEL GERADOR -->
@@ -1289,6 +1302,8 @@ let rsvpIdEmGeracao    = null;  // ▼ NOVO: id estável do rsvp (imune a mudan�
    objecto clienteData (campo convites_gerados)
 ═══════════════════════════════════════════ */
 function getGerados() { return clienteData?.convites_gerados || 0; }
+// ▼ NOVO: estado mínimo para o tutorial (script separado, fora deste IIFE)
+window.__invitesInfo = () => ({ logado: !!clienteData, token: clienteData?.token || null, gerados: getGerados(), cf: cfBackendMode });
 
 /* ═══════════════════════════════════════════
    RATE LIMITING
@@ -1345,6 +1360,162 @@ async function triggerDownload(blob, nome) {
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   }
+}
+
+/* ═══════════════════════════════════════════
+   ═══ NOVO — ENVIAR PELO WHATSAPP ═══
+   No telemóvel usa a folha de partilha do
+   sistema (navigator.share com o PDF) — o
+   cliente escolhe WhatsApp e o contacto, e o
+   PDF vai anexado com a mensagem. No computador
+   (sem partilha de ficheiros) baixa o PDF e abre
+   o WhatsApp com a mensagem pronta, para anexar.
+═══════════════════════════════════════════ */
+function mensagemWhatsApp(nome) {
+  const evento = (document.getElementById('eventoNomeBox')?.textContent || '').trim();
+  return `Olá, ${nome}! 💌\n` +
+    (evento ? `Segue em anexo o seu convite — ${evento}.\n` : 'Segue em anexo o seu convite.\n') +
+    'Por favor, apresente o QR Code do convite à entrada. Obrigado!';
+}
+
+// Plataforma: Android e iPhone tratam a partilha de forma diferente.
+const isAndroid = /android/i.test(navigator.userAgent);
+const isIOSDevice = isIOS || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad recente diz ser "Mac"
+
+function ficheiroConvite(blob, nome) {
+  try { return new File([blob], `${nome}.pdf`, { type: 'application/pdf' }); } catch(e) { return null; }
+}
+function suportaPartilhaFicheiro(file) {
+  try { return !!(file && navigator.canShare && navigator.canShare({ files: [file] })); } catch(e) { return false; }
+}
+
+// Abre a folha de partilha do telemóvel com o PDF.
+//  • Android: PDF + mensagem (o WhatsApp usa a mensagem como legenda).
+//  • iPhone: só o PDF — no iOS, juntar texto faz o WhatsApp enviar muitas
+//    vezes só a mensagem e perder o ficheiro. A mensagem vai copiada para
+//    a área de transferência, para colar se quiser.
+// Devolve: 'ok' | 'cancelado' | 'bloqueado' | 'indisponivel' | 'erro'
+async function abrirPartilhaConvite(blob, nome) {
+  const file = ficheiroConvite(blob, nome);
+  if (!suportaPartilhaFicheiro(file)) return 'indisponivel';
+  const texto = mensagemWhatsApp(nome);
+  const dados = isIOSDevice ? { files: [file] } : { files: [file], text: texto, title: file.name };
+  if (isIOSDevice && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).catch(() => {});
+  }
+  try {
+    await navigator.share(dados);
+    return 'ok';
+  } catch(e) {
+    if (e && e.name === 'AbortError') return 'cancelado';        // fechou a partilha
+    if (e && e.name === 'NotAllowedError') return 'bloqueado';   // browser exige um toque antes
+    return 'erro';
+  }
+}
+
+// Chamado a partir de um toque (botão "Enviar pelo WhatsApp").
+async function partilharWhatsApp(blob, nome) {
+  const r = await abrirPartilhaConvite(blob, nome);
+  if (r === 'ok') { haptic('success'); return; }
+  if (r === 'cancelado') return;
+  // Computador / browser sem partilha de ficheiros (ex: aberto dentro do
+  // Facebook/Instagram): abre o WhatsApp com a mensagem e baixa o PDF.
+  const texto = mensagemWhatsApp(nome);
+  if (isIOSDevice) {
+    // iPhone sem partilha de ficheiros: abre o PDF — no ecrã do PDF, o
+    // botão Partilhar (quadrado com seta ⬆️) leva ao WhatsApp.
+    await triggerDownload(blob, nome);
+    showToast('📄 Toque em Partilhar ⬆️ e escolha o WhatsApp.', '#128C7E');
+    return;
+  }
+  if (isAndroid) {
+    // Android sem partilha (browser dentro de outra app): baixa o PDF e
+    // abre a app do WhatsApp com a mensagem pronta, para anexar o ficheiro.
+    await triggerDownload(blob, nome);
+    setTimeout(() => { location.href = 'whatsapp://send?text=' + encodeURIComponent(texto); }, 700);
+    showToast('📎 PDF baixado — no WhatsApp, anexe-o com o clipe 📎.', '#128C7E');
+    return;
+  }
+  // Computador: WhatsApp Web / Desktop + PDF baixado para anexar.
+  const w = window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank');
+  await triggerDownload(blob, nome);
+  haptic('success');
+  showToast(w ? '📎 PDF baixado — anexe-o na conversa do WhatsApp.' : '📎 PDF baixado — abra o WhatsApp e anexe-o.', '#128C7E');
+}
+
+// ▼ Logo DEPOIS DE GERAR: tenta abrir já a partilha (WhatsApp). Se o
+// browser não deixar (a geração demorou e o toque "expirou" — acontece
+// sobretudo no iPhone), pergunta de imediato se quer enviar pelo WhatsApp.
+async function aposGerarConvite(blob, nome) {
+  const file = ficheiroConvite(blob, nome);
+  const toqueValido = navigator.userActivation ? navigator.userActivation.isActive : true;
+  if (toqueValido && suportaPartilhaFicheiro(file)) {
+    showToast(isIOSDevice ? '✅ Convite gerado! Toque em WhatsApp.' : '✅ Convite gerado! Escolha o WhatsApp.', '#5ba189');
+    const r = await abrirPartilhaConvite(blob, nome);
+    if (r === 'ok') { haptic('success'); return; }
+    // cancelou / bloqueado / erro → mostra a pergunta, para não perder o convite
+  }
+  mostrarConvitePronto(blob, nome);
+}
+
+// Pergunta: "Deseja enviar pelo WhatsApp?"
+function mostrarConvitePronto(blob, nome, soWhatsApp) {
+  const acoes = [
+    { label: soWhatsApp ? '📲 Enviar pelo WhatsApp' : '📲 Sim, enviar pelo WhatsApp', cls:'btn-main btn-wa', fn:()=>partilharWhatsApp(blob, nome) }
+  ];
+  if (!soWhatsApp) {
+    acoes.push({ label: isIOSDevice ? '⬇️ Só guardar o PDF' : '⬇️ Só baixar o PDF', cls:'btn-outline', fn:async ()=>{
+      await triggerDownload(blob, nome); haptic('success');
+      showToast(isIOS ? '📤 Escolha "Guardar em Ficheiros".' : '📥 Download iniciado!');
+    } });
+  }
+  acoes.push({ label: soWhatsApp ? '✕ Cancelar' : 'Agora não', cls:'btn-ghost', fn:()=>{} });
+  const dicaIOS = isIOSDevice ? ' No iPhone, se não vir o WhatsApp, deslize os ícones e toque em "Mais".' : '';
+  abrirModal({
+    titulo: '✅ Convite pronto!',
+    corpo: (soWhatsApp
+      ? 'Toque abaixo, escolha o WhatsApp e depois o contacto do convidado.'
+      : 'Deseja enviar agora pelo WhatsApp? Escolha o WhatsApp e depois o contacto do convidado.') + dicaIOS,
+    nome, nomeCls: '',
+    acoes
+  });
+}
+
+// Botão verde de WhatsApp em cada convite da lista.
+async function enviarWhatsAppConvite(nome, codigo, id, isPend, btn) {
+  haptic('light');
+  let blob = null, nomeFinal = nome;
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>'; }
+  try {
+    if (isPend) {
+      const item = filaOffline.find(f => f.id_local === id);
+      blob = item ? obterBlobOffline(item) : null;
+      if (!blob) throw new Error('PDF não disponível. Feche e reabra a página para regenerar.');
+      nomeFinal = item.nome;
+    } else if (cfBackendMode) {
+      if (!navigator.onLine) throw new Error('Sem ligação à internet.');
+      const r = await _cfGerarTicketReal(nome, null, id);
+      blob = r.blob; nomeFinal = r.guestName || nome;
+    } else {
+      if (!navigator.onLine) throw new Error('Sem ligação à internet.');
+      const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
+      let qr = null;
+      if (configData?.qr_ativo !== false) { const qrTexto = await cifrarCodigoQR(codigo, clienteData.token); qr = await gerarQRDataURL(qrTexto, 300); }
+      blob = await gerarPDF(nome, codigo, qr, configData, convObj?.mesa || '');
+    }
+  } catch(e) {
+    haptic('error');
+    showToast('⚠️ ' + (e.message || 'Não foi possível preparar o convite.'), '#dc2626');
+    return;
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+  // Se o toque ainda "vale" (foi rápido), abre logo a partilha; senão pede
+  // um toque de confirmação (os browsers só deixam partilhar após um toque).
+  const toqueValido = navigator.userActivation ? navigator.userActivation.isActive : false;
+  if (toqueValido) partilharWhatsApp(blob, nomeFinal);
+  else mostrarConvitePronto(blob, nomeFinal, true);
 }
 
 /* ═══════════════════════════════════════════
@@ -1638,6 +1809,7 @@ function showStep(id) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     novoStep.classList.add('visible');
     if (id === 'step1') setTimeout(() => document.getElementById('tokenInput')?.focus(), 320);
+    if (id === 'step2') { try { window.InvitesTour && window.InvitesTour.aoEntrarPainel(); } catch(e) {} }
     if (id === 'step2') setTimeout(() => { const el = document.getElementById('nomeInput'); if (!el) return; if (document.activeElement !== document.getElementById('convitesSearch')) el.focus(); el.scrollIntoView({ behavior:'smooth', block:'center' }); }, 380);
   }));
 }
@@ -3385,6 +3557,10 @@ function renderizarConvites(lista, termo) {
       <div class="convite-item-info">
         <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${nomeMudouTag}${tag}
       </div>
+      <button class="btn-dl btn-dl-wa" aria-label="Enviar convite de ${escHtml(conv.nome)} pelo WhatsApp" title="Enviar pelo WhatsApp" style="margin-right:6px"
+        onclick="enviarWhatsAppConvite('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
+        <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
+      </button>
       <button class="${btnCls}" aria-label="Descarregar convite de ${escHtml(conv.nome)}"
         onclick="baixarOuPartilhar('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
         ${btnIcon}
@@ -3892,8 +4068,8 @@ async function gerarConvite(nome, mesa, rsvpId) {
         todosConvites.unshift({ id: idFinal, nome: guestName, mesa, codigo: idFinal, created_at: new Date().toISOString(), editado: false, rsvp_id: idFinal, downloads_count: 0 });
       }
       renderizarConvites(obterListaCompletaConvites());
-      await triggerDownload(blob, guestName);
-      showToast('✅ Bilhete gerado!', '#5ba189');
+      // ▼ NOVO: em vez de só baixar, pergunta: Enviar pelo WhatsApp / Baixar PDF
+      aposGerarConvite(blob, guestName);
     } catch(e) {
       pararProgressBar(); haptic('error'); console.error(e); mostrarErro(e);
     }
@@ -4012,9 +4188,8 @@ async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
     ? (!!id && !convObj.editado)
     : (!!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id));
   if (!podeEditar) {
-    if (isIOS) { document.getElementById('iosHint').style.display='block'; showToast('✅ Convite gerado! Escolha WhatsApp ou Ficheiros.','#5ba189'); }
-    else showToast(`✅ Convite de ${nome} gerado!`);
-    await triggerDownload(pdfBlobPronto, nome);
+    // ▼ ALTERADO: mostra "Enviar pelo WhatsApp / Baixar PDF" em vez de baixar logo
+    aposGerarConvite(pdfBlobPronto, nome);
     return;
   }
   const sugerido = sugerirNomeComAcompanhantes(convObj);
@@ -4029,8 +4204,7 @@ async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
   if (!mesaObrigatoria) {
     acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:async ()=>{
       marcarDecisaoEdicao(id);
-      showToast(`✅ Convite de ${nome} gerado!`);
-      await triggerDownload(pdfBlobPronto, nome);
+      aposGerarConvite(pdfBlobPronto, nome);
     } });
   }
   abrirModal({
@@ -4156,6 +4330,7 @@ function hexToRgb(hex){hex=(hex||'#000000').replace('#','');if(hex.length===3)he
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 // Expose to global scope
+  window.enviarWhatsAppConvite = enviarWhatsAppConvite;
   window.baixarOuPartilhar = typeof baixarOuPartilhar !== "undefined" ? baixarOuPartilhar : window.baixarOuPartilhar;
   window.filtrarConvites = typeof filtrarConvites !== "undefined" ? filtrarConvites : window.filtrarConvites;
   window.atualizarPrecoExtra = typeof atualizarPrecoExtra !== "undefined" ? atualizarPrecoExtra : window.atualizarPrecoExtra;
@@ -6456,6 +6631,444 @@ function switchApp(app) {
     const aba = sessionStorage.getItem('adkira_aba');
     if (aba && aba !== 'gerador') switchApp(aba);
   } catch(e) {}
+})();
+</script>
+
+
+<!-- ═══════════════════════════════════════════
+     ═══ NOVO — TUTORIAL GUIADO (Gerador → WhatsApp → Leitor) ═══
+     • Pergunta "Gostaria de aprender?" até 4 vezes, só a clientes novos
+       (poucos convites gerados), no máximo 1 vez por sessão e com intervalo.
+     • O cliente pode ignorar a qualquer momento.
+     • Botão ❓ na barra de topo abre o tutorial sempre que quiser.
+═══════════════════════════════════════════ -->
+<style>
+  .app-nav-ajuda { flex: 0 0 auto; width: 48px; border: none; background: transparent; color: #5ba189; font-size: 21px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-left: 1px solid #e0f0eb; }
+  .app-nav-ajuda:active { background: #edf7f3; }
+
+  #tourRoot { position: fixed; inset: 0; z-index: 100001; display: none; font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; }
+  #tourRoot.on { display: block; }
+  #tourBloqueio { position: absolute; inset: 0; background: transparent; }
+  #tourFoco { position: fixed; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(15, 23, 42, .62); outline: 3px solid #5ba189; outline-offset: 2px; pointer-events: none;
+              transition: top .3s ease, left .3s ease, width .3s ease, height .3s ease, outline-color .2s; }
+  #tourFoco.centro { outline-color: transparent; }
+  #tourCartao { position: fixed; width: min(360px, calc(100vw - 24px)); background: #fff; border-radius: 18px; padding: 18px 18px 14px; box-shadow: 0 18px 50px rgba(0,0,0,.28);
+                transition: top .3s ease, left .3s ease, opacity .2s; }
+  #tourCartao .t-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  #tourCartao .t-fase { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5ba189; }
+  #tourCartao .t-passo { font-size: 11.5px; color: #9ca3af; font-weight: 600; }
+  #tourCartao h3 { font-size: 17px; font-weight: 700; color: #1a1a2e; margin: 2px 0 6px; line-height: 1.3; }
+  #tourCartao .t-texto { font-size: 14px; color: #4b5563; line-height: 1.5; }
+  #tourCartao .t-texto b { color: #1a1a2e; }
+  #tourCartao .t-barra { height: 4px; background: #edf7f3; border-radius: 4px; margin: 14px 0 12px; overflow: hidden; }
+  #tourCartao .t-barra div { height: 100%; background: #5ba189; border-radius: 4px; transition: width .3s ease; }
+  #tourCartao .t-acoes { display: flex; align-items: center; gap: 8px; }
+  #tourCartao .t-acoes button { border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 11px; padding: 10px 14px; min-height: 42px; touch-action: manipulation; }
+  #tourCartao .t-ignorar { background: transparent; color: #9ca3af; padding-left: 4px !important; margin-right: auto; }
+  #tourCartao .t-voltar { background: #edf7f3; color: #5ba189; }
+  #tourCartao .t-seguinte { background: #5ba189; color: #fff; }
+  #tourCartao .t-seguinte:active { background: #4a8f78; }
+
+  /* Pré-visualização da janela "Convite pronto" dentro do tutorial */
+  .t-mock { margin-top: 12px; border: 1.5px dashed #d0ede6; border-radius: 14px; padding: 12px; background: #f5faf8; display: flex; flex-direction: column; gap: 7px; }
+  .t-mock .m-tit { font-size: 13.5px; font-weight: 700; color: #1a1a2e; text-align: center; }
+  .t-mock .m-btn { border-radius: 10px; padding: 9px; font-size: 13px; font-weight: 600; text-align: center; }
+  .t-mock .m-wa { background: #25D366; color: #fff; }
+  .t-mock .m-dl { border: 1.5px solid #5ba189; color: #5ba189; background: #fff; }
+  .t-icone { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; vertical-align: middle; font-size: 15px; margin: 0 2px; }
+  .t-icone.wa { background: #e7f9ee; color: #128C7E; }
+  .t-icone.dl { background: #edf7f3; color: #5ba189; }
+  .t-icone.del { background: #fef2f2; color: #dc2626; }
+
+  /* Convite discreto "Gostaria de aprender?" */
+  #tourConviteAjuda { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translate(-50%, 140%); z-index: 100000;
+                      width: min(400px, calc(100vw - 24px)); background: #fff; border-radius: 18px; padding: 14px 14px 12px; box-shadow: 0 12px 40px rgba(0,0,0,.22);
+                      border: 1px solid #e0f0eb; transition: transform .35s cubic-bezier(.32,1.01,.56,1); font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; }
+  #tourConviteAjuda.on { transform: translate(-50%, 0); }
+  #tourConviteAjuda .ca-linha { display: flex; gap: 12px; align-items: flex-start; }
+  #tourConviteAjuda .ca-ico { width: 40px; height: 40px; border-radius: 12px; background: #edf7f3; color: #5ba189; display: flex; align-items: center; justify-content: center; font-size: 21px; flex-shrink: 0; }
+  #tourConviteAjuda .ca-tit { font-size: 14.5px; font-weight: 700; color: #1a1a2e; line-height: 1.3; }
+  #tourConviteAjuda .ca-sub { font-size: 12.5px; color: #6b7280; margin-top: 2px; line-height: 1.4; }
+  #tourConviteAjuda .ca-fechar { margin-left: auto; background: none; border: none; color: #9ca3af; font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; }
+  #tourConviteAjuda .ca-acoes { display: flex; gap: 8px; margin-top: 12px; }
+  #tourConviteAjuda .ca-acoes button { flex: 1; border: none; border-radius: 11px; padding: 10px; min-height: 42px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  #tourConviteAjuda .ca-sim { background: #5ba189; color: #fff; }
+  #tourConviteAjuda .ca-nao { background: #edf7f3; color: #5ba189; }
+  #tourConviteAjuda .ca-nunca { display: block; margin: 9px auto 0; background: none; border: none; color: #9ca3af; font-size: 12px; text-decoration: underline; cursor: pointer; font-family: inherit; }
+</style>
+
+<div id="tourRoot" role="dialog" aria-modal="true" aria-labelledby="tourTitulo">
+  <div id="tourBloqueio"></div>
+  <div id="tourFoco"></div>
+  <div id="tourCartao">
+    <div class="t-topo"><span class="t-fase" id="tourFase"></span><span class="t-passo" id="tourPasso"></span></div>
+    <h3 id="tourTitulo"></h3>
+    <div class="t-texto" id="tourTexto"></div>
+    <div class="t-barra"><div id="tourBarra"></div></div>
+    <div class="t-acoes">
+      <button type="button" class="t-ignorar" id="tourIgnorar">Ignorar</button>
+      <button type="button" class="t-voltar" id="tourVoltar" aria-label="Passo anterior"><i class="ti ti-arrow-left" aria-hidden="true"></i></button>
+      <button type="button" class="t-seguinte" id="tourSeguinte">Seguinte</button>
+    </div>
+  </div>
+</div>
+
+<div id="tourConviteAjuda" role="status" aria-live="polite">
+  <div class="ca-linha">
+    <div class="ca-ico"><i class="ti ti-school" aria-hidden="true"></i></div>
+    <div>
+      <div class="ca-tit">Gostaria de aprender como gerar os convites?</div>
+      <div class="ca-sub">Um guia rápido, passo a passo: criar, enviar pelo WhatsApp e usar o Leitor no dia do evento.</div>
+    </div>
+    <button type="button" class="ca-fechar" id="caFechar" aria-label="Fechar">&times;</button>
+  </div>
+  <div class="ca-acoes">
+    <button type="button" class="ca-nao" id="caNao">Agora não</button>
+    <button type="button" class="ca-sim" id="caSim">Sim, mostrar</button>
+  </div>
+  <button type="button" class="ca-nunca" id="caNunca">Já sei usar — não perguntar mais</button>
+</div>
+
+<script>
+(function () {
+  /* ───────── CONFIGURAÇÃO ───────── */
+  const MAX_PERGUNTAS      = 4;              // quantas vezes, no máximo, perguntamos
+  const LIMIAR_CLIENTE_NOVO = 5;             // com 5+ convites gerados já é cliente habituado → não perguntar
+  const INTERVALO_MIN_MS   = 3 * 60 * 60 * 1000; // pelo menos 3h entre perguntas
+  const ATRASO_PERGUNTA_MS = 3500;           // espera um pouco depois de entrar, para não "saltar" logo
+  const AUTO_ESCONDER_MS   = 25000;          // a pergunta desaparece sozinha
+  const LS_GLOBAL          = 'invites_tour_global_v1';
+  const SS_JA_PERGUNTOU    = 'invites_tour_perguntou_sessao';
+  const SS_RETOMAR         = 'invites_tour_retomar';
+
+  const $ = (id) => document.getElementById(id);
+  const info = () => { try { return (window.__invitesInfo && window.__invitesInfo()) || {}; } catch (e) { return {}; } };
+
+  function lerJSON(chave, def) { try { const v = localStorage.getItem(chave); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
+  function gravarJSON(chave, v) { try { localStorage.setItem(chave, JSON.stringify(v)); } catch (e) {} }
+  function chaveEvento() { const t = info().token; return t ? 'invites_tour_v1:' + t : null; }
+  function estado() {
+    const k = chaveEvento();
+    return Object.assign({ perguntas: 0, ultima: 0, concluido: false, nuncaMais: false }, k ? lerJSON(k, {}) : {});
+  }
+  function gravarEstado(e) { const k = chaveEvento(); if (k) gravarJSON(k, e); }
+  function global() { return Object.assign({ concluido: false, nuncaMais: false }, lerJSON(LS_GLOBAL, {})); }
+  function marcarGlobal(campo) { const g = global(); g[campo] = true; gravarJSON(LS_GLOBAL, g); }
+
+  function visivel(el) {
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return false;
+    const cs = getComputedStyle(el);
+    return cs.visibility !== 'hidden' && cs.display !== 'none' && el.offsetParent !== null;
+  }
+  const leitorLogado  = () => { const m = $('mainApp'); return !!m && !m.classList.contains('hidden'); };
+  const geradorLogado = () => !!info().logado && $('step2') && $('step2').style.display !== 'none';
+
+  /* ───────── PASSOS DO TUTORIAL ─────────
+     alvo   → id do elemento a destacar (sem alvo = cartão ao centro)
+     quando → só mostra o passo se devolver true
+     antes  → acção a fazer antes de mostrar (ex: mudar de aba)          */
+  const irGerador = () => { if (typeof switchApp === 'function') switchApp('gerador'); };
+  const irLeitor  = () => { if (typeof switchApp === 'function') switchApp('leitor'); };
+  const irConvites = () => { const w = $('mainTabsWrap'); if (w && w.style.display !== 'none' && window.mudarMainTab) window.mudarMainTab('convites', true); };
+
+  const PASSOS = [
+    // ── Antes de entrar ──
+    { fase: 'Início', quando: () => !geradorLogado(),
+      titulo: 'Bem-vindo ao Invites! 👋',
+      texto: 'Aqui cria os convites do seu evento, envia-os aos convidados pelo <b>WhatsApp</b> e, no dia, valida-os à entrada com o <b>Leitor</b>. Vamos passo a passo.' },
+    { fase: 'Início', alvo: 'tokenInput', quando: () => !geradorLogado() && visivel($('tokenInput')),
+      titulo: '1. Introduza o código do evento',
+      texto: 'Escreva aqui o <b>código do evento</b> que a AdKira lhe enviou (ex: <b>evt-ab3x9k</b>) e toque em <b>Continuar</b>. Assim que entrar, o tutorial continua sozinho.',
+      fimRetoma: true },
+
+    // ── Gerador ──
+    { fase: 'Gerador', quando: geradorLogado, antes: irConvites,
+      titulo: 'Bem-vindo ao Invites! 👋',
+      texto: 'Vamos aprender, em poucos passos:<br>① <b>Criar</b> um convite<br>② <b>Enviar</b> pelo WhatsApp ou baixar<br>③ Usar o <b>Leitor</b> à entrada do evento.<br><br>Pode tocar em <b>Ignorar</b> a qualquer momento.' },
+    { fase: 'Gerador', alvo: 'counterBox', quando: geradorLogado,
+      titulo: 'Os seus convites',
+      texto: '<b>Disponíveis</b>: quantos convites comprou. <b>Já gerados</b>: quantos já criou. <b>Restantes</b>: quantos ainda pode criar.' },
+    { fase: 'Gerador', alvo: 'nomeInput', quando: geradorLogado,
+      titulo: '1. Escreva o nome do convidado',
+      texto: 'Escreva o nome como quer que apareça no convite. Para um casal ou família, pode juntar: <b>"Maria Silva e João Pedro"</b> ou <b>"Sr. Cândido e Esposa"</b>.' },
+    { fase: 'Gerador', alvo: 'mesaInputBox', quando: () => geradorLogado() && visivel($('mesaInputBox')),
+      titulo: 'Mesa do convidado',
+      texto: 'O seu evento usa mesas — indique aqui a mesa (ex: <b>Mesa 5</b> ou <b>VIP</b>). Ela aparece impressa no convite.' },
+    { fase: 'Gerador', alvo: 'btnGerar', quando: geradorLogado,
+      titulo: '2. Toque em "Gerar Convite"',
+      texto: 'Confirme o nome na janela que aparece. O convite é criado com um <b>QR Code único</b> — é ele que dá entrada no evento. Cada convite gerado usa 1 dos seus convites disponíveis.' },
+    { fase: 'Gerador', quando: geradorLogado,
+      titulo: '3. Envie pelo WhatsApp 📲',
+      texto: 'Assim que o convite fica pronto, o telemóvel abre logo a partilha: escolha o <b>WhatsApp</b> e depois o <b>contacto</b> do convidado — o PDF vai anexado. Se a partilha não abrir sozinha, aparece esta pergunta:' +
+             '<div class="t-mock"><div class="m-tit">✅ Convite pronto! Deseja enviar pelo WhatsApp?</div><div class="m-btn m-wa">📲 Sim, enviar pelo WhatsApp</div><div class="m-btn m-dl">⬇️ Só baixar o PDF</div></div>' },
+    { fase: 'Gerador', alvo: 'convitesLista', quando: geradorLogado,
+      titulo: '4. Os convites gerados ficam aqui',
+      texto: 'Em cada convite tem:<br><span class="t-icone wa"><i class="ti ti-brand-whatsapp"></i></span> enviar de novo pelo WhatsApp<br><span class="t-icone dl"><i class="ti ti-download"></i></span> baixar o PDF<br><span class="t-icone del"><i class="ti ti-trash"></i></span> eliminar (se se enganou no nome)' },
+    { fase: 'Gerador', alvo: 'convitesSearch', quando: () => geradorLogado() && visivel($('convitesSearch')),
+      titulo: 'Encontre qualquer convite',
+      texto: 'Escreva parte do nome para encontrar rapidamente um convite e reenviá-lo.' },
+    { fase: 'Gerador', alvo: 'mainTabConfirmacoes', quando: () => geradorLogado() && visivel($('mainTabConfirmacoes')),
+      titulo: 'Confirmações de presença',
+      texto: 'Aqui vê quem <b>confirmou presença</b>. Quem confirmou e ainda não tem convite aparece como <b>"por gerar"</b> — basta um toque para o criar.' },
+    { fase: 'Gerador', alvo: 'btnAderirMais', quando: () => geradorLogado() && visivel($('btnAderirMais')),
+      titulo: 'Precisa de mais convites?',
+      texto: 'Se os convites disponíveis estiverem a acabar, peça mais aqui.' },
+    { fase: 'Gerador', alvo: 'navLeitor', quando: geradorLogado,
+      titulo: 'Agora, o Leitor 📷',
+      texto: 'No <b>dia do evento</b>, use o separador <b>Leitor</b> para validar os convites à entrada. Toque em <b>Seguinte</b> e vamos lá.' },
+
+    // ── Leitor ──
+    { fase: 'Leitor',
+      titulo: 'O Leitor de convites',
+      texto: 'O Leitor usa a <b>câmara do telemóvel</b> para ler o QR Code de cada convite. Mostra na hora se o convite é <b style="color:#16a34a">válido</b> ou se <b style="color:#dc2626">já foi usado</b> — ninguém entra duas vezes com o mesmo convite.' },
+    { fase: 'Leitor', alvo: 'leitor_tokenInput', quando: () => !leitorLogado() && visivel($('leitor_tokenInput')),
+      titulo: '1. Introduza o Token do Leitor',
+      texto: 'Escreva o <b>token do leitor</b> que a AdKira lhe enviou para o seu evento. Dica: entregue este acesso só a quem vai estar à porta.' },
+    { fase: 'Leitor', alvo: 'loginBtn', quando: () => !leitorLogado() && visivel($('loginBtn')),
+      titulo: '2. Entrar no sistema',
+      texto: 'Toque em <b>Entrar no Sistema</b>. Quando o telemóvel pedir, <b>permita o acesso à câmara</b>.' },
+    { fase: 'Leitor', alvo: 'scannerContainer', quando: () => leitorLogado() && visivel($('scannerContainer')),
+      titulo: '1. Aponte a câmara ao QR Code',
+      texto: 'Peça ao convidado para mostrar o convite (no telemóvel ou impresso) e aponte a câmara ao <b>QR Code</b>. A leitura é automática.' },
+    { fase: 'Leitor', alvo: 'openManualCheckinBtn', quando: () => leitorLogado() && visivel($('openManualCheckinBtn')),
+      titulo: 'Sem QR Code? Entrada manual',
+      texto: 'Se o convidado não tiver o convite ou o QR não ler (ecrã partido, pouca luz), toque aqui e procure pelo <b>nome</b>.' },
+    { fase: 'Leitor', alvo: 'scanResultPlaceholder', quando: () => leitorLogado() && visivel($('scanResultPlaceholder')),
+      titulo: '2. Veja o resultado',
+      texto: '<b style="color:#16a34a">Verde</b>: convite válido, pode entrar. <b style="color:#dc2626">Vermelho</b>: já foi usado ou é inválido. Se o convite incluir acompanhante, o Leitor pergunta se ele também entrou.' },
+    { fase: 'Leitor', alvo: 'optionsTab', quando: () => leitorLogado() && visivel($('optionsTab')),
+      titulo: '3. Lista e relatórios',
+      texto: 'Em <b>Opções</b> vê a lista de convidados (quem já entrou e quem falta), a contagem decrescente do evento e pode exportar relatórios em PDF.' },
+    { fase: 'Leitor', quando: () => !leitorLogado(),
+      titulo: 'Depois de entrar no Leitor',
+      texto: '① Aponte a câmara ao <b>QR Code</b> do convite.<br>② <b style="color:#16a34a">Verde</b> = pode entrar · <b style="color:#dc2626">Vermelho</b> = já usado/inválido.<br>③ Sem QR? Use a <b>entrada manual</b> por nome.<br>④ Em <b>Opções</b>: lista de convidados e relatórios.' },
+
+    // ── Fim ──
+    { fase: 'Concluído', alvo: 'navAjuda', final: true,
+      titulo: 'Pronto! 🎉',
+      texto: 'Já sabe criar, enviar pelo WhatsApp e validar convites. Voltámos ao <b>Gerador</b> para começar.<br><br>Pode rever este tutorial quando quiser neste botão <b>❓</b>.' },
+  ];
+
+  /* ───────── MOTOR DO TUTORIAL ───────── */
+  let ativos = [];   // passos filtrados na altura em que cada um é mostrado
+  let idx = -1;
+  let aberto = false;
+  let rafPos = 0;
+
+  function passoValido(p) { try { return !p.quando || p.quando(); } catch (e) { return false; } }
+
+  function iniciar(opcoes) {
+    opcoes = opcoes || {};
+    esconderPergunta(true);
+    try { if (typeof fecharModal === 'function') fecharModal(); } catch (e) {}
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    // Lista de passos fixada no início (conta "x de N" estável): cada passo é
+    // avaliado no painel a que pertence; sem sessão no Gerador, só a parte inicial.
+    const logado = geradorLogado();
+    ativos = PASSOS.filter(p => {
+      if (!logado && p.fase !== 'Início') return false;
+      painelDoPasso(p);
+      if (p.antes) { try { p.antes(); } catch (e) {} }
+      return passoValido(p);
+    });
+    irGerador();
+    if (!ativos.length) return;
+    aberto = true;
+    $('tourRoot').classList.add('on');
+    idx = -1;
+    avancar(1);
+  }
+
+  function painelDoPasso(p) { if (p.fase === 'Leitor') irLeitor(); else irGerador(); }
+
+  function avancar(dir) {
+    let i = idx + dir;
+    if (i < 0) return;
+    if (i >= ativos.length) return terminar(true);
+    const p = ativos[i];
+    painelDoPasso(p);
+    if (p.antes) { try { p.antes(); } catch (e) {} }
+    idx = i; mostrar(p);
+  }
+
+  function totalVisivel() { return ativos.length; }
+  function posVisivel() { return idx + 1; }
+
+  function mostrar(p) {
+    $('tourFase').textContent = p.fase || '';
+    $('tourTitulo').textContent = p.titulo;
+    $('tourTexto').innerHTML = p.texto;
+    const tot = Math.max(1, totalVisivel()), pos = Math.min(posVisivel(), tot);
+    $('tourPasso').textContent = pos + ' de ' + tot;
+    $('tourBarra').style.width = Math.round(pos / tot * 100) + '%';
+    const ultimo = !!p.final || !!p.fimRetoma || idx === ativos.length - 1;
+    $('tourSeguinte').textContent = p.fimRetoma ? 'Entendi' : (ultimo ? 'Concluir' : 'Seguinte');
+    $('tourVoltar').style.visibility = posVisivel() > 1 ? 'visible' : 'hidden';
+    $('tourIgnorar').style.visibility = p.final ? 'hidden' : 'visible';
+
+    const el = p.alvo ? $(p.alvo) : null;
+    if (el && visivel(el)) {
+      const r = el.getBoundingClientRect();
+      const foraDoEcra = r.top < 60 || r.bottom > window.innerHeight - 40;
+      if (foraDoEcra) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('tourCartao').style.opacity = '0';
+      setTimeout(() => { posicionar(); $('tourCartao').style.opacity = '1'; }, foraDoEcra ? 380 : 30);
+    } else {
+      posicionar();
+      $('tourCartao').style.opacity = '1';
+    }
+    setTimeout(() => { try { $('tourSeguinte').focus({ preventScroll: true }); } catch (e) {} }, 60);
+  }
+
+  function posicionar() {
+    if (!aberto || idx < 0) return;
+    const p = ativos[idx];
+    const foco = $('tourFoco'), cartao = $('tourCartao');
+    const el = p.alvo ? $(p.alvo) : null;
+    const vw = window.innerWidth, vh = window.innerHeight, M = 12;
+    const cw = cartao.offsetWidth, ch = cartao.offsetHeight;
+
+    if (!el || !visivel(el)) {
+      foco.classList.add('centro');
+      Object.assign(foco.style, { top: vh / 2 + 'px', left: vw / 2 + 'px', width: '0px', height: '0px' });
+      cartao.style.left = Math.max(M, (vw - cw) / 2) + 'px';
+      cartao.style.top  = Math.max(M, (vh - ch) / 2) + 'px';
+      return;
+    }
+    foco.classList.remove('centro');
+    const r = el.getBoundingClientRect(), pad = 6;
+    Object.assign(foco.style, { top: (r.top - pad) + 'px', left: (r.left - pad) + 'px', width: (r.width + pad * 2) + 'px', height: (r.height + pad * 2) + 'px' });
+
+    let top;
+    const espacoBaixo = vh - r.bottom, espacoCima = r.top;
+    if (espacoBaixo >= ch + 20) top = r.bottom + 16;
+    else if (espacoCima >= ch + 20) top = r.top - ch - 16;
+    else top = vh - ch - M; // alvo grande: cartão encostado em baixo
+    top = Math.min(Math.max(M, top), vh - ch - M);
+    let left = r.left + r.width / 2 - cw / 2;
+    left = Math.min(Math.max(M, left), vw - cw - M);
+    cartao.style.top = top + 'px';
+    cartao.style.left = left + 'px';
+  }
+  function agendarPosicao() { if (!aberto) return; cancelAnimationFrame(rafPos); rafPos = requestAnimationFrame(posicionar); }
+  window.addEventListener('resize', agendarPosicao);
+  window.addEventListener('scroll', agendarPosicao, true);
+
+  function terminar(concluiu, ignorou) {
+    const p = ativos[idx];
+    aberto = false;
+    $('tourRoot').classList.remove('on');
+    if (p && p.fimRetoma && !ignorou) {
+      // Ainda não entrou no evento: continua o tutorial assim que entrar
+      try { sessionStorage.setItem(SS_RETOMAR, '1'); } catch (e) {}
+      setTimeout(() => { try { $('tokenInput').focus(); } catch (e) {} }, 100);
+      return;
+    }
+    if (concluiu) {
+      const e = estado(); e.concluido = true; gravarEstado(e);
+      marcarGlobal('concluido');
+      irGerador();
+    }
+  }
+
+  $('tourSeguinte').addEventListener('click', () => {
+    const p = ativos[idx];
+    if (p && (p.final || p.fimRetoma)) return terminar(true);
+    avancar(1);
+  });
+  $('tourVoltar').addEventListener('click', () => avancar(-1));
+  $('tourIgnorar').addEventListener('click', () => { terminar(false, true); irGerador(); });
+  document.addEventListener('keydown', (ev) => {
+    if (!aberto) return;
+    if (ev.key === 'Escape') { terminar(false, true); irGerador(); }
+    else if (ev.key === 'ArrowRight') $('tourSeguinte').click();
+    else if (ev.key === 'ArrowLeft' && $('tourVoltar').style.visibility !== 'hidden') avancar(-1);
+  });
+
+  /* ───────── PERGUNTA "GOSTARIA DE APRENDER?" ───────── */
+  let timerPergunta = 0, timerEsconder = 0;
+
+  function devePerguntar() {
+    const i = info();
+    if (!i.logado || !i.token) return false;
+    if (aberto) return false;
+    const g = global();
+    if (g.concluido || g.nuncaMais) return false;          // já fez o tutorial / pediu para não perguntar neste aparelho
+    const e = estado();
+    if (e.concluido || e.nuncaMais) return false;
+    if (e.perguntas >= MAX_PERGUNTAS) return false;          // no máximo 4 vezes
+    if ((i.gerados || 0) >= LIMIAR_CLIENTE_NOVO) return false; // já usa há algum tempo
+    if (Date.now() - (e.ultima || 0) < INTERVALO_MIN_MS) return false;
+    try { if (sessionStorage.getItem(SS_JA_PERGUNTOU)) return false; } catch (err) {}
+    return true;
+  }
+
+  function ocupado() {
+    // Não interrompe: modal aberto, a escrever um nome, ou fora do painel principal
+    const modal = document.querySelector('.modal-overlay:not(.hidden)');
+    if (modal) return true;
+    const ni = $('nomeInput');
+    if (ni && document.activeElement === ni && ni.value.trim()) return true;
+    if (!geradorLogado()) return true;
+    if (!$('panelGerador') || !$('panelGerador').classList.contains('active')) return true;
+    return false;
+  }
+
+  function tentarPerguntar(tentativas) {
+    if (!devePerguntar()) return;
+    if (ocupado()) {
+      if ((tentativas || 0) < 6) timerPergunta = setTimeout(() => tentarPerguntar((tentativas || 0) + 1), 8000);
+      return;
+    }
+    const e = estado(); e.perguntas = (e.perguntas || 0) + 1; e.ultima = Date.now(); gravarEstado(e);
+    try { sessionStorage.setItem(SS_JA_PERGUNTOU, '1'); } catch (err) {}
+    const i = info();
+    $('tourConviteAjuda').querySelector('.ca-tit').textContent = (i.gerados || 0) === 0
+      ? 'Primeira vez aqui? Gostaria de aprender como gerar os convites?'
+      : 'Gostaria de aprender como gerar e enviar os convites?';
+    $('tourConviteAjuda').classList.add('on');
+    clearTimeout(timerEsconder);
+    timerEsconder = setTimeout(() => esconderPergunta(), AUTO_ESCONDER_MS);
+  }
+
+  function avisoRapido(msg) {
+    const t = document.createElement('div'); t.className = 'toast'; t.style.background = '#5ba189'; t.style.zIndex = '100000'; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
+  }
+
+  function esconderPergunta(imediato) {
+    clearTimeout(timerEsconder);
+    $('tourConviteAjuda').classList.remove('on');
+  }
+
+  $('caSim').addEventListener('click', () => { esconderPergunta(); iniciar(); });
+  $('caNao').addEventListener('click', () => esconderPergunta());
+  $('caFechar').addEventListener('click', () => esconderPergunta());
+  $('caNunca').addEventListener('click', () => {
+    const e = estado(); e.nuncaMais = true; gravarEstado(e);
+    marcarGlobal('nuncaMais');
+    esconderPergunta();
+    avisoRapido('Pode abrir o tutorial quando quiser no botão ❓');
+  });
+
+  // Chamado pelo Gerador sempre que o painel principal (step2) aparece
+  function aoEntrarPainel() {
+    let retomar = false;
+    try { retomar = sessionStorage.getItem(SS_RETOMAR) === '1'; } catch (e) {}
+    if (retomar) {
+      try { sessionStorage.removeItem(SS_RETOMAR); } catch (e) {}
+      clearTimeout(timerPergunta);
+      setTimeout(() => { if (!aberto) iniciar({ retomar: true }); }, 900);
+      return;
+    }
+    clearTimeout(timerPergunta);
+    timerPergunta = setTimeout(() => tentarPerguntar(0), ATRASO_PERGUNTA_MS);
+  }
+
+  window.InvitesTour = { iniciar, aoEntrarPainel, _reset: () => { try { const k = chaveEvento(); k && localStorage.removeItem(k); localStorage.removeItem(LS_GLOBAL); sessionStorage.removeItem(SS_JA_PERGUNTOU); } catch (e) {} } };
 })();
 </script>
 
