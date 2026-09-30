@@ -5932,6 +5932,29 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
                     </div>
                 </div>
 
+                <!-- ▼ NOVO: Câmara -->
+                <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <i class="fas fa-camera mr-3" style="color:#5aa189;"></i>Câmara
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-4">Estado: <b id="estadoCameraTexto">—</b></p>
+                    <div id="estadoCameraPassos" class="text-sm mb-4 p-3 rounded-lg" style="display:none;background:#fffbeb;border:1px solid #fde68a;color:#92400e;line-height:1.5;">
+                        O browser bloqueou a câmara para este site. Para desbloquear:<br>
+                        1. Toque no <b>cadeado 🔒</b> (ou ⓘ) ao lado do endereço do site;<br>
+                        2. Toque em <b>Permissões</b> (ou "Definições do site");<br>
+                        3. Em <b>Câmara</b>, escolha <b>Permitir</b>;<br>
+                        4. Volte aqui e toque em <b>Dar permissão à câmara</b>.
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button onclick="pedirPermissaoCamera()" class="text-white py-4 px-6 rounded-lg flex items-center justify-center text-lg font-medium shadow-lg" style="background:#5aa189;">
+                            <i class="fas fa-camera mr-3"></i>Dar permissão à câmara
+                        </button>
+                        <button onclick="trocarCamera()" class="bg-gray-600 text-white py-4 px-6 rounded-lg flex items-center justify-center text-lg font-medium shadow-lg">
+                            <i class="fas fa-sync-alt mr-3"></i>Trocar câmara
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Ações Rápidas -->
                 <div class="bg-white rounded-xl shadow-sm p-6">
                     <h2 class="text-xl font-semibold text-gray-800 mb-6 flex items-center">
@@ -6587,26 +6610,174 @@ function mostrarApp() {
 /* ═══════════════════════════════════════════
    SCANNER
 ═══════════════════════════════════════════ */
-async function startScanner() {
-    if (isScanning) return;
-    try {
-        html5QrCode = new Html5Qrcode('scannerContainer');
-        await html5QrCode.start(
-            { facingMode: 'environment' },
-            { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, disableFlip: false },
-            onScanSuccess,
-            () => {}
-        );
-        isScanning = true;
-    } catch(err) {
-        document.getElementById('scannerContainer').innerHTML = `
-            <div class="text-center text-red-400 px-6">
-                <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
-                <p class="text-lg font-medium">Erro ao aceder à câmara</p>
-                <p class="text-sm mt-2">Verifique as permissões da câmara</p>
-                <button onclick="startScanner()" class="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg">Tentar novamente</button>
-            </div>`;
+/* ═══ CÂMARA DO LEITOR ═══
+   🔒 CORRIGIDO — "a câmara fica só com erro, mesmo dando permissão":
+   • ao tentar outra vez, o leitor anterior (que falhou a meio) não era
+     desligado — a câmara ficava "presa" e todas as tentativas falhavam;
+   • a caixa de leitura (250px) podia ser maior que a própria câmara em
+     alguns telemóveis — agora ajusta-se ao tamanho real;
+   • alguns telemóveis não aceitam "câmara traseira" pedida dessa forma —
+     agora tenta a traseira pelo nome e, em último caso, qualquer câmara;
+   • a mensagem de erro passa a dizer a CAUSA e o que fazer. */
+let _camerasLista = [];
+let _cameraEscolhida = null;   // id da câmara escolhida à mão ("Trocar câmara")
+let _scannerAIniciar = false;
+
+async function pararScannerCompletamente() {
+    const inst = html5QrCode;
+    html5QrCode = null;
+    isScanning = false;
+    if (inst) {
+        try { await inst.stop(); } catch (e) {}
+        try { inst.clear(); } catch (e) {}
     }
+    const c = document.getElementById('scannerContainer');
+    if (c) c.innerHTML = '';
+}
+
+function _qrboxAjustado(w, h) {
+    const lado = Math.max(120, Math.floor(Math.min(w, h) * 0.75));
+    return { width: lado, height: lado };
+}
+
+function _camTraseira(lista) {
+    return lista.find(c => /back|rear|traseir|environment|posterior/i.test(c.label || '')) || (lista.length > 1 ? lista[lista.length - 1] : lista[0]);
+}
+
+async function _listarCameras() {
+    try { _camerasLista = await Html5Qrcode.getCameras() || []; } catch (e) { _camerasLista = []; }
+    return _camerasLista;
+}
+
+async function startScanner() {
+    if (isScanning || _scannerAIniciar) return;
+    _scannerAIniciar = true;
+    await pararScannerCompletamente();
+    const config = { fps: 10, qrbox: _qrboxAjustado, aspectRatio: 1.0, disableFlip: false };
+    let ultimoErro = null;
+    try {
+        if (typeof Html5Qrcode === 'undefined') throw Object.assign(new Error('Leitor de QR não carregou.'), { name: 'SemBiblioteca' });
+        if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('Sem acesso à câmara neste browser.'), { name: 'SemSuporte' });
+
+        // Tentativas, da mais comum para a mais "à força"
+        const tentativas = [];
+        if (_cameraEscolhida) tentativas.push(() => _cameraEscolhida);
+        tentativas.push(() => ({ facingMode: 'environment' }));
+        tentativas.push(async () => { const l = await _listarCameras(); const c = _camTraseira(l); return c ? c.id : null; });
+        tentativas.push(() => ({ facingMode: 'user' }));
+
+        for (const obter of tentativas) {
+            const alvo = await obter();
+            if (!alvo) continue;
+            html5QrCode = new Html5Qrcode('scannerContainer');
+            try {
+                await html5QrCode.start(alvo, config, onScanSuccess, () => {});
+                isScanning = true;
+                return;
+            } catch (err) {
+                ultimoErro = err;
+                const inst = html5QrCode; html5QrCode = null;
+                try { await inst.stop(); } catch (e) {}
+                try { inst.clear(); } catch (e) {}
+                // Permissão recusada: não vale a pena tentar outras câmaras
+                const nome = (err && (err.name || '')) + ' ' + String(err && err.message || err || '');
+                if (/NotAllowed|Permission|denied/i.test(nome)) break;
+            }
+        }
+        throw ultimoErro || new Error('Nenhuma câmara disponível.');
+    } catch (err) {
+        await mostrarErroCamera(err);
+    } finally {
+        _scannerAIniciar = false;
+    }
+}
+
+async function _estadoPermissaoCamera() {
+    try { const r = await navigator.permissions.query({ name: 'camera' }); return r.state; } catch (e) { return 'desconhecido'; }
+}
+
+async function mostrarErroCamera(err) {
+    console.warn('[Leitor] câmara:', err && err.name, err && err.message || err);
+    const txt = ((err && err.name) || '') + ' ' + String((err && err.message) || err || '');
+    const perm = await _estadoPermissaoCamera();
+    const noBrowserApp = /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)/i.test(navigator.userAgent);
+    let titulo = 'Erro ao aceder à câmara', ajuda = '';
+    if (noBrowserApp) {
+        titulo = 'Abra no Chrome';
+        ajuda = 'Este link foi aberto dentro de outra app (WhatsApp, Facebook…), que não deixa usar a câmara. Toque nos ⋮ e escolha <b>"Abrir no Chrome"</b>.';
+    } else if (perm === 'denied' || /NotAllowed|Permission|denied/i.test(txt)) {
+        titulo = 'A câmara está bloqueada';
+        ajuda = 'Toque no <b>cadeado 🔒</b> (ou ⓘ) ao lado do endereço do site → <b>Permissões</b> → <b>Câmara</b> → <b>Permitir</b>. Depois toque em "Tentar novamente".';
+    } else if (/NotReadable|TrackStart|Could not start|in use/i.test(txt)) {
+        titulo = 'A câmara está ocupada';
+        ajuda = 'Outra app ou outro separador está a usar a câmara (videochamada, câmara, outro separador deste site). Feche-os e toque em "Tentar novamente".';
+    } else if (/NotFound|Overconstrained|Nenhuma câmara/i.test(txt)) {
+        titulo = 'Câmara não encontrada';
+        ajuda = 'Não foi possível abrir a câmara traseira. Toque em <b>"Trocar câmara"</b> ou em "Tentar novamente".';
+    } else if (/SemSuporte/i.test(txt)) {
+        titulo = 'Browser sem acesso à câmara';
+        ajuda = 'Abra este site no <b>Google Chrome</b> actualizado.';
+    } else {
+        ajuda = 'Toque em "Dar permissão à câmara". Se não resultar, feche o separador, abra o site outra vez no Chrome e tente de novo.';
+    }
+    const c = document.getElementById('scannerContainer'); if (!c) return;
+    c.innerHTML = `
+        <div class="text-center text-red-400 px-5 py-4" style="max-width:340px;margin:0 auto;">
+            <i class="fas fa-exclamation-triangle text-4xl mb-3"></i>
+            <p class="text-lg font-semibold">${titulo}</p>
+            <p class="text-sm mt-2" style="color:#fecaca;line-height:1.45;">${ajuda}</p>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
+                <button onclick="pedirPermissaoCamera()" class="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold">📷 Dar permissão à câmara</button>
+                <div style="display:flex;gap:8px;">
+                    <button onclick="startScanner()" class="flex-1 px-3 py-2 rounded-lg" style="background:#374151;color:#fff;">Tentar novamente</button>
+                    <button onclick="trocarCamera()" class="flex-1 px-3 py-2 rounded-lg" style="background:#374151;color:#fff;">🔄 Trocar câmara</button>
+                </div>
+            </div>
+        </div>`;
+    actualizarEstadoCameraOpcoes();
+}
+
+// Pede a permissão "a sério" ao browser (mostra o pedido do sistema) e
+// depois liga o leitor.
+async function pedirPermissaoCamera() {
+    try {
+        await pararScannerCompletamente();
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        stream.getTracks().forEach(t => t.stop());
+        showNotification('✅ Câmara autorizada!', 'success');
+        switchTab('scanner');
+        setTimeout(startScanner, 300);
+    } catch (e) {
+        await mostrarErroCamera(e);
+        switchTab('scanner');
+        const perm = await _estadoPermissaoCamera();
+        if (perm === 'denied' || /NotAllowed/i.test(e && e.name)) {
+            showNotification('🔒 A câmara está bloqueada no browser. Siga os passos no ecrã do leitor.', 'error', 7000);
+        }
+    }
+    actualizarEstadoCameraOpcoes();
+}
+
+// Passa para a câmara seguinte (útil em telemóveis com várias câmaras)
+async function trocarCamera() {
+    const l = _camerasLista.length ? _camerasLista : await _listarCameras();
+    if (!l.length) { showNotification('Nenhuma câmara encontrada — dê primeiro permissão à câmara.', 'warning'); return; }
+    const i = l.findIndex(c => c.id === _cameraEscolhida);
+    const prox = l[(i + 1) % l.length];
+    _cameraEscolhida = prox.id;
+    showNotification('📷 ' + (prox.label || ('Câmara ' + ((i + 1) % l.length + 1))), 'info', 2500);
+    await pararScannerCompletamente();
+    switchTab('scanner');
+    setTimeout(startScanner, 200);
+}
+
+async function actualizarEstadoCameraOpcoes() {
+    const el = document.getElementById('estadoCameraTexto'); if (!el) return;
+    const perm = await _estadoPermissaoCamera();
+    const mapa = { granted: '✅ Permitida', denied: '🔒 Bloqueada — siga os passos abaixo', prompt: '❔ Ainda não foi pedida', desconhecido: '—' };
+    el.textContent = (mapa[perm] || perm) + (isScanning ? ' · a funcionar' : '');
+    const passos = document.getElementById('estadoCameraPassos');
+    if (passos) passos.style.display = perm === 'denied' ? '' : 'none';
 }
 
 /* ▼ NOVO: quando o ecrã bloqueia/o telemóvel entra em suspensão, ou a app
@@ -7171,6 +7342,7 @@ document.getElementById('nextScanBtn').addEventListener('click', () => {
    TABS
 ═══════════════════════════════════════════ */
 function switchTab(tab) {
+    if (tab === 'options') setTimeout(() => { try { actualizarEstadoCameraOpcoes(); } catch (e) {} }, 0);
     const sTab = document.getElementById('scannerTab');
     const oTab = document.getElementById('optionsTab');
     const sCnt = document.getElementById('scannerTabContent');
@@ -7821,6 +7993,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ▼ NOVO: estado mínimo do Leitor para o tutorial
   window.__leitorInfo = () => ({ cf: cfBackendMode, undo: undoUsagesRemaining, logado: !!currentClient });
   window.startScanner = typeof startScanner !== "undefined" ? startScanner : window.startScanner;
+  window.pedirPermissaoCamera = pedirPermissaoCamera;
+  window.trocarCamera = trocarCamera;
   window.renderGuestList = typeof renderGuestList !== "undefined" ? renderGuestList : window.renderGuestList;
 })();
 </script>
