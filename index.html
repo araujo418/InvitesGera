@@ -368,6 +368,67 @@
     .admin-cliente-row button {
       width: auto; flex: 0 0 auto; min-height: 40px; padding: 8px 14px; font-size: 13px;
     }
+    /* ═══ Painel de administração (mobile-first) ═══ */
+    .adm-overlay { align-items: stretch !important; padding: 0 !important; z-index: 10000 !important; }
+    .adm-sheet { background: #f5faf8; width: 100%; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; animation: slideUp .28s cubic-bezier(.32,1.01,.56,1); }
+    .adm-topo { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; padding-top: max(14px, env(safe-area-inset-top)); background: #fff; }
+    .adm-titulo { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: #1a1a2e; }
+    .adm-titulo i { color: #5ba189; font-size: 20px; }
+    .adm-sair { width: auto; margin: 0; border: 1.5px solid #e5e7eb; background: #fff; color: #6b7280; border-radius: 10px; padding: 7px 10px; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; min-height: 36px; }
+    .adm-fechar { width: 38px; height: 38px; min-height: 0; margin: 0; border: none; background: #f3f4f6; color: #374151; border-radius: 10px; font-size: 16px; cursor: pointer; padding: 0; }
+    .adm-abas { display: flex; gap: 6px; padding: 0 14px 12px; background: #fff; border-bottom: 1px solid #e0f0eb; }
+    .adm-aba { flex: 1; width: auto; margin: 0; min-height: 40px; border: none; border-radius: 11px; background: #f3f4f6; color: #6b7280; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; padding: 8px 6px; white-space: nowrap; }
+    .adm-aba.ativa { background: #5ba189; color: #fff; }
+    .adm-badge { background: #ef4444; color: #fff; border-radius: 99px; padding: 1px 7px; font-size: 11px; font-weight: 700; }
+    .adm-aba.ativa .adm-badge { background: #fff; color: #5ba189; }
+    .adm-corpo { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+    .adm-sec { display: flex; flex-direction: column; gap: 12px; }
+    .adm-sec-topo { display: flex; align-items: center; gap: 10px; }
+    .adm-sec-desc { flex: 1; font-size: 13px; color: #6b7280; line-height: 1.45; }
+    .adm-icone { width: 40px; height: 40px; min-height: 0; flex: 0 0 auto; margin: 0; padding: 0; border: 1.5px solid #d0ede6; background: #fff; color: #5ba189; border-radius: 11px; font-size: 17px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+    .adm-lista { display: flex; flex-direction: column; gap: 10px; }
+    .adm-card { background: #fff; border: 1px solid #e0f0eb; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+    .adm-card-topo { display: flex; align-items: flex-start; gap: 10px; }
+    .adm-avatar { width: 40px; height: 40px; border-radius: 12px; background: #edf7f3; color: #5ba189; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .adm-card-info { flex: 1; min-width: 0; }
+    .adm-nome { font-size: 15px; font-weight: 700; color: #1a1a2e; overflow-wrap: anywhere; }
+    .adm-token { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font: 600 12px ui-monospace, Menlo, Consolas, monospace; color: #6b7280; background: #f3f4f6; border: none; border-radius: 7px; padding: 3px 7px; width: auto; min-height: 0; cursor: pointer; }
+    .adm-quando { font-size: 11.5px; color: #9ca3af; white-space: nowrap; }
+    .adm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .adm-chip { font-size: 12px; font-weight: 700; border-radius: 99px; padding: 4px 10px; background: #edf7f3; color: #3f7d68; }
+    .adm-chip.valor { background: #fff7ed; color: #9a3412; }
+    .adm-chip.cf { background: #eef2ff; color: #4338ca; }
+    .adm-chip.aviso { background: #fef2f2; color: #b91c1c; }
+    .adm-barra { height: 8px; background: #edf7f3; border-radius: 99px; overflow: hidden; }
+    .adm-barra div { height: 100%; background: #5ba189; border-radius: 99px; }
+    .adm-barra.cheio div { background: #ef4444; }
+    .adm-barra-txt { display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; margin-top: -4px; }
+    .adm-acoes { display: flex; gap: 8px; }
+    .adm-btn { flex: 1; width: 100%; margin: 0; min-height: 44px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; padding: 10px 12px; }
+    .adm-acoes .adm-btn { width: auto; }
+    .adm-btn-main { background: #5ba189; color: #fff; }
+    .adm-btn-main.confirmar { background: #15803d; }
+    .adm-btn-sec { background: #f3f4f6; color: #374151; }
+    .adm-btn-perigo { background: #fff; color: #dc2626; border: 1.5px solid #fecaca; }
+    .adm-btn:disabled { opacity: .6; cursor: default; }
+    .adm-rapidos { display: flex; gap: 6px; }
+    .adm-rapidos button { flex: 1; width: auto; margin: 0; min-height: 40px; border-radius: 10px; border: 1.5px solid #d0ede6; background: #f5faf8; color: #3f7d68; font-weight: 700; font-size: 13.5px; cursor: pointer; padding: 6px; }
+    .adm-linha { display: flex; gap: 8px; align-items: center; }
+    .adm-linha input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1.5px solid #d0ede6; border-radius: 12px; font-size: 15px; background: #fff; }
+    .adm-busca { position: sticky; top: -14px; z-index: 2; display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #d0ede6; border-radius: 14px; padding: 0 12px; }
+    .adm-busca i { color: #9ca3af; font-size: 18px; }
+    .adm-busca input { flex: 1; border: none !important; background: transparent !important; box-shadow: none !important; min-height: 48px; padding: 0 !important; font-size: 15px; outline: none; }
+    .adm-nota { font-size: 12px; color: #6b7280; background: #fff; border: 1px dashed #d0ede6; border-radius: 10px; padding: 8px 10px; line-height: 1.4; }
+    .adm-campo { display: flex; flex-direction: column; gap: 6px; }
+    .adm-vazio { text-align: center; color: #9ca3af; font-size: 13.5px; padding: 28px 12px; background: #fff; border-radius: 16px; border: 1px dashed #e0f0eb; }
+    .adm-vazio i { display: block; font-size: 28px; color: #c7e3d9; margin-bottom: 6px; }
+    .adm-esqueleto { height: 118px; border-radius: 16px; background: linear-gradient(90deg,#eef6f3 25%,#f7fbf9 50%,#eef6f3 75%); background-size: 200% 100%; animation: admBrilho 1.2s infinite; }
+    @keyframes admBrilho { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (min-width: 540px) {
+      .adm-overlay { align-items: center !important; padding: 20px !important; }
+      .adm-sheet { max-width: 480px; height: auto; max-height: 90vh; border-radius: 24px; box-shadow: 0 24px 60px rgba(0,0,0,.25); }
+      .adm-topo { border-radius: 24px 24px 0 0; }
+    }
     .confirmados-erro { text-align: center; color: #b45309; font-size: 12.5px; padding: 16px 10px; background: #fffbeb; border-radius: 12px; }
     .convite-edit-btn {
       width: 40px; height: 40px; min-height: 0; flex: 0 0 auto; padding: 0; background: #edf7f3; color: #5ba189;
@@ -763,52 +824,71 @@
   </div>
 </div>
 
-<div class="modal-overlay hidden" id="adminPainelOverlay">
-  <div class="modal-box" style="max-height:85vh;overflow-y:auto;">
-    <div class="modal-handle"></div>
-    <div class="cc-header" style="color:#1c1917;">
-      <i class="ti ti-shield-lock" aria-hidden="true"></i>
-      <span>Administração</span>
-      <button type="button" class="cc-fechar-btn" onclick="fecharAdminPainel()" aria-label="Fechar" title="Fechar">✕</button>
+<div class="modal-overlay hidden adm-overlay" id="adminPainelOverlay">
+  <div class="adm-sheet" role="dialog" aria-modal="true" aria-labelledby="admTitulo">
+    <!-- Cabeçalho fixo -->
+    <div class="adm-topo">
+      <div class="adm-titulo" id="admTitulo"><i class="ti ti-shield-lock" aria-hidden="true"></i> Administração</div>
+      <button type="button" class="adm-sair" onclick="sairAdmin()" title="Sair do modo administrador"><i class="ti ti-logout" aria-hidden="true"></i> Sair</button>
+      <button type="button" class="adm-fechar" onclick="fecharAdminPainel()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="adm-abas" role="tablist">
+      <button type="button" class="adm-aba ativa" id="admAbaPedidos" onclick="mudarAdminAba('pedidos')" role="tab">
+        <i class="ti ti-bell" aria-hidden="true"></i> Pedidos <span id="adminPedidosBadge" class="adm-badge" style="display:none;"></span>
+      </button>
+      <button type="button" class="adm-aba" id="admAbaClientes" onclick="mudarAdminAba('clientes')" role="tab">
+        <i class="ti ti-users" aria-hidden="true"></i> Clientes
+      </button>
+      <button type="button" class="adm-aba" id="admAbaLeitor" onclick="mudarAdminAba('leitor')" role="tab">
+        <i class="ti ti-key" aria-hidden="true"></i> Leitor
+      </button>
     </div>
 
-    <div class="convites-header" style="margin-top:4px;">
-      <div class="section-label" style="white-space:nowrap;">🔔 Pedidos de convites</div>
-      <span id="adminPedidosBadge" class="confirmados-badge" style="display:none;"></span>
-      <button class="btn-outline" style="width:auto;margin-left:auto;" onclick="carregarPedidosAdmin()"><i class="ti ti-refresh" aria-hidden="true"></i></button>
-    </div>
-    <div id="adminPedidos" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div class="adm-corpo">
+      <!-- ── PEDIDOS ── -->
+      <section id="admSecPedidos" class="adm-sec">
+        <div class="adm-sec-topo">
+          <div class="adm-sec-desc">Pedidos de convites extra feitos pelos clientes.</div>
+          <button type="button" class="adm-icone" onclick="carregarPedidosAdmin()" aria-label="Actualizar pedidos"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+        </div>
+        <div id="adminPedidos" class="adm-lista"></div>
+      </section>
 
-    <div class="divider"></div>
-    <div class="section-label">🔑 Token do Leitor de um cliente</div>
-    <div style="font-size:12.5px;color:#6b7280;line-height:1.45;margin-top:-4px;">
-      O cliente passa a ver este token no Gerador (com botão de copiar) e no tutorial — assim só precisa de lhe enviar o código do evento.
-    </div>
-    <div>
-      <label for="adminLeitorEvento">Código do evento do cliente (token do Gerador)</label>
-      <input type="text" id="adminLeitorEvento" placeholder="Ex: evt-ab3x9k"
-             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-             onblur="carregarLeitorAdmin()" onkeydown="if(event.key==='Enter'){this.blur();}">
-    </div>
-    <div>
-      <label for="adminLeitorToken">Token do Leitor</label>
-      <input type="text" id="adminLeitorToken" placeholder="Ex: CR-XXXXXX"
-             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-             onkeydown="if(event.key==='Enter'){this.blur();guardarLeitorAdmin();}">
-      <div class="nome-hint" id="adminLeitorHint">&nbsp;</div>
-    </div>
-    <button type="button" class="btn-main" id="btnGuardarLeitorAdmin" onclick="guardarLeitorAdmin()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Token do Leitor</button>
+      <!-- ── CLIENTES ── -->
+      <section id="admSecClientes" class="adm-sec" style="display:none;">
+        <div class="adm-busca">
+          <i class="ti ti-search" aria-hidden="true"></i>
+          <input type="search" id="adminBuscaInput" placeholder="Código do evento ou nome do cliente"
+                 autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+                 oninput="buscarClienteAdminDebounce()" onkeydown="if(event.key==='Enter'){this.blur();buscarClienteAdmin();}">
+        </div>
+        <div class="adm-nota">ℹ️ Aqui aparecem os eventos do sistema antigo (Supabase). Os eventos Cloudflare gerem-se no Reprodutor.</div>
+        <div id="adminResultados" class="adm-lista"></div>
+      </section>
 
-    <div class="divider"></div>
-    <div class="section-label">🔍 Aumentar convites de um cliente</div>
-    <div>
-      <label for="adminBuscaInput">Procurar por token ou nome do cliente</label>
-      <input type="text" id="adminBuscaInput" placeholder="Ex: evt-ab3x9k ou nome do cliente"
-             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-             onkeydown="if(event.key==='Enter'){this.blur();buscarClienteAdmin();}">
+      <!-- ── TOKEN DO LEITOR ── -->
+      <section id="admSecLeitor" class="adm-sec" style="display:none;">
+        <div class="adm-sec-desc">Associe o <b>Token do Leitor</b> ao código do evento. O cliente vê-o no tutorial e no ecrã de entrada do <b>Leitor</b> — assim só precisa de lhe enviar o código do evento.</div>
+        <div class="adm-campo">
+          <label for="adminLeitorEvento">Código do evento do cliente</label>
+          <input type="text" id="adminLeitorEvento" placeholder="Ex: evt-ab3x9k"
+                 autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+                 onblur="carregarLeitorAdmin()" onkeydown="if(event.key==='Enter'){this.blur();}">
+        </div>
+        <div class="adm-campo">
+          <label for="adminLeitorToken">Token do Leitor</label>
+          <div class="adm-linha">
+            <input type="text" id="adminLeitorToken" placeholder="Ex: CR-XXXXXX"
+                   autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+                   onkeydown="if(event.key==='Enter'){this.blur();guardarLeitorAdmin();}">
+            <button type="button" class="adm-icone" onclick="copiarCampoAdmin('adminLeitorToken', this)" aria-label="Copiar token"><i class="ti ti-copy" aria-hidden="true"></i></button>
+          </div>
+          <div class="nome-hint" id="adminLeitorHint">&nbsp;</div>
+        </div>
+        <button type="button" class="adm-btn adm-btn-main" id="btnGuardarLeitorAdmin" onclick="guardarLeitorAdmin()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Token do Leitor</button>
+        <button type="button" class="adm-btn adm-btn-perigo" onclick="removerLeitorAdmin()"><i class="ti ti-trash" aria-hidden="true"></i> Remover token deste evento</button>
+      </section>
     </div>
-    <button type="button" class="btn-outline" onclick="buscarClienteAdmin()"><i class="ti ti-search" aria-hidden="true"></i> Procurar</button>
-    <div id="adminResultados" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;"></div>
   </div>
 </div>
 <div class="card">
@@ -2500,6 +2580,7 @@ async function confirmarAdminAcesso() {
     document.getElementById('adminPainelOverlay').classList.remove('hidden');
     document.getElementById('adminBuscaInput').value = '';
     document.getElementById('adminResultados').innerHTML = '';
+    mudarAdminAba('pedidos');
     carregarPedidosAdmin();
   } catch (e) {
     haptic('error');
@@ -2516,54 +2597,132 @@ function fecharAdminPainel() {
 }
 document.getElementById('adminPainelOverlay').addEventListener('click', function(e) { if (e.target === this) fecharAdminPainel(); });
 
+/* ═══ Painel de administração — navegação ═══ */
+function mudarAdminAba(aba) {
+  haptic('light');
+  ['pedidos', 'clientes', 'leitor'].forEach(a => {
+    const cap = a.charAt(0).toUpperCase() + a.slice(1);
+    document.getElementById('admAba' + cap).classList.toggle('ativa', a === aba);
+    document.getElementById('admSec' + cap).style.display = a === aba ? '' : 'none';
+  });
+  const corpo = document.querySelector('#adminPainelOverlay .adm-corpo'); if (corpo) corpo.scrollTop = 0;
+  if (aba === 'clientes') setTimeout(() => document.getElementById('adminBuscaInput').focus(), 80);
+}
+
+function sairAdmin() {
+  haptic('light');
+  adminTokenAtual = null;
+  document.getElementById('adminPainelOverlay').classList.add('hidden');
+  showToast('Saiu do modo administrador.', '#6b7280');
+}
+
+function _admTempo(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return 'agora';
+  if (s < 3600) return 'há ' + Math.floor(s / 60) + ' min';
+  if (s < 86400) return 'há ' + Math.floor(s / 3600) + ' h';
+  if (s < 7 * 86400) return 'há ' + Math.floor(s / 86400) + ' dia' + (s >= 172800 ? 's' : '');
+  return d.toLocaleDateString('pt-PT');
+}
+function _admIniciais(n) { return String(n || '?').trim().split(/\s+/).filter(p => /^[A-Za-zÀ-ÿ0-9]/.test(p)).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?'; }
+
+async function copiarTextoAdmin(texto, btn) {
+  const ok = await copiarParaClipboard(texto);
+  haptic(ok ? 'success' : 'error');
+  if (btn) { const o = btn.innerHTML; btn.innerHTML = ok ? '<i class="ti ti-check" aria-hidden="true"></i> Copiado' : 'Não copiou'; setTimeout(() => { btn.innerHTML = o; }, 1500); }
+}
+function copiarCampoAdmin(id, btn) { const v = document.getElementById(id).value.trim(); if (v) copiarTextoAdmin(v, btn); }
+
+/* ═══ PEDIDOS ═══ */
 async function carregarPedidosAdmin() {
   const el = document.getElementById('adminPedidos');
   const badge = document.getElementById('adminPedidosBadge');
-  el.innerHTML = '<div class="confirmados-vazio">A carregar pedidos...</div>';
+  el.innerHTML = '<div class="adm-esqueleto"></div><div class="adm-esqueleto"></div>';
   try {
     const { data, error } = await rpcComRecurso('admin_pedidos_pendentes', { p_admin: adminTokenAtual || '' }, () => comTimeout(
       DB.from('pedidos_convites').select('id,token_cliente,nome_cliente,quantidade,valor,created_at')
         .eq('status', 'pendente').order('created_at', { ascending: false })
     ));
-    if (error) throw error;
+    if (error) throw new Error(traduzirErroAdmin(error));
     if (!data || data.length === 0) {
       badge.style.display = 'none';
-      el.innerHTML = '<div class="confirmados-vazio">Sem pedidos pendentes.</div>';
+      el.innerHTML = '<div class="adm-vazio"><i class="ti ti-circle-check" aria-hidden="true"></i>Sem pedidos pendentes.</div>';
       return;
     }
     badge.textContent = data.length; badge.style.display = 'inline-block';
+
+    // Descobre quais pedidos são de eventos Supabase (limite aqui) e quais são Cloudflare
+    const tokens = [...new Set(data.map(p => p.token_cliente).filter(Boolean))];
+    const clientes = {};
+    try {
+      const { data: cls } = await comTimeout(DB.from('clientes').select('token,limite_scans,convites_gerados').in('token', tokens));
+      (cls || []).forEach(c => { clientes[c.token] = c; });
+    } catch (e) {}
+
     el.innerHTML = '';
-    data.forEach(p => {
-      const card = document.createElement('div');
-      card.className = 'admin-cliente-card';
-      const dataFmt = new Date(p.created_at).toLocaleString('pt-PT');
-      card.innerHTML = `
-        <div>
-          <div class="admin-cliente-nome"></div>
-          <div class="admin-cliente-token"></div>
-        </div>
-        <div class="admin-cliente-stats">+${p.quantidade} convites · ${formatarKz(p.valor)} · ${dataFmt}</div>
-        <div class="admin-cliente-row">
-          <button type="button" class="btn-main" style="flex:1;"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>
-          <button type="button" class="btn-ghost" style="flex:0 0 auto;">Rejeitar</button>
-        </div>`;
-      card.querySelector('.admin-cliente-nome').textContent = p.nome_cliente || p.token_cliente;
-      card.querySelector('.admin-cliente-token').textContent = p.token_cliente;
-      const [btnAprovar, btnRejeitar] = card.querySelectorAll('.admin-cliente-row button');
-      btnAprovar.onclick = () => aprovarPedidoAdmin(p, btnAprovar, card);
-      btnRejeitar.onclick = () => rejeitarPedidoAdmin(p, btnRejeitar, card);
-      el.appendChild(card);
-    });
+    data.forEach(p => el.appendChild(_admCardPedido(p, clientes[p.token_cliente] || null)));
   } catch (e) {
-    el.innerHTML = `<div class="confirmados-erro">❌ ${e.message}</div>`;
+    el.innerHTML = '';
+    const err = document.createElement('div'); err.className = 'confirmados-erro'; err.textContent = '❌ ' + e.message;
+    el.appendChild(err);
   }
 }
 
-function atualizarBadgePedidosApos(remover) {
-  const restantes = document.querySelectorAll('#adminPedidos .admin-cliente-card').length - (remover ? 1 : 0);
+function _admCardPedido(p, cli) {
+  const card = document.createElement('div');
+  card.className = 'adm-card admin-cliente-card';
+  const eCf = !cli;
+  card.innerHTML = `
+    <div class="adm-card-topo">
+      <div class="adm-avatar"></div>
+      <div class="adm-card-info">
+        <div class="adm-nome"></div>
+        <button type="button" class="adm-token" title="Copiar código"><i class="ti ti-copy" aria-hidden="true"></i><span></span></button>
+      </div>
+      <div class="adm-quando"></div>
+    </div>
+    <div class="adm-chips">
+      <span class="adm-chip">+${Number(p.quantidade) || 0} convites</span>
+      <span class="adm-chip valor">${formatarKz(Number(p.valor) || 0)}</span>
+      ${eCf ? '<span class="adm-chip cf">Evento Cloudflare</span>' : `<span class="adm-chip">Limite ${cli.limite_scans || 0} → ${(cli.limite_scans || 0) + (Number(p.quantidade) || 0)}</span>`}
+    </div>
+    ${eCf ? '<div class="adm-nota">Este evento é do Cloudflare: aumente o limite no Reprodutor e depois toque em <b>Marcar como tratado</b>.</div>' : ''}
+    <div class="adm-acoes">
+      <button type="button" class="adm-btn adm-btn-sec" data-a="rejeitar"><i class="ti ti-x" aria-hidden="true"></i> ${eCf ? 'Marcar como tratado' : 'Rejeitar'}</button>
+      ${eCf ? '' : '<button type="button" class="adm-btn adm-btn-main" data-a="aprovar"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>'}
+    </div>`;
+  card.querySelector('.adm-avatar').textContent = _admIniciais(p.nome_cliente || p.token_cliente);
+  card.querySelector('.adm-nome').textContent = nomeEventoLimpo(p.nome_cliente || p.token_cliente || '—');
+  card.querySelector('.adm-token span').textContent = p.token_cliente || '';
+  card.querySelector('.adm-token').onclick = (ev) => copiarTextoAdmin(p.token_cliente || '', ev.currentTarget);
+  card.querySelector('.adm-quando').textContent = _admTempo(p.created_at);
+  const bRej = card.querySelector('[data-a="rejeitar"]');
+  const bApr = card.querySelector('[data-a="aprovar"]');
+  bRej.onclick = () => rejeitarPedidoAdmin(p, bRej, card);
+  if (bApr) {
+    // Dois toques: evita aprovar por engano
+    let armado = false, timer = 0;
+    bApr.onclick = () => {
+      if (!armado) {
+        armado = true; haptic('light');
+        bApr.classList.add('confirmar');
+        bApr.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Confirmar +' + (Number(p.quantidade) || 0);
+        timer = setTimeout(() => { armado = false; bApr.classList.remove('confirmar'); bApr.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Aprovar'; }, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      aprovarPedidoAdmin(p, bApr, card);
+    };
+  }
+  return card;
+}
+
+function atualizarBadgePedidosApos() {
+  const restantes = document.querySelectorAll('#adminPedidos .adm-card').length;
   const badge = document.getElementById('adminPedidosBadge');
-  if (restantes <= 0) { badge.style.display = 'none'; document.getElementById('adminPedidos').innerHTML = '<div class="confirmados-vazio">Sem pedidos pendentes.</div>'; }
-  else badge.textContent = restantes;
+  if (restantes <= 0) { badge.style.display = 'none'; document.getElementById('adminPedidos').innerHTML = '<div class="adm-vazio"><i class="ti ti-circle-check" aria-hidden="true"></i>Sem pedidos pendentes.</div>'; }
+  else { badge.textContent = restantes; badge.style.display = 'inline-block'; }
 }
 
 function traduzirErroAdmin(e) {
@@ -2571,12 +2730,18 @@ function traduzirErroAdmin(e) {
   if (/NAO_AUTORIZADO/.test(m)) return 'Sem permissão — volte a entrar como administrador.';
   if (/PEDIDO_NAO_ENCONTRADO/.test(m)) return 'Este pedido já foi tratado (ou não existe).';
   if (/CLIENTE_NAO_ENCONTRADO/.test(m)) return 'Cliente não encontrado no Supabase (evento Cloudflare?).';
+  if (/LIMITE_INVALIDO/.test(m)) return 'Limite inválido.';
   return m;
+}
+
+function _admRemoverCard(card) {
+  card.style.transition = 'opacity .25s, transform .25s'; card.style.opacity = '0'; card.style.transform = 'translateX(30px)';
+  setTimeout(() => { card.remove(); atualizarBadgePedidosApos(); }, 260);
 }
 
 async function aprovarPedidoAdmin(pedido, btn, card) {
   haptic('medium');
-  btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+  btn.disabled = true; const orig = '<i class="ti ti-check" aria-hidden="true"></i> Aprovar'; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A aprovar...';
   try {
     // Seguro: aprova e aumenta o limite de uma só vez, no servidor (e só o administrador pode).
     const { data: novoLimiteRpc, error: eRpc } = await rpcComRecurso('admin_pedido_aprovar', { p_admin: adminTokenAtual || '', p_id: String(pedido.id) }, async () => {
@@ -2595,12 +2760,11 @@ async function aprovarPedidoAdmin(pedido, btn, card) {
     const novoLimite = Number(novoLimiteRpc);
     haptic('success');
     showToast(`✅ Aprovado! Novo limite: ${novoLimite}`);
-    card.remove();
-    atualizarBadgePedidosApos(false);
+    _admRemoverCard(card);
     if (clienteData && clienteData.token === pedido.token_cliente) { clienteData.limite_scans = novoLimite; actualizarContador(); }
   } catch (e) {
-    haptic('error'); btn.disabled = false; btn.innerHTML = orig;
-    showToast('❌ Não foi possível aprovar: ' + e.message, '#ef4444');
+    haptic('error'); btn.disabled = false; btn.classList.remove('confirmar'); btn.innerHTML = orig;
+    showToast('❌ ' + e.message, '#ef4444');
   }
 }
 
@@ -2612,11 +2776,10 @@ async function rejeitarPedidoAdmin(pedido, btn, card) {
       () => comTimeout(DB.from('pedidos_convites').update({ status: 'rejeitado' }).eq('id', pedido.id)));
     if (error) throw new Error(traduzirErroAdmin(error));
     haptic('warning');
-    card.remove();
-    atualizarBadgePedidosApos(false);
+    _admRemoverCard(card);
   } catch (e) {
     haptic('error'); btn.disabled = false;
-    showToast('❌ Não foi possível rejeitar: ' + e.message, '#ef4444');
+    showToast('❌ ' + e.message, '#ef4444');
   }
 }
 
@@ -2706,7 +2869,7 @@ async function guardarLeitorAdmin(confirmado) {
     haptic('success');
     showToast(leitor ? '✅ Token do Leitor guardado!' : '🗑️ Token do Leitor removido.');
     hint.className = 'nome-hint ok';
-    hint.textContent = leitor ? '✅ Guardado. O cliente já o vê no Gerador e no tutorial.' : 'Removido.';
+    hint.textContent = leitor ? '✅ Guardado. O cliente já o vê no Leitor e no tutorial.' : 'Removido.';
     if (clienteData && clienteData.token === ev) { _tokenLeitorDe = null; carregarTokenLeitor(); }
   } catch (e) {
     haptic('error');
@@ -2723,9 +2886,12 @@ async function guardarLeitorAdmin(confirmado) {
 async function carregarTokenLeitor() {
   if (!clienteData?.token) return;
   if (_tokenLeitorDe === clienteData.token) { mostrarTokenLeitor(); return; }
-  _tokenLeitorDe = clienteData.token;
-  try { tokenLeitorEvento = await obterTokenLeitor(clienteData.token); }
-  catch (e) { tokenLeitorEvento = null; } // funções ainda não criadas → não mostra nada
+  const tk = clienteData.token;
+  _tokenLeitorDe = tk;
+  let v = null;
+  try { v = await obterTokenLeitor(tk); } catch (e) { v = null; } // funções ainda não criadas → não mostra nada
+  if (!clienteData || clienteData.token !== tk) return; // saiu do evento entretanto: não mostra nada
+  tokenLeitorEvento = v;
   mostrarTokenLeitor();
 }
 
@@ -2780,11 +2946,18 @@ function enviarTokenPorteiro() {
   window.open('https://wa.me/?text=' + encodeURIComponent(mensagemPorteiro()), '_blank');
 }
 
+/* ═══ CLIENTES ═══ */
+let _admBuscaTimer = 0;
+function buscarClienteAdminDebounce() {
+  clearTimeout(_admBuscaTimer);
+  _admBuscaTimer = setTimeout(buscarClienteAdmin, 350);
+}
+
 async function buscarClienteAdmin() {
-  const termo = document.getElementById('adminBuscaInput').value.trim();
+  const termo = document.getElementById('adminBuscaInput').value.trim().replace(/[%,()]/g, '');
   const el = document.getElementById('adminResultados');
-  if (!termo) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="confirmados-vazio">A procurar...</div>';
+  if (termo.length < 2) { el.innerHTML = termo ? '' : '<div class="adm-vazio"><i class="ti ti-search" aria-hidden="true"></i>Escreva pelo menos 2 letras do nome ou do código.</div>'; return; }
+  el.innerHTML = '<div class="adm-esqueleto"></div>';
   try {
     const { data, error } = await comTimeout(
       DB.from('clientes').select('token,nome,limite_scans,convites_gerados')
@@ -2792,39 +2965,90 @@ async function buscarClienteAdmin() {
         .limit(15)
     );
     if (error) throw error;
+    if (document.getElementById('adminBuscaInput').value.trim().replace(/[%,()]/g, '') !== termo) return; // já escreveu outra coisa
     if (!data || data.length === 0) {
-      el.innerHTML = '<div class="confirmados-vazio">Nenhum cliente encontrado.</div>';
+      el.innerHTML = '<div class="adm-vazio"><i class="ti ti-mood-empty" aria-hidden="true"></i>Nenhum cliente encontrado.<br>Se for um evento Cloudflare, use o Reprodutor.</div>';
       return;
     }
     el.innerHTML = '';
-    data.forEach(cli => {
-      const card = document.createElement('div');
-      card.className = 'admin-cliente-card';
-      card.innerHTML = `
-        <div>
-          <div class="admin-cliente-nome"></div>
-          <div class="admin-cliente-token"></div>
-        </div>
-        <div class="admin-cliente-stats">${cli.convites_gerados || 0} gerados de ${cli.limite_scans || 0}</div>
-        <div class="admin-cliente-row">
-          <input type="number" min="0" value="${cli.limite_scans || 0}">
-          <button type="button" class="btn-main"><i class="ti ti-check" aria-hidden="true"></i> Actualizar</button>
-        </div>`;
-      card.querySelector('.admin-cliente-nome').textContent = cli.nome;
-      card.querySelector('.admin-cliente-token').textContent = cli.token;
-      const input = card.querySelector('input');
-      const btn = card.querySelector('button');
-      btn.onclick = () => actualizarLimiteAdmin(cli.token, input, btn, card);
-      el.appendChild(card);
-    });
+    data.forEach(cli => el.appendChild(_admCardCliente(cli)));
   } catch (e) {
-    el.innerHTML = `<div class="confirmados-erro">❌ ${e.message}</div>`;
+    el.innerHTML = '';
+    const err = document.createElement('div'); err.className = 'confirmados-erro'; err.textContent = '❌ ' + e.message;
+    el.appendChild(err);
   }
 }
 
-async function actualizarLimiteAdmin(token, input, btn, card) {
+function _admCardCliente(cli) {
+  const card = document.createElement('div');
+  card.className = 'adm-card';
+  const render = () => {
+    const lim = cli.limite_scans || 0, ger = cli.convites_gerados || 0;
+    const pct = lim ? Math.min(100, Math.round(ger / lim * 100)) : 0;
+    card.querySelector('.adm-barra').classList.toggle('cheio', pct >= 90);
+    card.querySelector('.adm-barra div').style.width = pct + '%';
+    card.querySelector('.adm-barra-txt').innerHTML = `<span><b>${ger}</b> gerados de <b>${lim}</b></span><span>${Math.max(0, lim - ger)} restantes</span>`;
+    card.querySelector('input').value = lim;
+  };
+  card.innerHTML = `
+    <div class="adm-card-topo">
+      <div class="adm-avatar"></div>
+      <div class="adm-card-info">
+        <div class="adm-nome"></div>
+        <button type="button" class="adm-token" title="Copiar código"><i class="ti ti-copy" aria-hidden="true"></i><span></span></button>
+      </div>
+    </div>
+    <div class="adm-barra"><div></div></div>
+    <div class="adm-barra-txt"></div>
+    <div class="adm-rapidos">
+      <button type="button" data-mais="20">+20</button>
+      <button type="button" data-mais="50">+50</button>
+      <button type="button" data-mais="100">+100</button>
+    </div>
+    <div class="adm-linha">
+      <input type="number" min="0" inputmode="numeric" aria-label="Novo limite de convites">
+      <button type="button" class="adm-btn adm-btn-main" data-a="guardar" style="flex:0 0 auto;width:auto;"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar</button>
+    </div>
+    <div class="adm-acoes">
+      <button type="button" class="adm-btn adm-btn-sec" data-a="leitor"><i class="ti ti-key" aria-hidden="true"></i> Token do Leitor</button>
+      <button type="button" class="adm-btn adm-btn-sec" data-a="abrir"><i class="ti ti-external-link" aria-hidden="true"></i> Abrir evento</button>
+    </div>`;
+  card.querySelector('.adm-avatar').textContent = _admIniciais(cli.nome);
+  card.querySelector('.adm-nome').textContent = nomeEventoLimpo(cli.nome || '—');
+  card.querySelector('.adm-token span').textContent = cli.token;
+  card.querySelector('.adm-token').onclick = (ev) => copiarTextoAdmin(cli.token, ev.currentTarget);
+  render();
+  const input = card.querySelector('input');
+  const bGuardar = card.querySelector('[data-a="guardar"]');
+  card.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => {
+    haptic('light');
+    input.value = (parseInt(input.value, 10) || 0) + parseInt(b.dataset.mais, 10);
+    bGuardar.classList.add('confirmar');
+  });
+  bGuardar.onclick = async () => {
+    const novo = await actualizarLimiteAdmin(cli.token, input, bGuardar);
+    if (novo !== null) { cli.limite_scans = novo; render(); bGuardar.classList.remove('confirmar'); }
+  };
+  card.querySelector('[data-a="leitor"]').onclick = () => {
+    document.getElementById('adminLeitorEvento').value = cli.token;
+    document.getElementById('adminLeitorToken').value = '';
+    mudarAdminAba('leitor');
+    carregarLeitorAdmin();
+  };
+  card.querySelector('[data-a="abrir"]').onclick = () => {
+    haptic('light');
+    document.getElementById('adminPainelOverlay').classList.add('hidden');
+    if (clienteData) limparTudo();
+    showStep('step1');
+    document.getElementById('tokenInput').value = cli.token;
+    validarToken();
+  };
+  return card;
+}
+
+async function actualizarLimiteAdmin(token, input, btn) {
   const novoLimite = parseInt(input.value, 10);
-  if (!Number.isFinite(novoLimite) || novoLimite < 0) { haptic('warning'); return; }
+  if (!Number.isFinite(novoLimite) || novoLimite < 0) { haptic('warning'); showToast('⚠️ Indique um número válido.', '#f59e0b'); return null; }
   haptic('medium');
   const orig = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
@@ -2833,20 +3057,23 @@ async function actualizarLimiteAdmin(token, input, btn, card) {
       () => comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', token)));
     if (error) throw new Error(traduzirErroAdmin(error));
     haptic('success');
-    showToast('✅ Limite actualizado!');
-    const stats = card.querySelector('.admin-cliente-stats');
-    if (stats) stats.textContent = stats.textContent.replace(/de \d+$/, `de ${novoLimite}`);
-    // Se este for o cliente actualmente autenticado, actualiza logo o contador visível
-    if (clienteData && clienteData.token === token) {
-      clienteData.limite_scans = novoLimite;
-      actualizarContador();
-    }
+    showToast('✅ Limite actualizado para ' + novoLimite + '!');
+    if (clienteData && clienteData.token === token) { clienteData.limite_scans = novoLimite; actualizarContador(); }
+    return novoLimite;
   } catch (e) {
     haptic('error');
     showToast('❌ Não foi possível actualizar: ' + e.message, '#ef4444');
+    return null;
   } finally {
     btn.disabled = false; btn.innerHTML = orig;
   }
+}
+
+async function removerLeitorAdmin() {
+  const ev = document.getElementById('adminLeitorEvento').value.trim();
+  if (!ev) { haptic('warning'); showToast('Indique o código do evento.', '#f59e0b'); return; }
+  document.getElementById('adminLeitorToken').value = '';
+  await guardarLeitorAdmin(true);
 }
 
 /* ═══════════════════════════════════════════
@@ -4625,6 +4852,11 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 // Expose to global scope
   window.enviarWhatsAppConvite = enviarWhatsAppConvite;
   window.carregarLeitorAdmin = carregarLeitorAdmin;
+  window.mudarAdminAba = mudarAdminAba;
+  window.sairAdmin = sairAdmin;
+  window.copiarCampoAdmin = copiarCampoAdmin;
+  window.removerLeitorAdmin = removerLeitorAdmin;
+  window.buscarClienteAdminDebounce = buscarClienteAdminDebounce;
   window.guardarLeitorAdmin = guardarLeitorAdmin;
   window.copiarTokenLeitor = copiarTokenLeitor;
   window.enviarTokenPorteiro = enviarTokenPorteiro;
