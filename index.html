@@ -406,6 +406,7 @@
     .adm-acoes { display: flex; gap: 8px; }
     .adm-btn { flex: 1; width: 100%; margin: 0; min-height: 44px; border-radius: 12px; border: none; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; padding: 10px 12px; }
     .adm-acoes .adm-btn { width: auto; }
+    .adm-sec > .adm-btn { flex: 0 0 auto; }
     .adm-btn-main { background: #5ba189; color: #fff; }
     .adm-btn-main.confirmar { background: #15803d; }
     .adm-btn-sec { background: #f3f4f6; color: #374151; }
@@ -420,6 +421,12 @@
     .adm-busca input { flex: 1; border: none !important; background: transparent !important; box-shadow: none !important; min-height: 48px; padding: 0 !important; font-size: 15px; outline: none; }
     .adm-nota { font-size: 12px; color: #6b7280; background: #fff; border: 1px dashed #d0ede6; border-radius: 10px; padding: 8px 10px; line-height: 1.4; }
     .adm-campo { display: flex; flex-direction: column; gap: 6px; }
+    .adm-verif { font-size: 13px; line-height: 1.4; border-radius: 10px; padding: 8px 10px; background: #fff; border: 1px solid #e5e7eb; color: #4b5563; }
+    .adm-verif.aguarda { color: #6b7280; }
+    .adm-verif.ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+    .adm-verif.erro { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+    .adm-verif b { color: inherit; }
+    .adm-origem { display: inline-block; margin-left: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.06); }
     .adm-vazio { text-align: center; color: #9ca3af; font-size: 13.5px; padding: 28px 12px; background: #fff; border-radius: 16px; border: 1px dashed #e0f0eb; }
     .adm-vazio i { display: block; font-size: 28px; color: #c7e3d9; margin-bottom: 6px; }
     .adm-esqueleto { height: 118px; border-radius: 16px; background: linear-gradient(90deg,#eef6f3 25%,#f7fbf9 50%,#eef6f3 75%); background-size: 200% 100%; animation: admBrilho 1.2s infinite; }
@@ -862,7 +869,7 @@
                  autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
                  oninput="buscarClienteAdminDebounce()" onkeydown="if(event.key==='Enter'){this.blur();buscarClienteAdmin();}">
         </div>
-        <div class="adm-nota">ℹ️ Aqui aparecem os eventos do sistema antigo (Supabase). Os eventos Cloudflare gerem-se no Reprodutor.</div>
+        <div class="adm-nota">ℹ️ Procura nos eventos <b>Cloudflare</b> e do sistema antigo (<b>Supabase</b>), por nome ou código.</div>
         <div id="adminResultados" class="adm-lista"></div>
       </section>
 
@@ -873,18 +880,21 @@
           <label for="adminLeitorEvento">Código do evento do cliente</label>
           <input type="text" id="adminLeitorEvento" placeholder="Ex: evt-ab3x9k"
                  autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-                 onblur="carregarLeitorAdmin()" onkeydown="if(event.key==='Enter'){this.blur();}">
+                 oninput="verificarEventoAdminDebounce()" onkeydown="if(event.key==='Enter'){this.blur();carregarLeitorAdmin();}">
+          <div class="adm-verif" id="adminLeitorEventoInfo" style="display:none;"></div>
         </div>
         <div class="adm-campo">
           <label for="adminLeitorToken">Token do Leitor</label>
           <div class="adm-linha">
             <input type="text" id="adminLeitorToken" placeholder="Ex: CR-XXXXXX"
                    autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
-                   onkeydown="if(event.key==='Enter'){this.blur();guardarLeitorAdmin();}">
+                   oninput="verificarLeitorAdminDebounce()" onkeydown="if(event.key==='Enter'){this.blur();verificarLeitorAdmin();}">
             <button type="button" class="adm-icone" onclick="copiarCampoAdmin('adminLeitorToken', this)" aria-label="Copiar token"><i class="ti ti-copy" aria-hidden="true"></i></button>
           </div>
-          <div class="nome-hint" id="adminLeitorHint">&nbsp;</div>
+          <div class="adm-verif" id="adminLeitorTokenInfo" style="display:none;"></div>
         </div>
+        <div class="adm-verif" id="adminLeitorComparacao" style="display:none;"></div>
+        <div class="nome-hint" id="adminLeitorHint">&nbsp;</div>
         <button type="button" class="adm-btn adm-btn-main" id="btnGuardarLeitorAdmin" onclick="guardarLeitorAdmin()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Token do Leitor</button>
         <button type="button" class="adm-btn adm-btn-perigo" onclick="removerLeitorAdmin()"><i class="ti ti-trash" aria-hidden="true"></i> Remover token deste evento</button>
       </section>
@@ -920,6 +930,7 @@
 
   <div class="step" id="step2">
     <div class="info green" id="eventoNomeBox" style="text-align:center;"></div>
+    <div class="info orange" id="semFuncoesBox" style="display:none;">ℹ️ Este evento ainda não tem <b>convites</b> nem <b>confirmação de presença</b> activos. Fale com a AdKira para os activar.</div>
     <div class="info red"   id="expiradoBox"   style="display:none;">⏰ Este evento expirou. Já não é possível gerar convites.</div>
     <div class="info orange" id="limiteProximoBox" style="display:none;"></div>
 
@@ -2143,6 +2154,7 @@ function limparTudo() {
   clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
   cfBackendMode = false; cfEventData = null;
   tokenLeitorEvento = null; _tokenLeitorDe = null; try { mostrarTokenLeitor(); } catch(e) {}
+  try { resetarModoEvento(); } catch(e) {}
   convitesSessao=0; filaOffline=[];
   ultimaGeracao=0; tabAtual='lista';
   document.getElementById('tokenInput').value='';
@@ -2634,6 +2646,42 @@ async function copiarTextoAdmin(texto, btn) {
 }
 function copiarCampoAdmin(id, btn) { const v = document.getElementById(id).value.trim(); if (v) copiarTextoAdmin(v, btn); }
 
+/* ═══ Cloudflare (Worker) — rotas de administrador ═══
+   Protegidas pelo segredo GERADOR_ADMIN_TOKEN do Worker (o mesmo valor
+   do seu token de administrador). Se o Worker ainda não tiver estas rotas
+   ou o segredo, o painel continua a funcionar só com o Supabase. */
+let _cfAdminEstado = null; // null = ainda não sabemos · 'ok' · 'indisponivel'
+async function cfAdmin(caminho, opcoes) {
+  const base = window.CF_API_BASE;
+  if (!base) throw Object.assign(new Error('Cloudflare indisponível.'), { code: 'SEM_BASE' });
+  opcoes = opcoes || {};
+  const res = await comTimeout(fetch(base + caminho, {
+    method: opcoes.method || 'GET',
+    headers: Object.assign({ 'Authorization': 'Gerador ' + (adminTokenAtual || '') }, opcoes.body ? { 'Content-Type': 'application/json' } : {}),
+    body: opcoes.body ? JSON.stringify(opcoes.body) : undefined,
+  }));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const code = data.code || ('HTTP_' + res.status);
+    if (code === 'ROUTE_NOT_FOUND' || code === 'NAO_CONFIGURADO') _cfAdminEstado = 'indisponivel';
+    throw Object.assign(new Error(data.error || data.message || ('Erro ' + res.status)), { code });
+  }
+  _cfAdminEstado = 'ok';
+  return data;
+}
+function _cfAdminMsgErro(e) {
+  if (!e) return '';
+  if (e.code === 'ROUTE_NOT_FOUND') return 'O Worker ainda não tem as rotas novas — publique o worker_atualizado.js.';
+  if (e.code === 'NAO_CONFIGURADO') return 'Falta criar o segredo GERADOR_ADMIN_TOKEN no Worker.';
+  if (e.code === 'NAO_AUTORIZADO') return 'O segredo GERADOR_ADMIN_TOKEN do Worker é diferente do seu token de administrador.';
+  if (e.code === 'RATE_LIMITED') return 'Demasiadas tentativas — espere uns minutos.';
+  return e.message || 'Erro no Cloudflare.';
+}
+async function cfAdminProcurar(q) {
+  const r = await cfAdmin('/api/gerador-admin/events?q=' + encodeURIComponent(q));
+  return r.events || [];
+}
+
 /* ═══ PEDIDOS ═══ */
 async function carregarPedidosAdmin() {
   const el = document.getElementById('adminPedidos');
@@ -2660,8 +2708,27 @@ async function carregarPedidosAdmin() {
       (cls || []).forEach(c => { clientes[c.token] = c; });
     } catch (e) {}
 
+    // Pedidos de eventos Cloudflare: vai buscar o evento ao Worker (limite actual)
+    const cfInfo = {};
+    const faltam = tokens.filter(t => !clientes[t]);
+    let cfErro = null;
+    if (faltam.length && _cfAdminEstado !== 'indisponivel') {
+      await Promise.all(faltam.map(async t => {
+        try {
+          const evs = await cfAdminProcurar(t);
+          const ev = evs.find(e => String(e.client_view_token || '').toUpperCase() === String(t).toUpperCase());
+          if (ev) cfInfo[t] = ev;
+        } catch (e) { cfErro = cfErro || e; }
+      }));
+    }
+
     el.innerHTML = '';
-    data.forEach(p => el.appendChild(_admCardPedido(p, clientes[p.token_cliente] || null)));
+    if (cfErro && faltam.length) {
+      const n = document.createElement('div'); n.className = 'adm-nota';
+      n.textContent = '☁️ Pedidos Cloudflare só podem ser marcados como tratados: ' + _cfAdminMsgErro(cfErro);
+      el.appendChild(n);
+    }
+    data.forEach(p => el.appendChild(_admCardPedido(p, clientes[p.token_cliente] || null, cfInfo[p.token_cliente] || null)));
   } catch (e) {
     el.innerHTML = '';
     const err = document.createElement('div'); err.className = 'confirmados-erro'; err.textContent = '❌ ' + e.message;
@@ -2669,10 +2736,15 @@ async function carregarPedidosAdmin() {
   }
 }
 
-function _admCardPedido(p, cli) {
+function _admCardPedido(p, cli, cf) {
   const card = document.createElement('div');
   card.className = 'adm-card admin-cliente-card';
-  const eCf = !cli;
+  const qtd = Number(p.quantidade) || 0;
+  const cfAprovavel = !cli && cf && cf.tem_conta;           // Cloudflare com limite que o Worker pode aumentar
+  const semAprovar = !cli && !cfAprovavel;                  // não sabemos aumentar → "Marcar como tratado"
+  let chipLimite = '';
+  if (cli) chipLimite = `<span class="adm-chip">Limite ${cli.limite_scans || 0} → ${(cli.limite_scans || 0) + qtd}</span>`;
+  else if (cfAprovavel) chipLimite = `<span class="adm-chip">Limite ${cf.ticket_limit} → ${cf.ticket_limit + qtd}</span>`;
   card.innerHTML = `
     <div class="adm-card-topo">
       <div class="adm-avatar"></div>
@@ -2683,17 +2755,19 @@ function _admCardPedido(p, cli) {
       <div class="adm-quando"></div>
     </div>
     <div class="adm-chips">
-      <span class="adm-chip">+${Number(p.quantidade) || 0} convites</span>
+      <span class="adm-chip">+${qtd} convites</span>
       <span class="adm-chip valor">${formatarKz(Number(p.valor) || 0)}</span>
-      ${eCf ? '<span class="adm-chip cf">Evento Cloudflare</span>' : `<span class="adm-chip">Limite ${cli.limite_scans || 0} → ${(cli.limite_scans || 0) + (Number(p.quantidade) || 0)}</span>`}
+      ${cli ? '' : '<span class="adm-chip cf">Cloudflare</span>'}
+      ${chipLimite}
     </div>
-    ${eCf ? '<div class="adm-nota">Este evento é do Cloudflare: aumente o limite no Reprodutor e depois toque em <b>Marcar como tratado</b>.</div>' : ''}
+    ${cfAprovavel && cf.eventos_na_conta > 1 ? `<div class="adm-nota">ℹ️ O limite é partilhado pelos ${cf.eventos_na_conta} eventos desta conta.</div>` : ''}
+    ${semAprovar ? '<div class="adm-nota">Não foi possível ler este evento no Cloudflare: aumente o limite no Reprodutor e depois toque em <b>Marcar como tratado</b>.</div>' : ''}
     <div class="adm-acoes">
-      <button type="button" class="adm-btn adm-btn-sec" data-a="rejeitar"><i class="ti ti-x" aria-hidden="true"></i> ${eCf ? 'Marcar como tratado' : 'Rejeitar'}</button>
-      ${eCf ? '' : '<button type="button" class="adm-btn adm-btn-main" data-a="aprovar"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>'}
+      <button type="button" class="adm-btn adm-btn-sec" data-a="rejeitar"><i class="ti ti-x" aria-hidden="true"></i> ${semAprovar ? 'Marcar como tratado' : 'Rejeitar'}</button>
+      ${semAprovar ? '' : '<button type="button" class="adm-btn adm-btn-main" data-a="aprovar"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>'}
     </div>`;
-  card.querySelector('.adm-avatar').textContent = _admIniciais(p.nome_cliente || p.token_cliente);
-  card.querySelector('.adm-nome').textContent = nomeEventoLimpo(p.nome_cliente || p.token_cliente || '—');
+  card.querySelector('.adm-avatar').textContent = _admIniciais((cf && cf.title) || p.nome_cliente || p.token_cliente);
+  card.querySelector('.adm-nome').textContent = nomeEventoLimpo((cf && cf.title) || p.nome_cliente || p.token_cliente || '—');
   card.querySelector('.adm-token span').textContent = p.token_cliente || '';
   card.querySelector('.adm-token').onclick = (ev) => copiarTextoAdmin(p.token_cliente || '', ev.currentTarget);
   card.querySelector('.adm-quando').textContent = _admTempo(p.created_at);
@@ -2707,15 +2781,51 @@ function _admCardPedido(p, cli) {
       if (!armado) {
         armado = true; haptic('light');
         bApr.classList.add('confirmar');
-        bApr.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Confirmar +' + (Number(p.quantidade) || 0);
+        bApr.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Confirmar +' + qtd;
         timer = setTimeout(() => { armado = false; bApr.classList.remove('confirmar'); bApr.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Aprovar'; }, 4000);
         return;
       }
       clearTimeout(timer);
-      aprovarPedidoAdmin(p, bApr, card);
+      if (cfAprovavel) aprovarPedidoCfAdmin(p, cf, bApr, card);
+      else aprovarPedidoAdmin(p, bApr, card);
     };
   }
   return card;
+}
+
+// Aprovar pedido de um evento Cloudflare:
+// 1) marca "aprovado" no Supabase (só se ainda estiver pendente — evita aprovar 2 vezes)
+// 2) o Worker aumenta o limite da conta no Cloudflare
+// 3) se o passo 2 falhar, o pedido volta a "pendente"
+async function aprovarPedidoCfAdmin(pedido, cf, btn, card) {
+  haptic('medium');
+  const orig = '<i class="ti ti-check" aria-hidden="true"></i> Aprovar';
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A aprovar...';
+  const mudarEstado = (de, para) => rpcComRecurso('admin_pedido_estado', { p_admin: adminTokenAtual || '', p_id: String(pedido.id), p_de: de, p_para: para },
+    async () => {
+      const upd = { status: para }; if (para === 'aprovado') upd.visto = false;
+      const r = await comTimeout(DB.from('pedidos_convites').update(upd).eq('id', pedido.id).eq('status', de).select('id'));
+      return { data: !!(r.data && r.data.length), error: r.error };
+    });
+  try {
+    const m = await mudarEstado('pendente', 'aprovado');
+    if (m.error) throw new Error(traduzirErroAdmin(m.error));
+    if (m.data === false) throw new Error('Este pedido já foi tratado (ou não existe).');
+    let r;
+    try {
+      r = await cfAdmin('/api/gerador-admin/events/' + encodeURIComponent(cf.id) + '/ticket-limit', { method: 'POST', body: { somar: Number(pedido.quantidade) || 0, pedido: String(pedido.id) } });
+    } catch (eCf) {
+      await mudarEstado('aprovado', 'pendente').catch(() => {});
+      throw new Error('O Cloudflare não aumentou o limite (' + _cfAdminMsgErro(eCf) + '). O pedido continua pendente.');
+    }
+    haptic('success');
+    showToast(`✅ Aprovado! Novo limite: ${r.ticket_limit}`);
+    _admRemoverCard(card);
+    if (clienteData && String(clienteData.token).toUpperCase() === String(pedido.token_cliente).toUpperCase()) { clienteData.limite_scans = r.ticket_limit; actualizarContador(); }
+  } catch (e) {
+    haptic('error'); btn.disabled = false; btn.classList.remove('confirmar'); btn.innerHTML = orig;
+    showToast('❌ ' + e.message, '#ef4444');
+  }
 }
 
 function atualizarBadgePedidosApos() {
@@ -2731,6 +2841,7 @@ function traduzirErroAdmin(e) {
   if (/PEDIDO_NAO_ENCONTRADO/.test(m)) return 'Este pedido já foi tratado (ou não existe).';
   if (/CLIENTE_NAO_ENCONTRADO/.test(m)) return 'Cliente não encontrado no Supabase (evento Cloudflare?).';
   if (/LIMITE_INVALIDO/.test(m)) return 'Limite inválido.';
+  if (/TRANSICAO_INVALIDA/.test(m)) return 'Este pedido já não pode mudar para esse estado.';
   return m;
 }
 
@@ -2802,74 +2913,195 @@ async function obterTokenLeitor(tokenGerador) {
   return (typeof data === 'string' && data.trim()) ? data.trim() : null;
 }
 
-async function carregarLeitorAdmin() {
-  const ev = document.getElementById('adminLeitorEvento').value.trim().toLowerCase();
-  const inp = document.getElementById('adminLeitorToken');
-  const hint = document.getElementById('adminLeitorHint');
-  if (!ev) return;
+/* ═══ Admin → Token do Leitor, com verificação ao vivo ═══
+   Ao escrever o código do evento e o token do leitor, mostra o NOME do
+   evento de cada um (Supabase ou Cloudflare) e avisa se não forem do
+   mesmo cliente. */
+const _admVer = { evento: null, leitor: null }; // último resultado de cada verificação
+let _admVerTimerEv = 0, _admVerTimerLt = 0, _admGuardarArmado = false, _admTokenCarregado = null;
+
+function _admInfo(id, estado, html) {
+  const el = document.getElementById(id); if (!el) return;
+  el.className = 'adm-verif ' + (estado || '');
+  el.innerHTML = html || '';
+  el.style.display = html ? '' : 'none';
+}
+const _admEsc = (s) => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Código do evento (token do Gerador) → nome do cliente
+async function verificarEventoGerador(codigo) {
+  codigo = (codigo || '').trim().toLowerCase();
+  if (!codigo) return { ok: false };
   try {
-    const atual = await obterTokenLeitor(ev);
-    if (atual) { inp.value = atual; hint.className = 'nome-hint ok'; hint.textContent = 'ℹ️ Este cliente já tem este Token do Leitor. Pode alterá-lo.'; }
-    else { hint.className = 'nome-hint'; hint.textContent = 'Ainda sem Token do Leitor.'; }
-  } catch (e) {
-    hint.className = 'nome-hint err';
-    hint.textContent = /obter_token_leitor|function|404|PGRST/i.test(e.message || e.code || '')
-      ? '⚠️ Falta configurar a base de dados (corra o ficheiro tokens_leitor.sql no Supabase).'
-      : '⚠️ ' + (e.message || 'Não foi possível ler.');
-  }
+    const { data } = await comTimeout(DB.from('clientes').select('token,nome').eq('token', codigo).maybeSingle());
+    if (data) return { ok: true, nome: data.nome, origem: 'Supabase', id: null, codigo };
+  } catch (e) {}
+  try {
+    const ev = window._cfTryLogin ? await window._cfTryLogin(codigo) : null;
+    if (ev && ev.id) return { ok: true, nome: ev.title || ev.name || 'Evento', origem: 'Cloudflare', id: ev.id, codigo };
+  } catch (e) {}
+  return { ok: false, codigo };
 }
 
-// Verifica o Token do Leitor: Cloudflare (leitor novo) ou Supabase (leitor antigo).
+// Token do Leitor → nome do evento a que pertence
 async function verificarTokenLeitor(tokenLeitor) {
+  tokenLeitor = (tokenLeitor || '').trim();
+  if (!tokenLeitor) return { ok: false };
   try {
     const base = window.CF_API_BASE;
     if (base) {
       const r = await fetch(base + '/api/public/client-scanner-by-token/' + encodeURIComponent(tokenLeitor));
       if (r.ok) {
         const d = await r.json().catch(() => ({}));
-        if (d?.event?.id) return { ok: true, nome: d.event.name || d.event.title || d.event.event_code || d.event.id };
+        if (d?.event?.id) return { ok: true, nome: d.event.title || d.event.name || d.event.event_code || 'Evento', origem: 'Cloudflare', id: d.event.id, token: tokenLeitor };
       }
     }
   } catch (e) {}
   try {
-    const { data } = await DB.from('clientes').select('nome').eq('token', tokenLeitor).maybeSingle();
-    if (data) return { ok: true, nome: data.nome };
+    const { data } = await comTimeout(DB.from('clientes').select('token,nome').eq('token', tokenLeitor).maybeSingle());
+    if (data) return { ok: true, nome: data.nome, origem: 'Supabase', id: null, codigoSupabase: data.token, token: tokenLeitor };
   } catch (e) {}
-  return { ok: false };
+  return { ok: false, token: tokenLeitor };
 }
 
-async function guardarLeitorAdmin(confirmado) {
+// São do mesmo evento?  true / false / null (não dá para saber)
+function _admMesmoEvento(ev, lt) {
+  if (!ev || !lt || !ev.ok || !lt.ok) return null;
+  if (ev.origem !== lt.origem) return false;                           // um é Supabase e o outro Cloudflare
+  if (ev.id && lt.id) return ev.id === lt.id;                         // Cloudflare: compara o id do evento
+  if (lt.codigoSupabase) return lt.codigoSupabase === ev.codigo;       // Supabase: o token do leitor é o próprio código
+  return nomeEventoLimpo(ev.nome).toLowerCase() === nomeEventoLimpo(lt.nome).toLowerCase() ? true : null;
+}
+
+function _admMostrarComparacao() {
+  _admGuardarArmado = false;
+  const btn = document.getElementById('btnGuardarLeitorAdmin');
+  if (btn) { btn.classList.remove('confirmar'); btn.innerHTML = '<i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Token do Leitor'; }
+  const m = _admMesmoEvento(_admVer.evento, _admVer.leitor);
+  if (m === true) _admInfo('adminLeitorComparacao', 'ok', '✅ O código e o token são do <b>mesmo evento</b>.');
+  else if (m === false) _admInfo('adminLeitorComparacao', 'erro', '⚠️ <b>Atenção:</b> este token do leitor é de <b>outro evento</b> (' + _admEsc(nomeEventoLimpo(_admVer.leitor.nome)) + '). Confirme antes de guardar.');
+  else _admInfo('adminLeitorComparacao', '', '');
+}
+
+function verificarEventoAdminDebounce() {
+  clearTimeout(_admVerTimerEv);
+  _admVer.evento = null; _admMostrarComparacao();
+  const v = document.getElementById('adminLeitorEvento').value.trim();
+  if (!v) { _admInfo('adminLeitorEventoInfo', '', ''); return; }
+  _admInfo('adminLeitorEventoInfo', 'aguarda', '⏳ A verificar…');
+  _admVerTimerEv = setTimeout(() => carregarLeitorAdmin(), 600);
+}
+function verificarLeitorAdminDebounce() {
+  clearTimeout(_admVerTimerLt);
+  _admVer.leitor = null; _admMostrarComparacao();
+  const v = document.getElementById('adminLeitorToken').value.trim();
+  if (!v) { _admInfo('adminLeitorTokenInfo', '', ''); return; }
+  _admInfo('adminLeitorTokenInfo', 'aguarda', '⏳ A verificar…');
+  _admVerTimerLt = setTimeout(() => verificarLeitorAdmin(), 600);
+}
+
+async function verificarLeitorAdmin() {
+  const v = document.getElementById('adminLeitorToken').value.trim();
+  if (!v) { _admVer.leitor = null; _admInfo('adminLeitorTokenInfo', '', ''); _admMostrarComparacao(); return; }
+  _admInfo('adminLeitorTokenInfo', 'aguarda', '⏳ A verificar…');
+  const r = await verificarTokenLeitor(v);
+  if (document.getElementById('adminLeitorToken').value.trim() !== v) return; // mudou entretanto
+  _admVer.leitor = r;
+  if (r.ok) _admInfo('adminLeitorTokenInfo', 'ok', '✓ Leitor do evento: <b>' + _admEsc(nomeEventoLimpo(r.nome)) + '</b> <span class="adm-origem">' + r.origem + '</span>');
+  else _admInfo('adminLeitorTokenInfo', 'erro', '❌ Token do leitor não encontrado. Verifique se está bem escrito.');
+  _admMostrarComparacao();
+}
+
+// Verifica o código do evento, mostra o nome do cliente e carrega o token já guardado
+async function carregarLeitorAdmin() {
+  const ev = document.getElementById('adminLeitorEvento').value.trim().toLowerCase();
+  const inp = document.getElementById('adminLeitorToken');
+  const hint = document.getElementById('adminLeitorHint');
+  hint.className = 'nome-hint'; hint.innerHTML = '&nbsp;';
+  // Se o token no campo foi o que carregámos do cliente anterior, limpa-o
+  if (_admTokenCarregado && inp.value.trim() === _admTokenCarregado) {
+    inp.value = ''; _admTokenCarregado = null; _admVer.leitor = null; _admInfo('adminLeitorTokenInfo', '', '');
+  }
+  if (!ev) { _admVer.evento = null; _admInfo('adminLeitorEventoInfo', '', ''); _admMostrarComparacao(); return; }
+  _admInfo('adminLeitorEventoInfo', 'aguarda', '⏳ A verificar…');
+  const [r, atual] = await Promise.all([
+    verificarEventoGerador(ev),
+    obterTokenLeitor(ev).catch(e => ({ __erro: e }))
+  ]);
+  if (document.getElementById('adminLeitorEvento').value.trim().toLowerCase() !== ev) return; // mudou entretanto
+  _admVer.evento = r;
+  if (r.ok) _admInfo('adminLeitorEventoInfo', 'ok', '✓ Cliente: <b>' + _admEsc(nomeEventoLimpo(r.nome)) + '</b> <span class="adm-origem">' + r.origem + '</span>');
+  else _admInfo('adminLeitorEventoInfo', 'erro', '❌ Código do evento não encontrado. Verifique se está bem escrito.');
+
+  if (atual && atual.__erro) {
+    const e = atual.__erro;
+    hint.className = 'nome-hint err';
+    hint.textContent = /obter_token_leitor|function|404|PGRST/i.test((e.message || '') + (e.code || ''))
+      ? '⚠️ Falta configurar a base de dados (corra o ficheiro tokens_leitor.sql no Supabase).'
+      : '⚠️ ' + (e.message || 'Não foi possível ler o token guardado.');
+  } else if (atual) {
+    inp.value = atual; _admTokenCarregado = atual;
+    hint.className = 'nome-hint ok'; hint.textContent = 'ℹ️ Este cliente já tem um Token do Leitor guardado (abaixo). Pode alterá-lo.';
+    verificarLeitorAdmin();
+    return;
+  } else if (r.ok) {
+    hint.className = 'nome-hint'; hint.textContent = 'Este cliente ainda não tem Token do Leitor.';
+    // Evento Cloudflare: o Worker sabe qual é o Token do Leitor — preenche-o
+    if (r.origem === 'Cloudflare' && !inp.value.trim()) {
+      try {
+        const evs = await cfAdminProcurar(ev);
+        const e = evs.find(x => String(x.client_view_token || '').toUpperCase() === ev.toUpperCase());
+        if (e && e.client_scanner_token && document.getElementById('adminLeitorEvento').value.trim().toLowerCase() === ev && !inp.value.trim()) {
+          inp.value = e.client_scanner_token; _admTokenCarregado = e.client_scanner_token;
+          hint.className = 'nome-hint ok'; hint.textContent = '☁️ Token do Leitor preenchido a partir do Cloudflare. Confira e toque em Guardar.';
+          verificarLeitorAdmin();
+          return;
+        }
+      } catch (e) {}
+    }
+  }
+  _admMostrarComparacao();
+}
+
+async function guardarLeitorAdmin(forcar) {
   const ev = document.getElementById('adminLeitorEvento').value.trim().toLowerCase();
   const leitor = document.getElementById('adminLeitorToken').value.trim();
   const hint = document.getElementById('adminLeitorHint');
   const btn = document.getElementById('btnGuardarLeitorAdmin');
+  const textoBtn = '<i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Token do Leitor';
   if (!adminTokenAtual) { hint.className = 'nome-hint err'; hint.textContent = '❌ Volte a entrar como administrador.'; return; }
   if (!ev) { haptic('warning'); hint.className = 'nome-hint err'; hint.textContent = 'Indique o código do evento do cliente.'; return; }
-  const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A verificar...';
+
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A verificar...';
   try {
-    if (leitor && !confirmado) {
-      const v = await verificarTokenLeitor(leitor);
-      if (!v.ok) {
-        haptic('warning');
-        abrirModal({
-          titulo: '⚠️ Token do Leitor não encontrado',
-          corpo: 'Não consegui confirmar que este Token do Leitor existe. Verifique se está bem escrito. Quer guardar mesmo assim?',
-          nome: leitor, nomeCls: '',
-          acoes: [
-            { label:'Guardar mesmo assim', cls:'btn-main', fn:()=>guardarLeitorAdmin(true) },
-            { label:'Corrigir', cls:'btn-ghost', fn:()=>document.getElementById('adminLeitorToken').focus() }
-          ]
-        });
-        return;
-      }
-      hint.className = 'nome-hint ok'; hint.textContent = '✓ Leitor do evento: ' + nomeEventoLimpo(v.nome);
+    // Garante que as duas verificações estão feitas e actualizadas
+    if (!_admVer.evento || _admVer.evento.codigo !== ev) await carregarLeitorAdmin();
+    if (leitor && (!_admVer.leitor || _admVer.leitor.token !== leitor)) await verificarLeitorAdmin();
+
+    const problemas = [];
+    if (!_admVer.evento || !_admVer.evento.ok) problemas.push('o código do evento não foi encontrado');
+    if (leitor && (!_admVer.leitor || !_admVer.leitor.ok)) problemas.push('o token do leitor não foi encontrado');
+    if (leitor && _admMesmoEvento(_admVer.evento, _admVer.leitor) === false) problemas.push('o token é de outro evento');
+
+    // Com problemas: pede um segundo toque ("Guardar mesmo assim")
+    if (problemas.length && !forcar && !_admGuardarArmado) {
+      _admGuardarArmado = true; haptic('warning');
+      hint.className = 'nome-hint err';
+      hint.textContent = '⚠️ Atenção: ' + problemas.join(' e ') + '. Toque outra vez para guardar mesmo assim.';
+      btn.disabled = false; btn.classList.add('confirmar');
+      btn.innerHTML = '<i class="ti ti-alert-triangle" aria-hidden="true"></i> Guardar mesmo assim';
+      return;
     }
+    _admGuardarArmado = false;
+    btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A guardar...';
+
     const { error } = await comTimeout(DB.rpc('definir_token_leitor', { p_admin: adminTokenAtual, p_token: ev, p_leitor: leitor }));
     if (error) throw error;
     haptic('success');
-    showToast(leitor ? '✅ Token do Leitor guardado!' : '🗑️ Token do Leitor removido.');
+    const nome = _admVer.evento && _admVer.evento.ok ? nomeEventoLimpo(_admVer.evento.nome) : ev;
+    showToast(leitor ? '✅ Token do Leitor guardado para ' + nome + '!' : '🗑️ Token do Leitor removido de ' + nome + '.');
     hint.className = 'nome-hint ok';
-    hint.textContent = leitor ? '✅ Guardado. O cliente já o vê no Leitor e no tutorial.' : 'Removido.';
+    hint.textContent = leitor ? '✅ Guardado para ' + nome + '. O cliente já o vê no Leitor e no tutorial.' : 'Removido.';
     if (clienteData && clienteData.token === ev) { _tokenLeitorDe = null; carregarTokenLeitor(); }
   } catch (e) {
     haptic('error');
@@ -2878,7 +3110,8 @@ async function guardarLeitorAdmin(confirmado) {
       : /definir_token_leitor|function|PGRST/i.test((e.message || '') + (e.code || '')) ? '⚠️ Falta configurar a base de dados (corra o ficheiro tokens_leitor.sql no Supabase).'
       : '❌ ' + (e.message || 'Não foi possível guardar.');
   } finally {
-    btn.disabled = false; btn.innerHTML = orig;
+    btn.disabled = false;
+    if (!_admGuardarArmado) { btn.classList.remove('confirmar'); btn.innerHTML = textoBtn; }
   }
 }
 
@@ -2958,25 +3191,35 @@ async function buscarClienteAdmin() {
   const el = document.getElementById('adminResultados');
   if (termo.length < 2) { el.innerHTML = termo ? '' : '<div class="adm-vazio"><i class="ti ti-search" aria-hidden="true"></i>Escreva pelo menos 2 letras do nome ou do código.</div>'; return; }
   el.innerHTML = '<div class="adm-esqueleto"></div>';
-  try {
-    const { data, error } = await comTimeout(
-      DB.from('clientes').select('token,nome,limite_scans,convites_gerados')
-        .or(`token.ilike.%${termo}%,nome.ilike.%${termo}%`)
-        .limit(15)
-    );
-    if (error) throw error;
-    if (document.getElementById('adminBuscaInput').value.trim().replace(/[%,()]/g, '') !== termo) return; // já escreveu outra coisa
-    if (!data || data.length === 0) {
-      el.innerHTML = '<div class="adm-vazio"><i class="ti ti-mood-empty" aria-hidden="true"></i>Nenhum cliente encontrado.<br>Se for um evento Cloudflare, use o Reprodutor.</div>';
-      return;
-    }
-    el.innerHTML = '';
-    data.forEach(cli => el.appendChild(_admCardCliente(cli)));
-  } catch (e) {
-    el.innerHTML = '';
-    const err = document.createElement('div'); err.className = 'confirmados-erro'; err.textContent = '❌ ' + e.message;
-    el.appendChild(err);
+  const [sup, cf] = await Promise.all([
+    comTimeout(DB.from('clientes').select('token,nome,limite_scans,convites_gerados')
+      .or(`token.ilike.%${termo}%,nome.ilike.%${termo}%`).limit(15))
+      .then(r => ({ ok: !r.error, dados: r.data || [], erro: r.error }))
+      .catch(e => ({ ok: false, dados: [], erro: e })),
+    cfAdminProcurar(termo)
+      .then(dados => ({ ok: true, dados }))
+      .catch(e => ({ ok: false, dados: [], erro: e })),
+  ]);
+  if (document.getElementById('adminBuscaInput').value.trim().replace(/[%,()]/g, '') !== termo) return; // já escreveu outra coisa
+  el.innerHTML = '';
+  if (!cf.ok) {
+    const n = document.createElement('div'); n.className = 'adm-nota';
+    n.textContent = '☁️ Eventos Cloudflare indisponíveis: ' + _cfAdminMsgErro(cf.erro);
+    el.appendChild(n);
   }
+  if (!sup.ok && sup.erro) {
+    const n = document.createElement('div'); n.className = 'confirmados-erro';
+    n.textContent = '❌ Supabase: ' + (sup.erro.message || sup.erro);
+    el.appendChild(n);
+  }
+  if (!sup.dados.length && !cf.dados.length) {
+    const v = document.createElement('div'); v.className = 'adm-vazio';
+    v.innerHTML = '<i class="ti ti-mood-empty" aria-hidden="true"></i>Nenhum cliente encontrado.';
+    el.appendChild(v);
+    return;
+  }
+  cf.dados.forEach(ev => el.appendChild(_admCardClienteCf(ev)));
+  sup.dados.forEach(cli => el.appendChild(_admCardCliente(cli)));
 }
 
 function _admCardCliente(cli) {
@@ -2997,6 +3240,7 @@ function _admCardCliente(cli) {
         <div class="adm-nome"></div>
         <button type="button" class="adm-token" title="Copiar código"><i class="ti ti-copy" aria-hidden="true"></i><span></span></button>
       </div>
+      <span class="adm-chip">Supabase</span>
     </div>
     <div class="adm-barra"><div></div></div>
     <div class="adm-barra-txt"></div>
@@ -3032,6 +3276,7 @@ function _admCardCliente(cli) {
   card.querySelector('[data-a="leitor"]').onclick = () => {
     document.getElementById('adminLeitorEvento').value = cli.token;
     document.getElementById('adminLeitorToken').value = '';
+    _admVer.leitor = null; _admInfo('adminLeitorTokenInfo', '', '');
     mudarAdminAba('leitor');
     carregarLeitorAdmin();
   };
@@ -3041,6 +3286,98 @@ function _admCardCliente(cli) {
     if (clienteData) limparTudo();
     showStep('step1');
     document.getElementById('tokenInput').value = cli.token;
+    validarToken();
+  };
+  return card;
+}
+
+function _admCardClienteCf(ev) {
+  const card = document.createElement('div');
+  card.className = 'adm-card';
+  const dataFmt = ev.date ? new Date(ev.date).toLocaleDateString('pt-PT') : '';
+  card.innerHTML = `
+    <div class="adm-card-topo">
+      <div class="adm-avatar"></div>
+      <div class="adm-card-info">
+        <div class="adm-nome"></div>
+        <button type="button" class="adm-token" title="Copiar código"><i class="ti ti-copy" aria-hidden="true"></i><span></span></button>
+      </div>
+      <span class="adm-chip cf">Cloudflare</span>
+    </div>
+    <div class="adm-chips adm-cf-info"></div>
+    ${ev.tem_conta ? `
+      <div class="adm-barra"><div></div></div>
+      <div class="adm-barra-txt"></div>
+      ${ev.eventos_na_conta > 1 ? `<div class="adm-nota">ℹ️ O limite é partilhado pelos ${ev.eventos_na_conta} eventos desta conta.</div>` : ''}
+      <div class="adm-rapidos">
+        <button type="button" data-mais="20">+20</button>
+        <button type="button" data-mais="50">+50</button>
+        <button type="button" data-mais="100">+100</button>
+      </div>
+      <div class="adm-linha">
+        <input type="number" min="0" inputmode="numeric" aria-label="Novo limite de convites">
+        <button type="button" class="adm-btn adm-btn-main" data-a="guardar" style="flex:0 0 auto;width:auto;"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar</button>
+      </div>` : '<div class="adm-nota">Este evento não tem conta associada — não tem limite de convites.</div>'}
+    <div class="adm-acoes">
+      <button type="button" class="adm-btn adm-btn-sec" data-a="leitor"><i class="ti ti-key" aria-hidden="true"></i> Token do Leitor</button>
+      <button type="button" class="adm-btn adm-btn-sec" data-a="abrir"${ev.client_view_token ? '' : ' disabled'}><i class="ti ti-external-link" aria-hidden="true"></i> Abrir evento</button>
+    </div>`;
+  card.querySelector('.adm-avatar').textContent = _admIniciais(ev.title);
+  card.querySelector('.adm-nome').textContent = nomeEventoLimpo(ev.title || '—');
+  const codigo = ev.client_view_token || ev.event_code || '';
+  card.querySelector('.adm-token span').textContent = codigo;
+  card.querySelector('.adm-token').onclick = (e) => copiarTextoAdmin(codigo, e.currentTarget);
+  const infos = [];
+  if (dataFmt) infos.push(`<span class="adm-chip">📅 ${_admEsc(dataFmt)}</span>`);
+  if (ev.conta) infos.push(`<span class="adm-chip">👤 ${_admEsc(ev.conta)}</span>`);
+  infos.push(ev.qr_ativo ? '<span class="adm-chip">QR activo</span>' : '<span class="adm-chip aviso">Sem QR</span>');
+  card.querySelector('.adm-cf-info').innerHTML = infos.join('');
+
+  if (ev.tem_conta) {
+    const render = () => {
+      const lim = ev.ticket_limit || 0, ger = ev.tickets_generated_total || 0;
+      const pct = lim ? Math.min(100, Math.round(ger / lim * 100)) : 0;
+      card.querySelector('.adm-barra').classList.toggle('cheio', pct >= 90);
+      card.querySelector('.adm-barra div').style.width = pct + '%';
+      card.querySelector('.adm-barra-txt').innerHTML = `<span><b>${ger}</b> gerados de <b>${lim}</b></span><span>${Math.max(0, lim - ger)} restantes</span>`;
+      card.querySelector('input').value = lim;
+    };
+    render();
+    const input = card.querySelector('input');
+    const bGuardar = card.querySelector('[data-a="guardar"]');
+    card.querySelectorAll('[data-mais]').forEach(b => b.onclick = () => {
+      haptic('light');
+      input.value = (parseInt(input.value, 10) || 0) + parseInt(b.dataset.mais, 10);
+      bGuardar.classList.add('confirmar');
+    });
+    bGuardar.onclick = async () => {
+      const novo = parseInt(input.value, 10);
+      if (!Number.isFinite(novo) || novo < 0) { haptic('warning'); showToast('⚠️ Indique um número válido.', '#f59e0b'); return; }
+      const orig = bGuardar.innerHTML; bGuardar.disabled = true; bGuardar.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
+      try {
+        const r = await cfAdmin('/api/gerador-admin/events/' + encodeURIComponent(ev.id) + '/ticket-limit', { method: 'POST', body: { definir: novo } });
+        ev.ticket_limit = r.ticket_limit; render(); bGuardar.classList.remove('confirmar');
+        haptic('success'); showToast('✅ Limite actualizado para ' + r.ticket_limit + '!');
+        if (clienteData && ev.client_view_token && String(clienteData.token).toUpperCase() === String(ev.client_view_token).toUpperCase()) { clienteData.limite_scans = r.ticket_limit; actualizarContador(); }
+      } catch (e) {
+        haptic('error'); showToast('❌ ' + _cfAdminMsgErro(e), '#ef4444');
+      } finally { bGuardar.disabled = false; bGuardar.innerHTML = orig; }
+    };
+  }
+  card.querySelector('[data-a="leitor"]').onclick = () => {
+    document.getElementById('adminLeitorEvento').value = (ev.client_view_token || '').toLowerCase();
+    document.getElementById('adminLeitorToken').value = '';
+    _admVer.leitor = null; _admInfo('adminLeitorTokenInfo', '', '');
+    mudarAdminAba('leitor');
+    carregarLeitorAdmin();
+  };
+  card.querySelector('[data-a="abrir"]').onclick = () => {
+    if (!ev.client_view_token) return;
+    haptic('light');
+    document.getElementById('adminPainelOverlay').classList.add('hidden');
+    if (clienteData) limparTudo();
+    showStep('step1');
+    document.getElementById('tokenInput').value = ev.client_view_token.toLowerCase();
     validarToken();
   };
   return card;
@@ -3254,6 +3591,17 @@ async function atualizarSecaoConfirmados() {
     // nenhum sistema de confirmações), um evento Cloudflare tem sempre
     // confirmações de presença como conceito — só pode estar vazio
     // agora. A aba fica sempre visível, mesmo com 0.
+    // 🆕 Sem botão "Confirmar presença" (e sem Save the Date ligado, e sem
+    // respostas): não há confirmações — fica só a aba "Convites".
+    if (!cfPodeConfirmar()) {
+      tabsWrap.style.display = 'none';
+      const cv = document.getElementById('convitesTabContent');
+      const cfc = document.getElementById('confirmacoesTabContent');
+      if (cv) cv.style.display = '';
+      if (cfc) cfc.style.display = 'none';
+      mainTabAtual = 'convites';
+      return;
+    }
     tabsWrap.style.display = 'flex';
     const confirmados = rsvps.filter(rsvpConfirmou);
     const pendentes = confirmados.filter(r => !encontrarConviteDoRsvp(r.guest_name, r.id));
@@ -3343,13 +3691,53 @@ let tabRestaurada = false; // ▼ NOVO: garante que só restauramos a aba guarda
 //
 // Por omissão está LIGADO: só fica em modo de leitura quando o campo vier
 // explicitamente a false. Nenhum evento já existente muda de comportamento.
+function _ligCf(x) { return x === true || x === 1 || x === '1' || x === 'yes'; }
+
+// "Convites" (emitir bilhetes): o evento tem de ter um MODELO DE BILHETE e
+// não pode ter os bilhetes desligados para o cliente. Um Save the Date não
+// tem modelo de bilhete — por isso não mostra a aba "Convites".
 function podeGerarConvites() {
   if (!cfBackendMode) return true;            // Supabase antigo — como sempre
-  return cfEventData?.client_area_tickets_enabled !== false;
+  const e = cfEventData || {};
+  if (e.client_area_tickets_enabled === false || e.client_area_tickets_enabled === 0 || e.client_area_tickets_enabled === '0') return false;
+  return !!String(e.ticket_template_url || '').trim();
+}
+
+// "Confirmações": o evento tem o botão "Confirmar presença", OU está ligado a
+// um Save the Date (as confirmações vêm de lá), OU já tem respostas reais
+// (nunca escondemos respostas que já existem).
+function cfPodeConfirmar() {
+  if (!cfBackendMode) return true;
+  const e = cfEventData || {};
+  if (e.sibling && e.sibling.id) return true;
+  const usaPdf = _ligCf(e.pdf_invite_enabled);
+  const temBotao = usaPdf
+    ? (_ligCf(e.pdf_invite_rsvp_enabled) || _ligCf(e.pdf_invite_std_enabled))
+    : !_ligCf(e.rsvp_disabled);
+  if (temBotao) return true;
+  return (e.rsvps || []).some(r => r.attending === 1 || r.attending === 0 || r.attending === true || r.attending === false);
+}
+
+// Repõe tudo visível (ao entrar noutro evento, nada fica escondido do anterior)
+function resetarModoEvento() {
+  ['mainTabConvites', 'counterBox', 'btnPdfConvites', 'convitesTabContent'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.style.display = '';
+  });
+  const box = document.getElementById('semFuncoesBox'); if (box) box.style.display = 'none';
 }
 
 function aplicarModoSoConfirmacoes() {
+  resetarModoEvento();
+  if (clienteData && !clienteData.ilimitado) { const ba = document.getElementById('btnAderirMais'); if (ba) ba.style.display = 'block'; }
   if (podeGerarConvites()) return;
+  // Nem convites nem confirmações: mostra só o aviso.
+  if (!cfPodeConfirmar()) {
+    ['mainTabsWrap', 'convitesTabContent', 'confirmacoesTabContent', 'counterBox', 'btnAderirMais', 'btnPdfConvites'].forEach(id => {
+      const e = document.getElementById(id); if (e) e.style.display = 'none';
+    });
+    const box = document.getElementById('semFuncoesBox'); if (box) box.style.display = '';
+    return;
+  }
   // Sem geração: a aba "Convites" e o contador de bilhetes deixam de existir,
   // e fica-se sempre nas confirmações.
   const btnConvites = document.getElementById('mainTabConvites');
@@ -4853,6 +5241,9 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
   window.enviarWhatsAppConvite = enviarWhatsAppConvite;
   window.carregarLeitorAdmin = carregarLeitorAdmin;
   window.mudarAdminAba = mudarAdminAba;
+  window.verificarEventoAdminDebounce = verificarEventoAdminDebounce;
+  window.verificarLeitorAdminDebounce = verificarLeitorAdminDebounce;
+  window.verificarLeitorAdmin = verificarLeitorAdmin;
   window.sairAdmin = sairAdmin;
   window.copiarCampoAdmin = copiarCampoAdmin;
   window.removerLeitorAdmin = removerLeitorAdmin;
@@ -7401,10 +7792,10 @@ function switchApp(app) {
     { id: 'g-ola', fase: 'Gerador', tipo: 'info', quando: () => geradorLogado() && !feito.veioDoLogin, antes: irConvites,
       titulo: 'Vamos criar o seu primeiro convite! 👋',
       texto: 'Em poucos passos, <b>você</b> vai: ① criar um convite, ② enviá-lo pelo WhatsApp, ③ aprender a usar o Leitor à entrada.<br><br>Em cada passo diremos o que fazer — e avançamos quando estiver feito.' },
-    { id: 'g-contador', fase: 'Gerador', tipo: 'info', alvo: '#counterBox', quando: geradorLogado, antes: irConvites,
+    { id: 'g-contador', fase: 'Gerador', tipo: 'info', alvo: '#counterBox', quando: () => geradorLogado() && visivel($('counterBox')), antes: irConvites,
       titulo: 'Os seus convites',
       texto: '<b>Disponíveis</b>: quantos comprou · <b>Já gerados</b>: quantos criou · <b>Restantes</b>: quantos ainda pode criar.' },
-    { id: 'g-nome', fase: 'Gerador', tipo: 'input', alvo: '#nomeInput', quando: geradorLogado, preferir: 'cima',
+    { id: 'g-nome', fase: 'Gerador', tipo: 'input', alvo: '#nomeInput', quando: () => geradorLogado() && visivel($('nomeInput')), preferir: 'cima',
       titulo: '1. Escreva o nome de um convidado',
       texto: 'Use um <b>convidado verdadeiro</b> da sua lista — o convite é real e usa <b>1</b> dos seus convites. Para casal ou família: <b>"Maria Silva e João Pedro"</b>.',
       faca: '👉 Escreva agora o nome no campo destacado.',
@@ -7414,7 +7805,7 @@ function switchApp(app) {
       texto: 'O seu evento usa mesas — a mesa aparece impressa no convite.',
       faca: '👉 Escreva a mesa (ex: Mesa 5 ou VIP).',
       validar: () => val('#mesaInput').length >= 1 },
-    { id: 'g-gerar', fase: 'Gerador', tipo: 'clique', alvo: '#btnGerar', quando: geradorLogado,
+    { id: 'g-gerar', fase: 'Gerador', tipo: 'clique', alvo: '#btnGerar', quando: () => geradorLogado() && visivel($('btnGerar')),
       titulo: '2. Gere o convite',
       texto: 'Toque em <b>Gerar Convite</b> e <b>confirme o nome</b> na janela que aparece. A seguir o telemóvel abre a partilha: escolha o <b>WhatsApp</b> e o <b>contacto</b> do convidado.',
       faca: '👉 Toque agora em "Gerar Convite".',
@@ -7431,7 +7822,7 @@ function switchApp(app) {
       faca: '👉 Toque agora no botão verde destacado.',
       saltar: { label: 'Envio depois', ir: 'g-lista' },
       espera: 'partilha' },
-    { id: 'g-lista', fase: 'Gerador', tipo: 'info', alvo: '#convitesLista', quando: geradorLogado,
+    { id: 'g-lista', fase: 'Gerador', tipo: 'info', alvo: '#convitesLista', quando: () => geradorLogado() && visivel($('convitesLista')),
       titulo: 'A sua lista de convites',
       texto: 'Em cada convite:<br><span class="t-icone wa"><i class="ti ti-brand-whatsapp"></i></span> enviar / reenviar pelo WhatsApp<br><span class="t-icone dl"><i class="ti ti-download"></i></span> baixar o PDF<br><span class="t-icone del"><i class="ti ti-trash"></i></span> eliminar (se errou o nome)' },
     { id: 'g-filtro', fase: 'Gerador', tipo: 'clique', alvo: '#convitesFiltroEnvio .filtro-envio-chip:nth-child(2)', quando: () => geradorLogado() && visivel(q('#convitesFiltroEnvio .filtro-envio-chip:nth-child(2)')),
