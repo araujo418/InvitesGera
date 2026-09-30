@@ -444,6 +444,20 @@
     .btn-dl.btn-dl-wa:active { background: #c8f0d6; }
     .btn-main.btn-wa { background: #25D366; color: #fff; }
     .btn-main.btn-wa:active { background: #1ebe5a; }
+    .btn-dl.btn-dl-wa.enviado { background: #25D366; color: #fff; }
+    .token-leitor-box { border: 1.5px dashed #b7dccd; background: #f5faf8; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .token-leitor-box .tl-topo { font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5ba189; display: flex; align-items: center; gap: 6px; }
+    .token-leitor-box .tl-linha { display: flex; align-items: center; gap: 8px; }
+    .token-leitor-box .tl-valor { flex: 1; min-width: 0; font: 700 17px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #1a1a2e; background: #fff; border: 1px solid #e0f0eb; border-radius: 10px; padding: 9px 10px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+    .token-leitor-box .tl-btn { width: auto; flex-shrink: 0; margin: 0; border: none; border-radius: 10px; background: #5ba189; color: #fff; font-size: 13.5px; font-weight: 600; padding: 9px 12px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; cursor: pointer; }
+    .token-leitor-box .tl-btn.tl-wa { width: 100%; background: #e7f9ee; color: #128C7E; }
+    .token-leitor-box .tl-aviso { font-size: 12.5px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px; line-height: 1.45; }
+    .convite-item-tag.tag-enviado { color: #128C7E; cursor: pointer; }
+    .filtro-envio { gap: 6px; margin: 8px 0 2px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .filtro-envio::-webkit-scrollbar { display: none; }
+    .filtro-envio-chip { flex-shrink: 0; border: 1.5px solid #d0ede6; background: #fff; color: #4b5563; border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 32px; display: inline-flex; align-items: center; gap: 4px; font-family: inherit; }
+    .filtro-envio .filtro-envio-chip { width: auto; margin: 0; }
+    .filtro-envio-chip.ativo { background: #5ba189; border-color: #5ba189; color: #fff; }
     /* Com o botão de WhatsApp há 3 botões por linha — em ecrãs estreitos
        esconde-se o avatar e o nome pode ocupar 2 linhas, para não ficar cortado. */
     @media (max-width: 440px) {
@@ -750,7 +764,7 @@
 </div>
 
 <div class="modal-overlay hidden" id="adminPainelOverlay">
-  <div class="modal-box" style="max-height:85vh;">
+  <div class="modal-box" style="max-height:85vh;overflow-y:auto;">
     <div class="modal-handle"></div>
     <div class="cc-header" style="color:#1c1917;">
       <i class="ti ti-shield-lock" aria-hidden="true"></i>
@@ -766,10 +780,30 @@
     <div id="adminPedidos" style="display:flex;flex-direction:column;gap:10px;"></div>
 
     <div class="divider"></div>
+    <div class="section-label">🔑 Token do Leitor de um cliente</div>
+    <div style="font-size:12.5px;color:#6b7280;line-height:1.45;margin-top:-4px;">
+      O cliente passa a ver este token no Gerador (com botão de copiar) e no tutorial — assim só precisa de lhe enviar o código do evento.
+    </div>
+    <div>
+      <label for="adminLeitorEvento">Código do evento do cliente (token do Gerador)</label>
+      <input type="text" id="adminLeitorEvento" placeholder="Ex: evt-ab3x9k"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+             onblur="carregarLeitorAdmin()" onkeydown="if(event.key==='Enter'){this.blur();}">
+    </div>
+    <div>
+      <label for="adminLeitorToken">Token do Leitor</label>
+      <input type="text" id="adminLeitorToken" placeholder="Ex: CR-XXXXXX"
+             autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+             onkeydown="if(event.key==='Enter'){this.blur();guardarLeitorAdmin();}">
+      <div class="nome-hint" id="adminLeitorHint">&nbsp;</div>
+    </div>
+    <button type="button" class="btn-main" id="btnGuardarLeitorAdmin" onclick="guardarLeitorAdmin()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Token do Leitor</button>
+
+    <div class="divider"></div>
     <div class="section-label">🔍 Aumentar convites de um cliente</div>
     <div>
       <label for="adminBuscaInput">Procurar por token ou nome do cliente</label>
-      <input type="text" id="adminBuscaInput" placeholder="Ex: evt-bmh6x7 ou Araújo Cataca"
+      <input type="text" id="adminBuscaInput" placeholder="Ex: evt-ab3x9k ou nome do cliente"
              autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
              onkeydown="if(event.key==='Enter'){this.blur();buscarClienteAdmin();}">
     </div>
@@ -846,6 +880,17 @@
 
     <!-- ▼ NOVO: duas abas principais — Confirmações (dados do site de
          Confirmação de Presença) e Convites (geração manual + já gerados) -->
+    <!-- ▼ NOVO: Token do Leitor do evento (só aparece quando o administrador o associou) -->
+    <div class="token-leitor-box" id="tokenLeitorBox" style="display:none;">
+      <div class="tl-topo"><i class="ti ti-key" aria-hidden="true"></i> Token do Leitor</div>
+      <div class="tl-linha">
+        <code class="tl-valor" id="tokenLeitorValor"></code>
+        <button type="button" class="tl-btn" onclick="copiarTokenLeitor(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copiar</button>
+      </div>
+      <div class="tl-aviso">⚠️ Guarde este token e entregue-o <b>só ao porteiro (ou porteiros)</b> que vão controlar a entrada. É com ele que entram no <b>Leitor</b>.</div>
+      <button type="button" class="tl-btn tl-wa" onclick="enviarTokenPorteiro()"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Enviar instruções ao porteiro</button>
+    </div>
+
     <div id="mainTabsWrap" style="display:none;gap:6px;flex-direction:row;">
       <button id="mainTabConfirmacoes" class="tab-btn" onclick="mudarMainTab('confirmacoes')">
         <i class="ti ti-user-check" aria-hidden="true"></i> Confirmações <span id="confirmadosBadge" class="confirmados-badge" style="display:none;" title="Por gerar"></span>
@@ -921,6 +966,7 @@
              placeholder="🔍 Pesquisar por nome..."
              autocorrect="off" spellcheck="false"
              oninput="filtrarConvites()" style="display:none;">
+      <div id="convitesFiltroEnvio" class="filtro-envio" style="display:none;"></div>
 
       <!-- ▼ NOVO — barra de selecção múltipla, só aparece com alguma marcação -->
       <div id="convitesSelecaoBar" style="display:none;align-items:center;justify-content:space-between;gap:8px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:8px 12px;margin-bottom:8px;">
@@ -1303,7 +1349,7 @@ let rsvpIdEmGeracao    = null;  // ▼ NOVO: id estável do rsvp (imune a mudan�
 ═══════════════════════════════════════════ */
 function getGerados() { return clienteData?.convites_gerados || 0; }
 // ▼ NOVO: estado mínimo para o tutorial (script separado, fora deste IIFE)
-window.__invitesInfo = () => ({ logado: !!clienteData, token: clienteData?.token || null, gerados: getGerados(), cf: cfBackendMode });
+window.__invitesInfo = () => ({ logado: !!clienteData, token: clienteData?.token || null, gerados: getGerados(), cf: cfBackendMode, tokenLeitor: clienteData ? tokenLeitorEvento : null });
 
 /* ═══════════════════════════════════════════
    RATE LIMITING
@@ -1403,6 +1449,7 @@ async function abrirPartilhaConvite(blob, nome) {
   if (isIOSDevice && navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(texto).catch(() => {});
   }
+  window.__invitesPartilhaAtiva = true; // o tutorial espera que a partilha termine
   try {
     await navigator.share(dados);
     return 'ok';
@@ -1410,14 +1457,65 @@ async function abrirPartilhaConvite(blob, nome) {
     if (e && e.name === 'AbortError') return 'cancelado';        // fechou a partilha
     if (e && e.name === 'NotAllowedError') return 'bloqueado';   // browser exige um toque antes
     return 'erro';
+  } finally {
+    window.__invitesPartilhaAtiva = false;
   }
 }
 
 // Chamado a partir de um toque (botão "Enviar pelo WhatsApp").
-async function partilharWhatsApp(blob, nome) {
+/* ═══ NOVO — "Enviado por WhatsApp" ═══
+   Guardado só neste aparelho (localStorage, por evento) — não mexe no
+   servidor nem nos convites já existentes. Marca quando a partilha é
+   concluída (ou quando o WhatsApp é aberto com o PDF baixado). */
+let filtroEnvio = 'todos'; // 'todos' | 'por_enviar' | 'enviados'
+function _chaveEnviados() { return clienteData?.token ? 'invites_enviados_v1:' + clienteData.token : null; }
+let _cacheEnviados = { k: null, m: {} };
+function lerEnviados() {
+  const k = _chaveEnviados(); if (!k) return {};
+  if (_cacheEnviados.k === k) return _cacheEnviados.m;
+  let m = {};
+  try { m = JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch(e) {}
+  _cacheEnviados = { k, m };
+  return m;
+}
+function foiEnviado(id) { return id != null && !!lerEnviados()[String(id)]; }
+function marcarEnviado(id, valor) {
+  const k = _chaveEnviados(); if (!k || id == null) return;
+  const m = lerEnviados();
+  if (valor === false) delete m[String(id)]; else { m[String(id)] = Date.now(); try { window.dispatchEvent(new CustomEvent('invites:enviado', { detail: { id } })); } catch(e) {} }
+  try { localStorage.setItem(k, JSON.stringify(m)); } catch(e) {}
+  _cacheEnviados = { k, m };
+  if (tabAtual === 'mesas' && configData?.mesa_ativa) { try { renderizarPorMesas(); } catch(e) {} }
+  else filtrarConvites();
+}
+function desmarcarEnviado(id) {
+  abrirModal({
+    titulo: 'Marcar como não enviado?',
+    corpo: 'Use isto se o convite não chegou a ser enviado. Pode voltar a enviá-lo pelo botão verde.',
+    nome: (todosConvites.find(c => String(c.id) === String(id)) || {}).nome || '', nomeCls: '',
+    acoes: [
+      { label:'Sim, marcar como não enviado', cls:'btn-main', fn:()=>marcarEnviado(id, false) },
+      { label:'Cancelar', cls:'btn-ghost', fn:()=>{} }
+    ]
+  });
+}
+function mudarFiltroEnvio(f) { filtroEnvio = f; convitesPaginaAtual = 1; haptic('light'); filtrarConvites(); }
+function atualizarFiltroEnvioUI() {
+  const wrap = document.getElementById('convitesFiltroEnvio'); if (!wrap) return;
+  const gerados = todosConvites.filter(c => !c.isRsvpPendente);
+  if (!gerados.length || tabAtual === 'mesas') { wrap.style.display = 'none'; return; }
+  const env = gerados.filter(c => foiEnviado(c.id)).length;
+  const falta = gerados.length - env;
+  const chip = (f, txt) => `<button type="button" class="filtro-envio-chip${filtroEnvio===f?' ativo':''}" onclick="mudarFiltroEnvio('${f}')">${txt}</button>`;
+  wrap.innerHTML = chip('todos', `Todos (${gerados.length})`) + chip('por_enviar', `Por enviar (${falta})`) + chip('enviados', `<i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Enviados (${env})`);
+  wrap.style.display = 'flex';
+}
+
+async function partilharWhatsApp(blob, nome, id) {
   const r = await abrirPartilhaConvite(blob, nome);
-  if (r === 'ok') { haptic('success'); return; }
+  if (r === 'ok') { haptic('success'); marcarEnviado(id); showToast('📲 Convite marcado como enviado.', '#128C7E'); return; }
   if (r === 'cancelado') return;
+  marcarEnviado(id); // abre o WhatsApp com o PDF baixado — conta como enviado
   // Computador / browser sem partilha de ficheiros (ex: aberto dentro do
   // Facebook/Instagram): abre o WhatsApp com a mensagem e baixa o PDF.
   const texto = mensagemWhatsApp(nome);
@@ -1446,22 +1544,22 @@ async function partilharWhatsApp(blob, nome) {
 // ▼ Logo DEPOIS DE GERAR: tenta abrir já a partilha (WhatsApp). Se o
 // browser não deixar (a geração demorou e o toque "expirou" — acontece
 // sobretudo no iPhone), pergunta de imediato se quer enviar pelo WhatsApp.
-async function aposGerarConvite(blob, nome) {
+async function aposGerarConvite(blob, nome, id) {
   const file = ficheiroConvite(blob, nome);
   const toqueValido = navigator.userActivation ? navigator.userActivation.isActive : true;
   if (toqueValido && suportaPartilhaFicheiro(file)) {
     showToast(isIOSDevice ? '✅ Convite gerado! Toque em WhatsApp.' : '✅ Convite gerado! Escolha o WhatsApp.', '#5ba189');
     const r = await abrirPartilhaConvite(blob, nome);
-    if (r === 'ok') { haptic('success'); return; }
+    if (r === 'ok') { haptic('success'); marcarEnviado(id); return; }
     // cancelou / bloqueado / erro → mostra a pergunta, para não perder o convite
   }
-  mostrarConvitePronto(blob, nome);
+  mostrarConvitePronto(blob, nome, false, id);
 }
 
 // Pergunta: "Deseja enviar pelo WhatsApp?"
-function mostrarConvitePronto(blob, nome, soWhatsApp) {
+function mostrarConvitePronto(blob, nome, soWhatsApp, id) {
   const acoes = [
-    { label: soWhatsApp ? '📲 Enviar pelo WhatsApp' : '📲 Sim, enviar pelo WhatsApp', cls:'btn-main btn-wa', fn:()=>partilharWhatsApp(blob, nome) }
+    { label: soWhatsApp ? '📲 Enviar pelo WhatsApp' : '📲 Sim, enviar pelo WhatsApp', cls:'btn-main btn-wa', fn:()=>partilharWhatsApp(blob, nome, id) }
   ];
   if (!soWhatsApp) {
     acoes.push({ label: isIOSDevice ? '⬇️ Só guardar o PDF' : '⬇️ Só baixar o PDF', cls:'btn-outline', fn:async ()=>{
@@ -1514,8 +1612,9 @@ async function enviarWhatsAppConvite(nome, codigo, id, isPend, btn) {
   // Se o toque ainda "vale" (foi rápido), abre logo a partilha; senão pede
   // um toque de confirmação (os browsers só deixam partilhar após um toque).
   const toqueValido = navigator.userActivation ? navigator.userActivation.isActive : false;
-  if (toqueValido) partilharWhatsApp(blob, nomeFinal);
-  else mostrarConvitePronto(blob, nomeFinal, true);
+  const idEnvio = isPend ? null : id; // offline: o id muda ao sincronizar
+  if (toqueValido) partilharWhatsApp(blob, nomeFinal, idEnvio);
+  else mostrarConvitePronto(blob, nomeFinal, true, idEnvio);
 }
 
 /* ═══════════════════════════════════════════
@@ -1809,7 +1908,7 @@ function showStep(id) {
   requestAnimationFrame(() => requestAnimationFrame(() => {
     novoStep.classList.add('visible');
     if (id === 'step1') setTimeout(() => document.getElementById('tokenInput')?.focus(), 320);
-    if (id === 'step2') { try { window.InvitesTour && window.InvitesTour.aoEntrarPainel(); } catch(e) {} }
+    if (id === 'step2') { try { carregarTokenLeitor(); } catch(e) {} try { window.InvitesTour && window.InvitesTour.aoEntrarPainel(); } catch(e) {} }
     if (id === 'step2') setTimeout(() => { const el = document.getElementById('nomeInput'); if (!el) return; if (document.activeElement !== document.getElementById('convitesSearch')) el.focus(); el.scrollIntoView({ behavior:'smooth', block:'center' }); }, 380);
   }));
 }
@@ -1974,6 +2073,7 @@ function limparTudo() {
   localStorage.removeItem('adkira_token'); limparCache();
   clienteData=null; configData=null; todosConvites=[]; ultimoContextoNome=null;
   cfBackendMode = false; cfEventData = null;
+  tokenLeitorEvento = null; _tokenLeitorDe = null; try { mostrarTokenLeitor(); } catch(e) {}
   convitesSessao=0; filaOffline=[];
   ultimaGeracao=0; tabAtual='lista';
   document.getElementById('tokenInput').value='';
@@ -2391,6 +2491,7 @@ async function confirmarAdminAcesso() {
       return;
     }
     haptic('success');
+    adminTokenAtual = tokenDigitado; // ▼ NOVO: só em memória, para guardar Tokens do Leitor
     document.getElementById('adminAcessoOverlay').classList.add('hidden');
     document.getElementById('adminPainelOverlay').classList.remove('hidden');
     document.getElementById('adminBuscaInput').value = '';
@@ -2498,6 +2599,170 @@ async function rejeitarPedidoAdmin(pedido, btn, card) {
     haptic('error'); btn.disabled = false;
     showToast('❌ Não foi possível rejeitar: ' + e.message, '#ef4444');
   }
+}
+
+/* ═══════════════════════════════════════════
+   ═══ NOVO — TOKEN DO LEITOR POR CLIENTE ═══
+   O administrador associa o Token do Leitor ao código do evento; o cliente
+   vê-o no Gerador e no tutorial. Guardado numa tabela NOVA do Supabase
+   (tokens_leitor), acedida só por 2 funções (ver tokens_leitor.sql):
+   • obter_token_leitor(p_token)  → quem tem o código do evento lê o seu
+   • definir_token_leitor(admin, …) → só o administrador grava
+   Se as funções ainda não existirem, nada aparece e nada parte.
+═══════════════════════════════════════════ */
+let adminTokenAtual   = null;
+let tokenLeitorEvento = null;
+let _tokenLeitorDe    = null;
+
+async function obterTokenLeitor(tokenGerador) {
+  const { data, error } = await comTimeout(DB.rpc('obter_token_leitor', { p_token: tokenGerador }));
+  if (error) throw error;
+  return (typeof data === 'string' && data.trim()) ? data.trim() : null;
+}
+
+async function carregarLeitorAdmin() {
+  const ev = document.getElementById('adminLeitorEvento').value.trim().toLowerCase();
+  const inp = document.getElementById('adminLeitorToken');
+  const hint = document.getElementById('adminLeitorHint');
+  if (!ev) return;
+  try {
+    const atual = await obterTokenLeitor(ev);
+    if (atual) { inp.value = atual; hint.className = 'nome-hint ok'; hint.textContent = 'ℹ️ Este cliente já tem este Token do Leitor. Pode alterá-lo.'; }
+    else { hint.className = 'nome-hint'; hint.textContent = 'Ainda sem Token do Leitor.'; }
+  } catch (e) {
+    hint.className = 'nome-hint err';
+    hint.textContent = /obter_token_leitor|function|404|PGRST/i.test(e.message || e.code || '')
+      ? '⚠️ Falta configurar a base de dados (corra o ficheiro tokens_leitor.sql no Supabase).'
+      : '⚠️ ' + (e.message || 'Não foi possível ler.');
+  }
+}
+
+// Verifica o Token do Leitor: Cloudflare (leitor novo) ou Supabase (leitor antigo).
+async function verificarTokenLeitor(tokenLeitor) {
+  try {
+    const base = window.CF_API_BASE;
+    if (base) {
+      const r = await fetch(base + '/api/public/client-scanner-by-token/' + encodeURIComponent(tokenLeitor));
+      if (r.ok) {
+        const d = await r.json().catch(() => ({}));
+        if (d?.event?.id) return { ok: true, nome: d.event.name || d.event.title || d.event.event_code || d.event.id };
+      }
+    }
+  } catch (e) {}
+  try {
+    const { data } = await DB.from('clientes').select('nome').eq('token', tokenLeitor).maybeSingle();
+    if (data) return { ok: true, nome: data.nome };
+  } catch (e) {}
+  return { ok: false };
+}
+
+async function guardarLeitorAdmin(confirmado) {
+  const ev = document.getElementById('adminLeitorEvento').value.trim().toLowerCase();
+  const leitor = document.getElementById('adminLeitorToken').value.trim();
+  const hint = document.getElementById('adminLeitorHint');
+  const btn = document.getElementById('btnGuardarLeitorAdmin');
+  if (!adminTokenAtual) { hint.className = 'nome-hint err'; hint.textContent = '❌ Volte a entrar como administrador.'; return; }
+  if (!ev) { haptic('warning'); hint.className = 'nome-hint err'; hint.textContent = 'Indique o código do evento do cliente.'; return; }
+  const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A verificar...';
+  try {
+    if (leitor && !confirmado) {
+      const v = await verificarTokenLeitor(leitor);
+      if (!v.ok) {
+        haptic('warning');
+        abrirModal({
+          titulo: '⚠️ Token do Leitor não encontrado',
+          corpo: 'Não consegui confirmar que este Token do Leitor existe. Verifique se está bem escrito. Quer guardar mesmo assim?',
+          nome: leitor, nomeCls: '',
+          acoes: [
+            { label:'Guardar mesmo assim', cls:'btn-main', fn:()=>guardarLeitorAdmin(true) },
+            { label:'Corrigir', cls:'btn-ghost', fn:()=>document.getElementById('adminLeitorToken').focus() }
+          ]
+        });
+        return;
+      }
+      hint.className = 'nome-hint ok'; hint.textContent = '✓ Leitor do evento: ' + nomeEventoLimpo(v.nome);
+    }
+    const { error } = await comTimeout(DB.rpc('definir_token_leitor', { p_admin: adminTokenAtual, p_token: ev, p_leitor: leitor }));
+    if (error) throw error;
+    haptic('success');
+    showToast(leitor ? '✅ Token do Leitor guardado!' : '🗑️ Token do Leitor removido.');
+    hint.className = 'nome-hint ok';
+    hint.textContent = leitor ? '✅ Guardado. O cliente já o vê no Gerador e no tutorial.' : 'Removido.';
+    if (clienteData && clienteData.token === ev) { _tokenLeitorDe = null; carregarTokenLeitor(); }
+  } catch (e) {
+    haptic('error');
+    hint.className = 'nome-hint err';
+    hint.textContent = /NAO_AUTORIZADO/.test(e.message || '') ? '❌ Sem permissão de administrador.'
+      : /definir_token_leitor|function|PGRST/i.test((e.message || '') + (e.code || '')) ? '⚠️ Falta configurar a base de dados (corra o ficheiro tokens_leitor.sql no Supabase).'
+      : '❌ ' + (e.message || 'Não foi possível guardar.');
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
+// ── Lado do cliente ──
+async function carregarTokenLeitor() {
+  if (!clienteData?.token) return;
+  if (_tokenLeitorDe === clienteData.token) { mostrarTokenLeitor(); return; }
+  _tokenLeitorDe = clienteData.token;
+  try { tokenLeitorEvento = await obterTokenLeitor(clienteData.token); }
+  catch (e) { tokenLeitorEvento = null; } // funções ainda não criadas → não mostra nada
+  mostrarTokenLeitor();
+}
+
+function mostrarTokenLeitor() {
+  const box = document.getElementById('tokenLeitorBox');
+  const valEl = document.getElementById('tokenLeitorValor');
+  if (box) box.style.display = tokenLeitorEvento ? '' : 'none';
+  if (valEl) valEl.textContent = tokenLeitorEvento || '';
+  // Sugestão no ecrã de entrada do Leitor
+  const sug = document.getElementById('leitorTokenSugestao');
+  const sugVal = document.getElementById('leitorTokenSugestaoValor');
+  if (sug) sug.style.display = tokenLeitorEvento ? 'flex' : 'none';
+  if (sugVal) sugVal.textContent = tokenLeitorEvento || '';
+}
+
+function copiarParaClipboard(texto) {
+  return new Promise((resolve) => {
+    const fallback = () => {
+      const tmp = document.createElement('textarea');
+      tmp.value = texto; tmp.setAttribute('readonly', ''); tmp.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+      document.body.appendChild(tmp); tmp.select(); tmp.setSelectionRange(0, texto.length);
+      let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(tmp); resolve(ok);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(() => resolve(true)).catch(fallback);
+    else fallback();
+  });
+}
+
+async function copiarTokenLeitor(btn) {
+  if (!tokenLeitorEvento) return;
+  haptic('light');
+  const ok = await copiarParaClipboard(tokenLeitorEvento);
+  if (ok) {
+    showToast('📋 Token do Leitor copiado! Guarde-o e entregue ao porteiro.', '#5ba189');
+    if (btn) { const o = btn.innerHTML; btn.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Copiado'; setTimeout(() => { btn.innerHTML = o; }, 1800); }
+  } else showToast('⚠️ Não foi possível copiar — escreva o token à mão.', '#f59e0b');
+}
+
+function mensagemPorteiro() {
+  const evento = (document.getElementById('eventoNomeBox')?.textContent || '').trim();
+  const link = location.origin + location.pathname;
+  return `Olá! 👋 Vais fazer o controlo de entrada${evento ? ' no evento ' + evento : ''}.\n\n` +
+    `1️⃣ Abre este link no telemóvel: ${link}\n` +
+    `2️⃣ Toca em "Leitor" (no topo)\n` +
+    `3️⃣ Escreve o Token do Leitor: ${tokenLeitorEvento}\n` +
+    `4️⃣ Permite a câmara e aponta ao QR Code do convite de cada convidado.\n\n` +
+    `✅ Verde = pode entrar · ❌ Vermelho = já usado ou inválido.\n` +
+    `Sem QR? Usa "Entrada manual" e procura pelo nome.\n\n` +
+    `⚠️ Não partilhes este token com mais ninguém.`;
+}
+
+function enviarTokenPorteiro() {
+  if (!tokenLeitorEvento) return;
+  haptic('light');
+  window.open('https://wa.me/?text=' + encodeURIComponent(mensagemPorteiro()), '_blank');
 }
 
 async function buscarClienteAdmin() {
@@ -2644,6 +2909,7 @@ function filtrarConvites() {
 }
 
 function mudarTab(tab) {
+  setTimeout(atualizarFiltroEnvioUI, 0);
   tabAtual = tab;
   document.getElementById('tabLista').className = 'tab-btn' + (tab==='lista' ? ' tab-active' : '');
   document.getElementById('tabMesas').className  = 'tab-btn' + (tab==='mesas' ? ' tab-active' : '');
@@ -3498,12 +3764,18 @@ let convitesPaginaAtual = 1;
 let convitesSeleccionados = new Set();
 
 function renderizarConvites(lista, termo) {
+  atualizarFiltroEnvioUI();
+  if (filtroEnvio === 'por_enviar') lista = lista.filter(c => !c.isRsvpPendente && !c.id_local && !foiEnviado(c.id));
+  else if (filtroEnvio === 'enviados') lista = lista.filter(c => !c.isRsvpPendente && !c.id_local && foiEnviado(c.id));
   const el=document.getElementById('convitesLista'), pagWrap=document.getElementById('convitesPaginacaoWrap'), totalOnline=todosConvites.length, totalPend=filaOffline.length, total=totalOnline+totalPend;
   const totalPorGerar = lista.filter(c => c.isRsvpPendente).length;
   document.getElementById('convitesCount').textContent = termo
     ? `${lista.length} de ${total + totalPorGerar}`
     : `${total} convite${total===1?'':'s'}${totalPend>0?' ('+totalPend+' offline)':''}${totalPorGerar>0?' · '+totalPorGerar+' por gerar':''}`;
-  if (lista.length === 0) { el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">Nenhum resultado.</div>'; pagWrap.innerHTML=''; return; }
+  if (lista.length === 0) {
+    const msgVazio = filtroEnvio === 'por_enviar' ? '🎉 Todos os convites já foram enviados.' : filtroEnvio === 'enviados' ? 'Ainda não enviou nenhum convite pelo WhatsApp.' : 'Nenhum resultado.';
+    el.innerHTML='<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;">'+msgVazio+'</div>'; pagWrap.innerHTML=''; return;
+  }
 
   const totalPaginas = Math.max(1, Math.ceil(lista.length / CONVITES_POR_PAGINA));
   if (convitesPaginaAtual > totalPaginas) convitesPaginaAtual = totalPaginas;
@@ -3549,15 +3821,17 @@ function renderizarConvites(lista, termo) {
     const nomeAtualRsvp = conv.rsvp_id ? sugerirNomeComAcompanhantes(conv) : conv.nome;
     const nomeMudouTag = (conv.rsvp_id && nomeAtualRsvp !== conv.nome)
       ? `<div class="convite-item-tag" style="color:#b45309;" title="Nome actual na confirmação: ${escHtml(nomeAtualRsvp)}"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Nome mudou na confirmação</div>` : '';
+    const enviadoTag = (!isPend && foiEnviado(conv.id))
+      ? `<div class="convite-item-tag tag-enviado" role="button" tabindex="0" title="Toque para desmarcar" onclick="desmarcarEnviado('${conv.id}')"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Enviado por WhatsApp</div>` : '';
     if (isPend) { tag='<div class="convite-item-tag roxo">Offline — a aguardar sync</div>'; btnCls='btn-dl pendente'; btnIcon='<i class="ti ti-clock" aria-hidden="true"></i>'; }
     else if (jaDl) { tag='<div class="convite-item-tag verde">Descarregado</div>'; btnCls='btn-dl ja-dl'; btnIcon='<i class="ti ti-check" aria-hidden="true"></i>'; }
     item.innerHTML=`
       ${isPend ? '' : `<input type="checkbox" class="convite-checkbox" style="width:18px;height:18px;flex-shrink:0;accent-color:#dc2626;cursor:pointer;" ${convitesSeleccionados.has(conv.id) ? 'checked' : ''} onchange="toggleSelecaoConvite('${conv.id}', this.checked)" aria-label="Seleccionar ${escHtml(conv.nome)}">`}
       <div class="convite-avatar">${initials}</div>
       <div class="convite-item-info">
-        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${nomeMudouTag}${tag}
+        <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${nomeMudouTag}${enviadoTag}${tag}
       </div>
-      <button class="btn-dl btn-dl-wa" aria-label="Enviar convite de ${escHtml(conv.nome)} pelo WhatsApp" title="Enviar pelo WhatsApp" style="margin-right:6px"
+      <button class="btn-dl btn-dl-wa${(!isPend && foiEnviado(conv.id)) ? ' enviado' : ''}" aria-label="Enviar convite de ${escHtml(conv.nome)} pelo WhatsApp" title="Enviar pelo WhatsApp" style="margin-right:6px"
         onclick="enviarWhatsAppConvite('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
         <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
       </button>
@@ -4069,7 +4343,8 @@ async function gerarConvite(nome, mesa, rsvpId) {
       }
       renderizarConvites(obterListaCompletaConvites());
       // ▼ NOVO: em vez de só baixar, pergunta: Enviar pelo WhatsApp / Baixar PDF
-      aposGerarConvite(blob, guestName);
+      try { window.dispatchEvent(new CustomEvent('invites:gerado', { detail: { id: idFinal, nome: guestName } })); } catch(e) {}
+      aposGerarConvite(blob, guestName, idFinal);
     } catch(e) {
       pararProgressBar(); haptic('error'); console.error(e); mostrarErro(e);
     }
@@ -4102,6 +4377,7 @@ async function gerarConvite(nome, mesa, rsvpId) {
       if (configData?.mesa_ativa) { const mi=document.getElementById('mesaInput'); if(mi) mi.value=''; }
       iniciarRateLimit();
       actualizarContador(); actualizarBannersOffline(); haptic('success'); showStep('step2');
+      try { window.dispatchEvent(new CustomEvent('invites:gerado', { detail: { id: id_local, nome } })); } catch(e) {}
       const restam = creditosOfflineRestantes();
       showToast(`✅ Convite offline gerado! Restam ${restam} crédito${restam===1?'':'s'}.`, '#5ba189');
       await carregarConvitesGerados();
@@ -4183,13 +4459,14 @@ async function gerarConvite(nome, mesa, rsvpId) {
    presença — antes, isto só acontecia em downloads seguintes, o que
    deixava passar a única oportunidade de editar sem nunca ser oferecida. */
 async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
+  try { window.dispatchEvent(new CustomEvent('invites:gerado', { detail: { id, nome } })); } catch(e) {}
   const convObj = todosConvites.find(c => c.id === id) || { id, nome, editado: false };
   const podeEditar = cfBackendMode
     ? (!!id && !convObj.editado)
     : (!!id && !convObj.editado && estaConfirmadoRSVP(convObj.nome, convObj.rsvp_id));
   if (!podeEditar) {
     // ▼ ALTERADO: mostra "Enviar pelo WhatsApp / Baixar PDF" em vez de baixar logo
-    aposGerarConvite(pdfBlobPronto, nome);
+    aposGerarConvite(pdfBlobPronto, nome, id);
     return;
   }
   const sugerido = sugerirNomeComAcompanhantes(convObj);
@@ -4204,7 +4481,7 @@ async function decidirPrimeiroDownload(nome, codigo, id, pdfBlobPronto) {
   if (!mesaObrigatoria) {
     acoesEdicao.push({ label:'⬇️ Baixar sem editar', cls:'btn-outline', fn:async ()=>{
       marcarDecisaoEdicao(id);
-      aposGerarConvite(pdfBlobPronto, nome);
+      aposGerarConvite(pdfBlobPronto, nome, id);
     } });
   }
   abrirModal({
@@ -4331,6 +4608,13 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 // Expose to global scope
   window.enviarWhatsAppConvite = enviarWhatsAppConvite;
+  window.carregarLeitorAdmin = carregarLeitorAdmin;
+  window.guardarLeitorAdmin = guardarLeitorAdmin;
+  window.copiarTokenLeitor = copiarTokenLeitor;
+  window.enviarTokenPorteiro = enviarTokenPorteiro;
+  window.__copiarTexto = copiarParaClipboard;
+  window.mudarFiltroEnvio = mudarFiltroEnvio;
+  window.desmarcarEnviado = desmarcarEnviado;
   window.baixarOuPartilhar = typeof baixarOuPartilhar !== "undefined" ? baixarOuPartilhar : window.baixarOuPartilhar;
   window.filtrarConvites = typeof filtrarConvites !== "undefined" ? filtrarConvites : window.filtrarConvites;
   window.atualizarPrecoExtra = typeof atualizarPrecoExtra !== "undefined" ? atualizarPrecoExtra : window.atualizarPrecoExtra;
@@ -4406,11 +4690,16 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
             <p class="text-gray-600 mt-2 text-lg">Controlo de Acesso</p>
         </div>
         <form id="loginForm" class="space-y-6">
-            <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-3">Token do Evento</label>
+            <div id="leitorTokenWrap">
+                <label class="block text-sm font-semibold text-gray-700 mb-3">Token do Leitor</label>
                 <input type="text" id="leitor_tokenInput"
                        class="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl transition-all duration-200 bg-gray-50/50"
                        placeholder="Introduza o seu token" required>
+                <!-- ▼ NOVO: quando o Gerador já conhece o Token do Leitor deste evento -->
+                <div id="leitorTokenSugestao" style="margin-top:10px;display:none;align-items:center;gap:8px;flex-wrap:wrap;background:#f5faf8;border:1.5px dashed #b7dccd;border-radius:12px;padding:10px 12px;font-size:13px;color:#374151;">
+                    <span>🔑 Token do seu evento: <b id="leitorTokenSugestaoValor" style="font-family:ui-monospace,Menlo,Consolas,monospace;"></b></span>
+                    <button type="button" id="leitorTokenUsar" style="width:auto;margin-left:auto;background:#5aa189;color:#fff;border:none;border-radius:9px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer;">Usar este token</button>
+                </div>
             </div>
             <button type="submit" id="loginBtn"
                     class="w-full text-white py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg"
@@ -6618,6 +6907,17 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <script>
+/* ▼ NOVO: "Usar este token" no ecrã de entrada do Leitor */
+document.addEventListener('click', function (e) {
+  if (!e.target.closest || !e.target.closest('#leitorTokenUsar')) return;
+  const i = (window.__invitesInfo && window.__invitesInfo()) || {};
+  const inp = document.getElementById('leitor_tokenInput');
+  if (!i.tokenLeitor || !inp) return;
+  inp.value = i.tokenLeitor;
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+});
+</script>
+<script>
 /* ===== NAVEGAÇÃO ===== */
 function switchApp(app) {
   document.getElementById('panelGerador').classList.toggle('active', app === 'gerador');
@@ -6636,51 +6936,73 @@ function switchApp(app) {
 
 
 <!-- ═══════════════════════════════════════════
-     ═══ NOVO — TUTORIAL GUIADO (Gerador → WhatsApp → Leitor) ═══
+     ═══ NOVO — TUTORIAL PRÁTICO (Gerador → WhatsApp → Leitor) ═══
+     • O cliente FAZ cada passo (escrever o nome, gerar, enviar, pesquisar,
+       entrar no Leitor…) e o guia só avança quando o passo está feito.
      • Pergunta "Gostaria de aprender?" até 4 vezes, só a clientes novos
        (poucos convites gerados), no máximo 1 vez por sessão e com intervalo.
-     • O cliente pode ignorar a qualquer momento.
-     • Botão ❓ na barra de topo abre o tutorial sempre que quiser.
+     • Pode ignorar a qualquer momento. Botão ❓ no topo abre o tutorial.
+     • No Leitor NUNCA se regista uma entrada durante o tutorial.
 ═══════════════════════════════════════════ -->
 <style>
   .app-nav-ajuda { flex: 0 0 auto; width: 48px; border: none; background: transparent; color: #5ba189; font-size: 21px; cursor: pointer; display: flex; align-items: center; justify-content: center; border-left: 1px solid #e0f0eb; }
   .app-nav-ajuda:active { background: #edf7f3; }
 
-  #tourRoot { position: fixed; inset: 0; z-index: 100001; display: none; font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; }
+  #tourRoot { position: fixed; inset: 0; z-index: 100001; display: none; pointer-events: none; font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; }
   #tourRoot.on { display: block; }
-  #tourBloqueio { position: absolute; inset: 0; background: transparent; }
+  .tour-bloq { position: fixed; background: transparent; pointer-events: auto; }
   #tourFoco { position: fixed; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(15, 23, 42, .62); outline: 3px solid #5ba189; outline-offset: 2px; pointer-events: none;
               transition: top .3s ease, left .3s ease, width .3s ease, height .3s ease, outline-color .2s; }
   #tourFoco.centro { outline-color: transparent; }
-  #tourCartao { position: fixed; width: min(360px, calc(100vw - 24px)); background: #fff; border-radius: 18px; padding: 18px 18px 14px; box-shadow: 0 18px 50px rgba(0,0,0,.28);
-                transition: top .3s ease, left .3s ease, opacity .2s; }
-  #tourCartao .t-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  #tourFoco.acao { outline-color: #f59e0b; animation: tourPulso 1.4s ease-in-out infinite; }
+  @keyframes tourPulso { 0%,100% { outline-offset: 2px; } 50% { outline-offset: 7px; } }
+  #tourCartao { position: fixed; pointer-events: auto; width: min(360px, calc(100vw - 24px)); background: #fff; border-radius: 18px; padding: 16px 16px 12px; box-shadow: 0 18px 50px rgba(0,0,0,.28);
+                transition: top .3s ease, left .3s ease, opacity .2s; max-height: calc(100vh - 24px); overflow-y: auto; }
+  #tourCartao .t-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
   #tourCartao .t-fase { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5ba189; }
   #tourCartao .t-passo { font-size: 11.5px; color: #9ca3af; font-weight: 600; }
-  #tourCartao h3 { font-size: 17px; font-weight: 700; color: #1a1a2e; margin: 2px 0 6px; line-height: 1.3; }
+  #tourCartao h3 { font-size: 16.5px; font-weight: 700; color: #1a1a2e; margin: 2px 0 6px; line-height: 1.3; }
   #tourCartao .t-texto { font-size: 14px; color: #4b5563; line-height: 1.5; }
   #tourCartao .t-texto b { color: #1a1a2e; }
-  #tourCartao .t-barra { height: 4px; background: #edf7f3; border-radius: 4px; margin: 14px 0 12px; overflow: hidden; }
+  #tourCartao .t-faca { display: none; margin-top: 10px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 600; }
+  #tourCartao .t-faca.on { display: block; }
+  #tourCartao .t-feito { display: none; margin-top: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 600; }
+  #tourCartao .t-feito.on { display: block; }
+  #tourCartao .t-dica { display: none; margin-top: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+  #tourCartao .t-dica.on { display: block; }
+  #tourCartao .t-barra { height: 4px; background: #edf7f3; border-radius: 4px; margin: 12px 0 10px; overflow: hidden; }
   #tourCartao .t-barra div { height: 100%; background: #5ba189; border-radius: 4px; transition: width .3s ease; }
-  #tourCartao .t-acoes { display: flex; align-items: center; gap: 8px; }
+  #tourCartao .t-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #tourCartao .t-acoes button, #tourPausa button, #tourConviteAjuda button { width: auto; margin-top: 0; }
+  #tourConviteAjuda .ca-acoes button { width: auto; flex: 1; }
   #tourCartao .t-acoes button { border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; border-radius: 11px; padding: 10px 14px; min-height: 42px; touch-action: manipulation; }
   #tourCartao .t-ignorar { background: transparent; color: #9ca3af; padding-left: 4px !important; margin-right: auto; }
+  #tourCartao .t-saltar { background: transparent; color: #6b7280; text-decoration: underline; padding: 10px 6px !important; }
   #tourCartao .t-voltar { background: #edf7f3; color: #5ba189; }
   #tourCartao .t-seguinte { background: #5ba189; color: #fff; }
-  #tourCartao .t-seguinte:active { background: #4a8f78; }
+  #tourCartao .t-seguinte:disabled { background: #d1d5db; color: #fff; cursor: not-allowed; }
+  #tourCartao .t-seguinte:not(:disabled):active { background: #4a8f78; }
 
-  /* Pré-visualização da janela "Convite pronto" dentro do tutorial */
-  .t-mock { margin-top: 12px; border: 1.5px dashed #d0ede6; border-radius: 14px; padding: 12px; background: #f5faf8; display: flex; flex-direction: column; gap: 7px; }
-  .t-mock .m-tit { font-size: 13.5px; font-weight: 700; color: #1a1a2e; text-align: center; }
-  .t-mock .m-btn { border-radius: 10px; padding: 9px; font-size: 13px; font-weight: 600; text-align: center; }
+  #tourCartao .t-token { font: 700 20px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #1a1a2e; background: #f5faf8; border: 1.5px dashed #b7dccd; border-radius: 12px; padding: 10px; text-align: center; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+  #tourCartao .t-botoes { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  #tourCartao .t-inline { width: auto; flex: 1; margin: 0; border: none; border-radius: 10px; background: #5ba189; color: #fff; font: 600 13.5px inherit; font-family: inherit; padding: 9px 10px; min-height: 40px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
+  #tourCartao .t-inline.wa { background: #e7f9ee; color: #128C7E; }
+  #tourCartao .t-alerta { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.45; margin-bottom: 8px; }
+  #tourPausa { position: fixed; top: 54px; right: 8px; z-index: 100002; display: none; align-items: center; gap: 6px; background: #1a1a2e; color: #fff; border-radius: 999px; padding: 6px 8px 6px 12px;
+               font: 600 12px -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  #tourPausa.on { display: flex; }
+  #tourPausa button { border: none; background: rgba(255,255,255,.15); color: #fff; border-radius: 999px; padding: 4px 9px; font: inherit; cursor: pointer; }
+
+  .t-mock { margin-top: 10px; border: 1.5px dashed #d0ede6; border-radius: 14px; padding: 10px; background: #f5faf8; display: flex; flex-direction: column; gap: 6px; }
+  .t-mock .m-tit { font-size: 13px; font-weight: 700; color: #1a1a2e; text-align: center; }
+  .t-mock .m-btn { border-radius: 10px; padding: 8px; font-size: 12.5px; font-weight: 600; text-align: center; }
   .t-mock .m-wa { background: #25D366; color: #fff; }
   .t-mock .m-dl { border: 1.5px solid #5ba189; color: #5ba189; background: #fff; }
-  .t-icone { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; vertical-align: middle; font-size: 15px; margin: 0 2px; }
+  .t-icone { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; vertical-align: middle; font-size: 14px; margin: 0 2px; }
   .t-icone.wa { background: #e7f9ee; color: #128C7E; }
   .t-icone.dl { background: #edf7f3; color: #5ba189; }
   .t-icone.del { background: #fef2f2; color: #dc2626; }
 
-  /* Convite discreto "Gostaria de aprender?" */
   #tourConviteAjuda { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translate(-50%, 140%); z-index: 100000;
                       width: min(400px, calc(100vw - 24px)); background: #fff; border-radius: 18px; padding: 14px 14px 12px; box-shadow: 0 12px 40px rgba(0,0,0,.22);
                       border: 1px solid #e0f0eb; transition: transform .35s cubic-bezier(.32,1.01,.56,1); font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; }
@@ -6698,33 +7020,39 @@ function switchApp(app) {
 </style>
 
 <div id="tourRoot" role="dialog" aria-modal="true" aria-labelledby="tourTitulo">
-  <div id="tourBloqueio"></div>
+  <div class="tour-bloq" id="tourB1"></div><div class="tour-bloq" id="tourB2"></div>
+  <div class="tour-bloq" id="tourB3"></div><div class="tour-bloq" id="tourB4"></div>
   <div id="tourFoco"></div>
   <div id="tourCartao">
     <div class="t-topo"><span class="t-fase" id="tourFase"></span><span class="t-passo" id="tourPasso"></span></div>
     <h3 id="tourTitulo"></h3>
     <div class="t-texto" id="tourTexto"></div>
+    <div class="t-faca" id="tourFaca"></div>
+    <div class="t-feito" id="tourFeito"></div>
+    <div class="t-dica" id="tourDica"></div>
     <div class="t-barra"><div id="tourBarra"></div></div>
     <div class="t-acoes">
-      <button type="button" class="t-ignorar" id="tourIgnorar">Ignorar</button>
+      <button type="button" class="t-ignorar" id="tourIgnorar">Sair</button>
+      <button type="button" class="t-saltar" id="tourSaltar">Saltar</button>
       <button type="button" class="t-voltar" id="tourVoltar" aria-label="Passo anterior"><i class="ti ti-arrow-left" aria-hidden="true"></i></button>
       <button type="button" class="t-seguinte" id="tourSeguinte">Seguinte</button>
     </div>
   </div>
 </div>
+<div id="tourPausa" role="status"><span id="tourPausaTxt">Tutorial: a aguardar…</span><button type="button" id="tourPausaSair">Sair</button></div>
 
 <div id="tourConviteAjuda" role="status" aria-live="polite">
   <div class="ca-linha">
     <div class="ca-ico"><i class="ti ti-school" aria-hidden="true"></i></div>
     <div>
       <div class="ca-tit">Gostaria de aprender como gerar os convites?</div>
-      <div class="ca-sub">Um guia rápido, passo a passo: criar, enviar pelo WhatsApp e usar o Leitor no dia do evento.</div>
+      <div class="ca-sub">Um guia prático: faz connosco, passo a passo — criar, enviar pelo WhatsApp e usar o Leitor.</div>
     </div>
     <button type="button" class="ca-fechar" id="caFechar" aria-label="Fechar">&times;</button>
   </div>
   <div class="ca-acoes">
     <button type="button" class="ca-nao" id="caNao">Agora não</button>
-    <button type="button" class="ca-sim" id="caSim">Sim, mostrar</button>
+    <button type="button" class="ca-sim" id="caSim">Sim, vamos!</button>
   </div>
   <button type="button" class="ca-nunca" id="caNunca">Já sei usar — não perguntar mais</button>
 </div>
@@ -6732,343 +7060,602 @@ function switchApp(app) {
 <script>
 (function () {
   /* ───────── CONFIGURAÇÃO ───────── */
-  const MAX_PERGUNTAS      = 4;              // quantas vezes, no máximo, perguntamos
-  const LIMIAR_CLIENTE_NOVO = 5;             // com 5+ convites gerados já é cliente habituado → não perguntar
-  const INTERVALO_MIN_MS   = 3 * 60 * 60 * 1000; // pelo menos 3h entre perguntas
-  const ATRASO_PERGUNTA_MS = 3500;           // espera um pouco depois de entrar, para não "saltar" logo
-  const AUTO_ESCONDER_MS   = 25000;          // a pergunta desaparece sozinha
-  const LS_GLOBAL          = 'invites_tour_global_v1';
-  const SS_JA_PERGUNTOU    = 'invites_tour_perguntou_sessao';
-  const SS_RETOMAR         = 'invites_tour_retomar';
+  const MAX_PERGUNTAS       = 4;
+  const LIMIAR_CLIENTE_NOVO = 5;
+  const INTERVALO_MIN_MS    = 3 * 60 * 60 * 1000;
+  const ATRASO_PERGUNTA_MS  = 3500;
+  const AUTO_ESCONDER_MS    = 25000;
+  const LS_GLOBAL           = 'invites_tour_global_v1';
+  const SS_JA_PERGUNTOU     = 'invites_tour_perguntou_sessao';
+  const SS_RETOMAR          = 'invites_tour_retomar';
 
   const $ = (id) => document.getElementById(id);
+  const q = (sel) => { try { return document.querySelector(sel); } catch (e) { return null; } };
   const info = () => { try { return (window.__invitesInfo && window.__invitesInfo()) || {}; } catch (e) { return {}; } };
 
-  function lerJSON(chave, def) { try { const v = localStorage.getItem(chave); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
-  function gravarJSON(chave, v) { try { localStorage.setItem(chave, JSON.stringify(v)); } catch (e) {} }
+  function lerJSON(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function gravarJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function chaveEvento() { const t = info().token; return t ? 'invites_tour_v1:' + t : null; }
-  function estado() {
-    const k = chaveEvento();
-    return Object.assign({ perguntas: 0, ultima: 0, concluido: false, nuncaMais: false }, k ? lerJSON(k, {}) : {});
-  }
+  function estado() { const k = chaveEvento(); return Object.assign({ perguntas: 0, ultima: 0, concluido: false, nuncaMais: false }, k ? lerJSON(k, {}) : {}); }
   function gravarEstado(e) { const k = chaveEvento(); if (k) gravarJSON(k, e); }
   function global() { return Object.assign({ concluido: false, nuncaMais: false }, lerJSON(LS_GLOBAL, {})); }
-  function marcarGlobal(campo) { const g = global(); g[campo] = true; gravarJSON(LS_GLOBAL, g); }
+  function marcarGlobal(c) { const g = global(); g[c] = true; gravarJSON(LS_GLOBAL, g); }
 
   function visivel(el) {
     if (!el) return false;
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return false;
     const cs = getComputedStyle(el);
-    return cs.visibility !== 'hidden' && cs.display !== 'none' && el.offsetParent !== null;
+    if (cs.visibility === 'hidden' || cs.display === 'none') return false;
+    return el.offsetParent !== null || cs.position === 'fixed';
   }
+  const txt = (el) => (el && el.textContent || '').trim();
   const leitorLogado  = () => { const m = $('mainApp'); return !!m && !m.classList.contains('hidden'); };
-  const geradorLogado = () => !!info().logado && $('step2') && $('step2').style.display !== 'none';
-
-  /* ───────── PASSOS DO TUTORIAL ─────────
-     alvo   → id do elemento a destacar (sem alvo = cartão ao centro)
-     quando → só mostra o passo se devolver true
-     antes  → acção a fazer antes de mostrar (ex: mudar de aba)          */
+  const geradorLogado = () => !!info().logado && !!$('step2') && $('step2').style.display !== 'none';
+  const stepVisivel   = (id) => { const s = $(id); return !!s && s.style.display !== 'none' && s.style.display !== ''; };
+  const modalAberto   = () => !!document.querySelector('.modal-overlay:not(.hidden)');
   const irGerador = () => { if (typeof switchApp === 'function') switchApp('gerador'); };
   const irLeitor  = () => { if (typeof switchApp === 'function') switchApp('leitor'); };
   const irConvites = () => { const w = $('mainTabsWrap'); if (w && w.style.display !== 'none' && window.mudarMainTab) window.mudarMainTab('convites', true); };
+  const tokenLeitor = () => info().tokenLeitor || null;
+  const val = (sel) => { const el = q(sel); return el ? (el.value || '').trim() : ''; };
+  const fecharManual = () => { const m = $('manualCheckinModal'); if (m) m.classList.add('hidden'); };
+  const limparPesquisa = () => { const s = $('convitesSearch'); if (s && s.value) { s.value = ''; try { window.filtrarConvites && window.filtrarConvites(); } catch (e) {} } };
 
+  // Memória do que o cliente fez durante este tutorial
+  const feito = { gerou: false, enviou: false, nomeGerado: '', veioDoLogin: false };
+  window.addEventListener('invites:gerado', (e) => { feito.gerou = true; feito.nomeGerado = (e.detail && e.detail.nome) || feito.nomeGerado; });
+  window.addEventListener('invites:enviado', () => { feito.enviou = true; });
+
+  /* ───────── PASSOS ─────────
+     tipo: 'info'   → só explica (botão Seguinte)
+           'input'  → o cliente escreve no campo; Seguinte só fica activo quando validar() = true
+           'clique' → o cliente toca no elemento destacado; depois "espera" decide o que acontece
+     alvo: selector CSS · faca: instrução "👉 Faça agora" · espera: vigia o resultado
+     saltar: { label, ir } → botão alternativo (ex: "Não tenho o token")                     */
   const PASSOS = [
-    // ── Antes de entrar ──
-    { fase: 'Início', quando: () => !geradorLogado(),
+    // ── Início (ainda sem evento aberto) ──
+    { id: 'i-ola', fase: 'Início', tipo: 'info', quando: () => !geradorLogado(),
       titulo: 'Bem-vindo ao Invites! 👋',
-      texto: 'Aqui cria os convites do seu evento, envia-os aos convidados pelo <b>WhatsApp</b> e, no dia, valida-os à entrada com o <b>Leitor</b>. Vamos passo a passo.' },
-    { fase: 'Início', alvo: 'tokenInput', quando: () => !geradorLogado() && visivel($('tokenInput')),
-      titulo: '1. Introduza o código do evento',
-      texto: 'Escreva aqui o <b>código do evento</b> que a AdKira lhe enviou (ex: <b>evt-ab3x9k</b>) e toque em <b>Continuar</b>. Assim que entrar, o tutorial continua sozinho.',
-      fimRetoma: true },
+      texto: 'Este guia é <b>prático</b>: em cada passo, é <b>você</b> que faz — e nós avançamos quando estiver feito. Pode sair a qualquer momento.' },
+    { id: 'i-codigo', fase: 'Início', tipo: 'input', alvo: '#tokenInput', quando: () => !geradorLogado() && visivel($('tokenInput')), preferir: 'baixo',
+      titulo: 'Escreva o código do evento',
+      texto: 'É o código que a AdKira lhe enviou (ex: <b>evt-ab3x9k</b>).',
+      faca: '👉 Escreva agora o código no campo destacado.',
+      validar: () => val('#tokenInput').length >= 4 },
+    { id: 'i-continuar', fase: 'Início', tipo: 'clique', alvo: '#step1 .btn-main', quando: () => !geradorLogado(),
+      titulo: 'Toque em "Continuar"',
+      texto: 'Vamos abrir o seu evento.',
+      faca: '👉 Toque agora no botão destacado.',
+      espera: 'loginGerador' },
 
     // ── Gerador ──
-    { fase: 'Gerador', quando: geradorLogado, antes: irConvites,
-      titulo: 'Bem-vindo ao Invites! 👋',
-      texto: 'Vamos aprender, em poucos passos:<br>① <b>Criar</b> um convite<br>② <b>Enviar</b> pelo WhatsApp ou baixar<br>③ Usar o <b>Leitor</b> à entrada do evento.<br><br>Pode tocar em <b>Ignorar</b> a qualquer momento.' },
-    { fase: 'Gerador', alvo: 'counterBox', quando: geradorLogado,
+    { id: 'g-ola', fase: 'Gerador', tipo: 'info', quando: () => geradorLogado() && !feito.veioDoLogin, antes: irConvites,
+      titulo: 'Vamos criar o seu primeiro convite! 👋',
+      texto: 'Em poucos passos, <b>você</b> vai: ① criar um convite, ② enviá-lo pelo WhatsApp, ③ aprender a usar o Leitor à entrada.<br><br>Em cada passo diremos o que fazer — e avançamos quando estiver feito.' },
+    { id: 'g-contador', fase: 'Gerador', tipo: 'info', alvo: '#counterBox', quando: geradorLogado, antes: irConvites,
       titulo: 'Os seus convites',
-      texto: '<b>Disponíveis</b>: quantos convites comprou. <b>Já gerados</b>: quantos já criou. <b>Restantes</b>: quantos ainda pode criar.' },
-    { fase: 'Gerador', alvo: 'nomeInput', quando: geradorLogado,
-      titulo: '1. Escreva o nome do convidado',
-      texto: 'Escreva o nome como quer que apareça no convite. Para um casal ou família, pode juntar: <b>"Maria Silva e João Pedro"</b> ou <b>"Sr. Cândido e Esposa"</b>.' },
-    { fase: 'Gerador', alvo: 'mesaInputBox', quando: () => geradorLogado() && visivel($('mesaInputBox')),
-      titulo: 'Mesa do convidado',
-      texto: 'O seu evento usa mesas — indique aqui a mesa (ex: <b>Mesa 5</b> ou <b>VIP</b>). Ela aparece impressa no convite.' },
-    { fase: 'Gerador', alvo: 'btnGerar', quando: geradorLogado,
-      titulo: '2. Toque em "Gerar Convite"',
-      texto: 'Confirme o nome na janela que aparece. O convite é criado com um <b>QR Code único</b> — é ele que dá entrada no evento. Cada convite gerado usa 1 dos seus convites disponíveis.' },
-    { fase: 'Gerador', quando: geradorLogado,
-      titulo: '3. Envie pelo WhatsApp 📲',
-      texto: 'Assim que o convite fica pronto, o telemóvel abre logo a partilha: escolha o <b>WhatsApp</b> e depois o <b>contacto</b> do convidado — o PDF vai anexado. Se a partilha não abrir sozinha, aparece esta pergunta:' +
-             '<div class="t-mock"><div class="m-tit">✅ Convite pronto! Deseja enviar pelo WhatsApp?</div><div class="m-btn m-wa">📲 Sim, enviar pelo WhatsApp</div><div class="m-btn m-dl">⬇️ Só baixar o PDF</div></div>' },
-    { fase: 'Gerador', alvo: 'convitesLista', quando: geradorLogado,
-      titulo: '4. Os convites gerados ficam aqui',
-      texto: 'Em cada convite tem:<br><span class="t-icone wa"><i class="ti ti-brand-whatsapp"></i></span> enviar de novo pelo WhatsApp<br><span class="t-icone dl"><i class="ti ti-download"></i></span> baixar o PDF<br><span class="t-icone del"><i class="ti ti-trash"></i></span> eliminar (se se enganou no nome)' },
-    { fase: 'Gerador', alvo: 'convitesSearch', quando: () => geradorLogado() && visivel($('convitesSearch')),
-      titulo: 'Encontre qualquer convite',
-      texto: 'Escreva parte do nome para encontrar rapidamente um convite e reenviá-lo.' },
-    { fase: 'Gerador', alvo: 'mainTabConfirmacoes', quando: () => geradorLogado() && visivel($('mainTabConfirmacoes')),
-      titulo: 'Confirmações de presença',
-      texto: 'Aqui vê quem <b>confirmou presença</b>. Quem confirmou e ainda não tem convite aparece como <b>"por gerar"</b> — basta um toque para o criar.' },
-    { fase: 'Gerador', alvo: 'btnAderirMais', quando: () => geradorLogado() && visivel($('btnAderirMais')),
-      titulo: 'Precisa de mais convites?',
-      texto: 'Se os convites disponíveis estiverem a acabar, peça mais aqui.' },
-    { fase: 'Gerador', alvo: 'navLeitor', quando: geradorLogado,
+      texto: '<b>Disponíveis</b>: quantos comprou · <b>Já gerados</b>: quantos criou · <b>Restantes</b>: quantos ainda pode criar.' },
+    { id: 'g-nome', fase: 'Gerador', tipo: 'input', alvo: '#nomeInput', quando: geradorLogado, preferir: 'cima',
+      titulo: '1. Escreva o nome de um convidado',
+      texto: 'Use um <b>convidado verdadeiro</b> da sua lista — o convite é real e usa <b>1</b> dos seus convites. Para casal ou família: <b>"Maria Silva e João Pedro"</b>.',
+      faca: '👉 Escreva agora o nome no campo destacado.',
+      validar: () => val('#nomeInput').length >= 3 },
+    { id: 'g-mesa', fase: 'Gerador', tipo: 'input', alvo: '#mesaInput', quando: () => geradorLogado() && visivel($('mesaInput')), preferir: 'cima',
+      titulo: 'Indique a mesa',
+      texto: 'O seu evento usa mesas — a mesa aparece impressa no convite.',
+      faca: '👉 Escreva a mesa (ex: Mesa 5 ou VIP).',
+      validar: () => val('#mesaInput').length >= 1 },
+    { id: 'g-gerar', fase: 'Gerador', tipo: 'clique', alvo: '#btnGerar', quando: geradorLogado,
+      titulo: '2. Gere o convite',
+      texto: 'Toque em <b>Gerar Convite</b> e <b>confirme o nome</b> na janela que aparece. A seguir o telemóvel abre a partilha: escolha o <b>WhatsApp</b> e o <b>contacto</b> do convidado.',
+      faca: '👉 Toque agora em "Gerar Convite".',
+      espera: 'gerar' },
+    { id: 'g-sucesso', fase: 'Gerador', tipo: 'info', quando: () => geradorLogado() && feito.gerou,
+      titulo: () => feito.enviou ? '🎉 Muito bem! Criou e enviou o convite' : '🎉 Muito bem! O convite foi criado',
+      texto: () => (feito.enviou
+        ? 'O convite de <b>' + esc(feito.nomeGerado) + '</b> já foi enviado pelo WhatsApp e ficou marcado como <b>"Enviado"</b> na lista.'
+        : 'O convite de <b>' + esc(feito.nomeGerado) + '</b> já está na lista. Ainda não foi enviado — vamos fazê-lo no próximo passo.') },
+    { id: 'g-whats', fase: 'Gerador', tipo: 'clique', alvo: '#convitesLista .btn-dl-wa', quando: () => geradorLogado() && !feito.enviou && visivel(q('#convitesLista .btn-dl-wa')),
+      titulo: '3. Envie pelo WhatsApp',
+      texto: 'Cada convite tem um botão verde <span class="t-icone wa"><i class="ti ti-brand-whatsapp"></i></span>. Toque nele, escolha o <b>WhatsApp</b> e o <b>contacto</b> do convidado.',
+      faca: '👉 Toque agora no botão verde destacado.',
+      saltar: { label: 'Envio depois', ir: 'g-lista' },
+      espera: 'partilha' },
+    { id: 'g-lista', fase: 'Gerador', tipo: 'info', alvo: '#convitesLista', quando: geradorLogado,
+      titulo: 'A sua lista de convites',
+      texto: 'Em cada convite:<br><span class="t-icone wa"><i class="ti ti-brand-whatsapp"></i></span> enviar / reenviar pelo WhatsApp<br><span class="t-icone dl"><i class="ti ti-download"></i></span> baixar o PDF<br><span class="t-icone del"><i class="ti ti-trash"></i></span> eliminar (se errou o nome)' },
+    { id: 'g-filtro', fase: 'Gerador', tipo: 'clique', alvo: '#convitesFiltroEnvio .filtro-envio-chip:nth-child(2)', quando: () => geradorLogado() && visivel(q('#convitesFiltroEnvio .filtro-envio-chip:nth-child(2)')),
+      titulo: '4. Veja quem falta enviar',
+      texto: 'O filtro <b>"Por enviar"</b> mostra só os convites que ainda não mandou pelo WhatsApp.',
+      faca: '👉 Toque agora em "Por enviar".',
+      espera: 'curta' },
+    { id: 'g-filtro-ok', fase: 'Gerador', tipo: 'info', alvo: '#convitesLista', quando: () => geradorLogado() && visivel($('convitesFiltroEnvio')),
+      titulo: 'Assim sabe sempre quem falta',
+      texto: 'Aqui ficam só os que ainda <b>não enviou</b>. Toque em <b>Todos</b> para voltar a ver a lista completa. Se marcou um por engano, toque na etiqueta <b>"Enviado por WhatsApp"</b> para desmarcar.' },
+    { id: 'g-pesquisa', fase: 'Gerador', tipo: 'input', alvo: '#convitesSearch', quando: () => geradorLogado() && visivel($('convitesSearch')), preferir: 'cima',
+      antes: () => { try { window.mudarFiltroEnvio && window.mudarFiltroEnvio('todos'); } catch (e) {} },
+      titulo: '5. Encontre um convite',
+      texto: () => 'Com muitos convidados, pesquise pelo nome para reenviar rapidamente.' + (feito.nomeGerado ? ' Experimente com <b>' + esc(feito.nomeGerado.split(/\s+/)[0]) + '</b>.' : ''),
+      faca: '👉 Escreva parte de um nome no campo destacado.',
+      validar: () => val('#convitesSearch').length >= 2 },
+    { id: 'g-confirmacoes', fase: 'Gerador', tipo: 'clique', alvo: '#mainTabConfirmacoes', quando: () => geradorLogado() && visivel($('mainTabConfirmacoes')),
+      antes: limparPesquisa,
+      titulo: '6. Confirmações de presença',
+      texto: 'Aqui vê quem <b>confirmou presença</b>. Quem confirmou e ainda não tem convite aparece como <b>"por gerar"</b> — um toque e o convite é criado.',
+      faca: '👉 Toque agora em "Confirmações".',
+      saltar: { label: 'Saltar', ir: 'g-leitor' },
+      espera: 'curta' },
+    { id: 'g-confirmacoes-ok', fase: 'Gerador', tipo: 'info', alvo: '#confirmacoesTabContent', quando: () => geradorLogado() && visivel($('confirmacoesTabContent')),
+      titulo: 'A lista de confirmações',
+      texto: 'Pode baixar um PDF com quem confirmou e pesquisar por nome. Vamos voltar aos convites.' },
+    { id: 'g-token-leitor', fase: 'Gerador', tipo: 'info', alvo: '#tokenLeitorBox', quando: () => geradorLogado() && !!tokenLeitor() && visivel($('tokenLeitorBox')),
+      antes: () => { limparPesquisa(); irConvites(); },
+      titulo: '🔑 O seu Token do Leitor',
+      texto: () => 'Este é o token que dá acesso ao <b>Leitor</b> do seu evento: <b>' + esc(tokenLeitor()) + '</b>.<br><br>' +
+        '⚠️ <b>Guarde-o</b> e entregue-o <b>só ao porteiro (ou porteiros)</b> que vão controlar a entrada. Pode copiá-lo ou enviar as instruções completas ao porteiro pelo WhatsApp:' +
+        '<div class="t-botoes"><button type="button" class="t-inline" data-acao="copiar-token"><i class="ti ti-copy"></i> Copiar token</button>' +
+        '<button type="button" class="t-inline wa" data-acao="porteiro"><i class="ti ti-brand-whatsapp"></i> Enviar ao porteiro</button></div>' },
+    { id: 'g-leitor', fase: 'Gerador', tipo: 'clique', alvo: '#navLeitor', quando: geradorLogado,
+      antes: () => { limparPesquisa(); irConvites(); },
       titulo: 'Agora, o Leitor 📷',
-      texto: 'No <b>dia do evento</b>, use o separador <b>Leitor</b> para validar os convites à entrada. Toque em <b>Seguinte</b> e vamos lá.' },
+      texto: 'No <b>dia do evento</b>, o <b>Leitor</b> valida os convites à entrada com a câmara do telemóvel.',
+      faca: '👉 Toque agora em "Leitor", no topo.',
+      espera: 'curta' },
 
     // ── Leitor ──
-    { fase: 'Leitor',
+    { id: 'l-ola', fase: 'Leitor', tipo: 'info',
       titulo: 'O Leitor de convites',
-      texto: 'O Leitor usa a <b>câmara do telemóvel</b> para ler o QR Code de cada convite. Mostra na hora se o convite é <b style="color:#16a34a">válido</b> ou se <b style="color:#dc2626">já foi usado</b> — ninguém entra duas vezes com o mesmo convite.' },
-    { fase: 'Leitor', alvo: 'leitor_tokenInput', quando: () => !leitorLogado() && visivel($('leitor_tokenInput')),
-      titulo: '1. Introduza o Token do Leitor',
-      texto: 'Escreva o <b>token do leitor</b> que a AdKira lhe enviou para o seu evento. Dica: entregue este acesso só a quem vai estar à porta.' },
-    { fase: 'Leitor', alvo: 'loginBtn', quando: () => !leitorLogado() && visivel($('loginBtn')),
-      titulo: '2. Entrar no sistema',
-      texto: 'Toque em <b>Entrar no Sistema</b>. Quando o telemóvel pedir, <b>permita o acesso à câmara</b>.' },
-    { fase: 'Leitor', alvo: 'scannerContainer', quando: () => leitorLogado() && visivel($('scannerContainer')),
-      titulo: '1. Aponte a câmara ao QR Code',
-      texto: 'Peça ao convidado para mostrar o convite (no telemóvel ou impresso) e aponte a câmara ao <b>QR Code</b>. A leitura é automática.' },
-    { fase: 'Leitor', alvo: 'openManualCheckinBtn', quando: () => leitorLogado() && visivel($('openManualCheckinBtn')),
-      titulo: 'Sem QR Code? Entrada manual',
-      texto: 'Se o convidado não tiver o convite ou o QR não ler (ecrã partido, pouca luz), toque aqui e procure pelo <b>nome</b>.' },
-    { fase: 'Leitor', alvo: 'scanResultPlaceholder', quando: () => leitorLogado() && visivel($('scanResultPlaceholder')),
-      titulo: '2. Veja o resultado',
-      texto: '<b style="color:#16a34a">Verde</b>: convite válido, pode entrar. <b style="color:#dc2626">Vermelho</b>: já foi usado ou é inválido. Se o convite incluir acompanhante, o Leitor pergunta se ele também entrou.' },
-    { fase: 'Leitor', alvo: 'optionsTab', quando: () => leitorLogado() && visivel($('optionsTab')),
+      texto: 'Lê o QR Code de cada convite e mostra se é <b style="color:#16a34a">válido</b> ou se <b style="color:#dc2626">já foi usado</b> — ninguém entra duas vezes com o mesmo convite.<br><br>🔒 Durante este guia <b>não registamos nenhuma entrada</b>, para não afectar os seus convidados.' },
+    { id: 'l-seu-token', fase: 'Leitor', tipo: 'info', quando: () => !!tokenLeitor(),
+      titulo: '🔑 O Token do Leitor do seu evento',
+      texto: () => '<div class="t-token">' + esc(tokenLeitor()) + '</div>' +
+        '<div class="t-botoes"><button type="button" class="t-inline" data-acao="copiar-token"><i class="ti ti-copy"></i> Copiar</button>' +
+        '<button type="button" class="t-inline wa" data-acao="porteiro"><i class="ti ti-brand-whatsapp"></i> Enviar ao porteiro</button></div>' +
+        '<div class="t-alerta">⚠️ <b>Guarde este token</b> e entregue-o <b>só ao porteiro (ou porteiros)</b> que vão fazer o controlo à porta. Quem tiver este token consegue validar entradas.</div>' +
+        'Também o encontra sempre no <b>Gerador</b>, por cima das abas.' },
+    { id: 'l-token', fase: 'Leitor', tipo: 'input', alvo: () => tokenLeitor() ? '#leitorTokenWrap' : '#leitor_tokenInput', focar: '#leitor_tokenInput',
+      quando: () => !leitorLogado() && visivel($('leitor_tokenInput')), preferir: 'baixo',
+      titulo: '1. Coloque o Token do Leitor',
+      texto: () => tokenLeitor()
+        ? 'Faça como o porteiro fará no dia: toque em <b>"Usar este token"</b> (ou escreva <b>' + esc(tokenLeitor()) + '</b>).'
+        : 'É o token do leitor que a AdKira lhe enviou. Entregue-o só a quem vai estar à porta.',
+      faca: () => tokenLeitor() ? '👉 Toque agora em "Usar este token".' : '👉 Escreva agora o token no campo destacado.',
+      saltar: { label: 'Não tenho o token agora', ir: 'l-resumo' },
+      validar: () => { const v = val('#leitor_tokenInput'); return v.length >= 4; } },
+    { id: 'l-entrar', fase: 'Leitor', tipo: 'clique', alvo: '#loginBtn', quando: () => !leitorLogado() && visivel($('loginBtn')),
+      titulo: '2. Entre no Leitor',
+      texto: 'Quando o telemóvel pedir, <b>permita o acesso à câmara</b>.',
+      faca: '👉 Toque agora em "Entrar no Sistema".',
+      saltar: { label: 'Não tenho o token agora', ir: 'l-resumo' },
+      espera: 'loginLeitor' },
+    { id: 'l-camara', fase: 'Leitor', tipo: 'info', alvo: '#scannerContainer', quando: () => leitorLogado() && visivel($('scannerContainer')),
+      titulo: 'A câmara lê o QR Code',
+      texto: 'No dia, aponte a câmara ao <b>QR Code</b> do convite (no telemóvel do convidado ou impresso) — a leitura é automática.<br><b style="color:#16a34a">Verde</b> = pode entrar · <b style="color:#dc2626">Vermelho</b> = já usado ou inválido.<br><br>⚠️ Não leia agora um convite verdadeiro: isso registaria a entrada desse convidado.' },
+    { id: 'l-manual', fase: 'Leitor', tipo: 'clique', alvo: '#openManualCheckinBtn', quando: () => leitorLogado() && visivel($('openManualCheckinBtn')),
+      titulo: '1. Entrada manual (sem QR)',
+      texto: 'Se o convidado não tiver o convite ou o QR não ler (ecrã partido, pouca luz), procura-se pelo nome.',
+      faca: '👉 Toque agora no botão destacado.',
+      espera: 'manual' },
+    { id: 'l-manual-pesquisa', fase: 'Leitor', tipo: 'input', alvo: '#manualSearchInput', quando: () => leitorLogado() && visivel($('manualSearchInput')), preferir: 'baixo',
+      titulo: '2. Pesquise um convidado',
+      texto: () => 'Escreva parte do nome' + (feito.nomeGerado ? ' (ex: <b>' + esc(feito.nomeGerado.split(/\s+/)[0]) + '</b>)' : '') + '.<br>🔒 Os resultados ficam bloqueados durante o guia — <b>nenhuma entrada é registada</b>.',
+      faca: '👉 Escreva agora parte de um nome.',
+      validar: () => val('#manualSearchInput').length >= 2 },
+    { id: 'l-manual-res', fase: 'Leitor', tipo: 'info', alvo: '#manualSearchResults', quando: () => leitorLogado() && visivel($('manualSearchResults')),
+      titulo: 'Assim encontra o convidado',
+      texto: 'No dia do evento, basta tocar em <b>Check-in</b> ao lado do nome para registar a entrada. Se o convite tiver acompanhante, o Leitor pergunta se ele também entrou.' },
+    { id: 'l-opcoes', fase: 'Leitor', tipo: 'clique', alvo: '#optionsTab', quando: () => leitorLogado() && visivel($('optionsTab')),
+      antes: fecharManual,
       titulo: '3. Lista e relatórios',
-      texto: 'Em <b>Opções</b> vê a lista de convidados (quem já entrou e quem falta), a contagem decrescente do evento e pode exportar relatórios em PDF.' },
-    { fase: 'Leitor', quando: () => !leitorLogado(),
-      titulo: 'Depois de entrar no Leitor',
-      texto: '① Aponte a câmara ao <b>QR Code</b> do convite.<br>② <b style="color:#16a34a">Verde</b> = pode entrar · <b style="color:#dc2626">Vermelho</b> = já usado/inválido.<br>③ Sem QR? Use a <b>entrada manual</b> por nome.<br>④ Em <b>Opções</b>: lista de convidados e relatórios.' },
+      texto: 'Em <b>Opções</b> vê quem já entrou e quem falta, e pode exportar relatórios em PDF.',
+      faca: '👉 Toque agora em "Opções".',
+      espera: 'curta' },
+    { id: 'l-opcoes-ok', fase: 'Leitor', tipo: 'info', alvo: '#guestList', quando: () => leitorLogado() && visivel($('guestList')),
+      titulo: 'A lista de convidados',
+      texto: 'Aqui aparece cada convidado com o estado: <b>pendente</b> ou <b>entrou</b>. Mais abaixo tem os relatórios e a lista de ausentes.' },
+    { id: 'l-resumo', fase: 'Leitor', tipo: 'info', quando: () => !leitorLogado(),
+      titulo: 'Quando tiver o token do Leitor',
+      texto: () => (tokenLeitor() ? 'O seu token: <b>' + esc(tokenLeitor()) + '</b> — entregue-o ao(s) porteiro(s).<br><br>' : '') + '① Escreva o token e toque em <b>Entrar</b>.<br>② Aponte a câmara ao <b>QR Code</b> do convite.<br>③ <b style="color:#16a34a">Verde</b> = entra · <b style="color:#dc2626">Vermelho</b> = já usado/inválido.<br>④ Sem QR? Use a <b>entrada manual</b> por nome.<br>⑤ Em <b>Opções</b>: lista de convidados e relatórios.<br><br>Pode repetir este guia no botão <b>❓</b>.' },
+    { id: 'l-voltar', fase: 'Leitor', tipo: 'clique', alvo: '#navGerador',
+      antes: fecharManual,
+      titulo: 'Volte ao Gerador',
+      texto: 'Já sabe usar o Leitor. Vamos voltar aos convites.',
+      faca: '👉 Toque agora em "Gerador", no topo.',
+      espera: 'curta' },
 
     // ── Fim ──
-    { fase: 'Concluído', alvo: 'navAjuda', final: true,
+    { id: 'fim', fase: 'Concluído', tipo: 'info', alvo: '#navAjuda', final: true,
       titulo: 'Pronto! 🎉',
-      texto: 'Já sabe criar, enviar pelo WhatsApp e validar convites. Voltámos ao <b>Gerador</b> para começar.<br><br>Pode rever este tutorial quando quiser neste botão <b>❓</b>.' },
+      texto: () => 'Aprendeu a ' + (feito.gerou ? '<b>criar</b>' : 'criar') + ', <b>enviar pelo WhatsApp</b> e <b>validar</b> convites.<br><br>Pode repetir este guia sempre que quiser neste botão <b>❓</b>.' },
   ];
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const idxDe = (id) => PASSOS.findIndex(p => p.id === id);
+  const valor = (v) => (typeof v === 'function' ? v() : v);
+  const alvoDe = (p) => (p && p.alvo ? valor(p.alvo) : null);
 
-  /* ───────── MOTOR DO TUTORIAL ───────── */
-  let ativos = [];   // passos filtrados na altura em que cada um é mostrado
-  let idx = -1;
-  let aberto = false;
-  let rafPos = 0;
+  /* ───────── MOTOR ───────── */
+  let aberto = false, pausado = false, idx = -1, historico = [], dica = '';
+  let rafPos = 0, pollPos = 0, vigia = 0;
 
+  function painelDoPasso(p) { if (p.fase === 'Leitor') irLeitor(); else irGerador(); }
   function passoValido(p) { try { return !p.quando || p.quando(); } catch (e) { return false; } }
 
   function iniciar(opcoes) {
     opcoes = opcoes || {};
-    esconderPergunta(true);
-    try { if (typeof fecharModal === 'function') fecharModal(); } catch (e) {}
+    esconderPergunta();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    // Lista de passos fixada no início (conta "x de N" estável): cada passo é
-    // avaliado no painel a que pertence; sem sessão no Gerador, só a parte inicial.
-    const logado = geradorLogado();
-    ativos = PASSOS.filter(p => {
-      if (!logado && p.fase !== 'Início') return false;
+    Object.assign(feito, { gerou: false, enviou: false, nomeGerado: '', veioDoLogin: !!opcoes.retomar });
+    aberto = true; pausado = false; historico = []; dica = '';
+    $('tourRoot').classList.add('on');
+    clearInterval(pollPos); pollPos = setInterval(agendarPosicao, 500);
+    irPara(0, 1);
+  }
+
+  // Procura o próximo passo válido a partir de i (dir = 1 ou -1)
+  function irPara(i, dir) {
+    dir = dir || 1;
+    while (i >= 0 && i < PASSOS.length) {
+      const p = PASSOS[i];
       painelDoPasso(p);
       if (p.antes) { try { p.antes(); } catch (e) {} }
-      return passoValido(p);
-    });
-    irGerador();
-    if (!ativos.length) return;
-    aberto = true;
+      if (passoValido(p)) { idx = i; mostrar(p); return; }
+      i += dir;
+    }
+    if (i >= PASSOS.length) terminar(true);
+  }
+  function seguinte() { historico.push(idx); dica = ''; irPara(idx + 1, 1); }
+  function retomarEm(id, novaDica) {
+    pararVigia(); pausado = false; $('tourPausa').classList.remove('on');
+    dica = novaDica || '';
     $('tourRoot').classList.add('on');
-    idx = -1;
-    avancar(1);
+    const i = typeof id === 'number' ? id : idxDe(id);
+    if (idx !== i) historico.push(idx);
+    irPara(i < 0 ? idx + 1 : i, 1);
   }
-
-  function painelDoPasso(p) { if (p.fase === 'Leitor') irLeitor(); else irGerador(); }
-
-  function avancar(dir) {
-    let i = idx + dir;
-    if (i < 0) return;
-    if (i >= ativos.length) return terminar(true);
-    const p = ativos[i];
-    painelDoPasso(p);
-    if (p.antes) { try { p.antes(); } catch (e) {} }
-    idx = i; mostrar(p);
-  }
-
-  function totalVisivel() { return ativos.length; }
-  function posVisivel() { return idx + 1; }
 
   function mostrar(p) {
     $('tourFase').textContent = p.fase || '';
-    $('tourTitulo').textContent = p.titulo;
-    $('tourTexto').innerHTML = p.texto;
-    const tot = Math.max(1, totalVisivel()), pos = Math.min(posVisivel(), tot);
-    $('tourPasso').textContent = pos + ' de ' + tot;
-    $('tourBarra').style.width = Math.round(pos / tot * 100) + '%';
-    const ultimo = !!p.final || !!p.fimRetoma || idx === ativos.length - 1;
-    $('tourSeguinte').textContent = p.fimRetoma ? 'Entendi' : (ultimo ? 'Concluir' : 'Seguinte');
-    $('tourVoltar').style.visibility = posVisivel() > 1 ? 'visible' : 'hidden';
-    $('tourIgnorar').style.visibility = p.final ? 'hidden' : 'visible';
+    $('tourPasso').textContent = 'Passo ' + (historico.length + 1);
+    $('tourTitulo').textContent = valor(p.titulo);
+    $('tourTexto').innerHTML = valor(p.texto);
+    $('tourBarra').style.width = Math.max(4, Math.round(idx / (PASSOS.length - 1) * 100)) + '%';
+    $('tourDica').innerHTML = dica ? esc(dica) : ''; $('tourDica').classList.toggle('on', !!dica);
+    $('tourFeito').classList.remove('on');
 
-    const el = p.alvo ? $(p.alvo) : null;
+    const fazer = p.tipo !== 'info';
+    $('tourFaca').textContent = fazer ? (valor(p.faca) || '') : '';
+    $('tourFaca').classList.toggle('on', fazer && !!valor(p.faca));
+
+    const seg = $('tourSeguinte');
+    seg.style.display = p.tipo === 'clique' ? 'none' : '';
+    seg.textContent = p.final ? 'Concluir' : (p.tipo === 'input' ? 'Feito ✓' : 'Seguinte');
+    seg.disabled = p.tipo === 'input' && !(p.validar && p.validar());
+    if (p.tipo === 'input') atualizarInput();
+
+    $('tourSaltar').style.display = (p.saltar || fazer) && !p.final ? '' : 'none';
+    $('tourSaltar').textContent = p.saltar ? p.saltar.label : 'Saltar';
+    $('tourVoltar').style.display = historico.length && p.tipo === 'info' ? '' : 'none';
+    $('tourIgnorar').style.visibility = p.final ? 'hidden' : 'visible';
+    $('tourFoco').classList.toggle('acao', fazer);
+
+    const el = alvoDe(p) ? q(alvoDe(p)) : null;
     if (el && visivel(el)) {
       const r = el.getBoundingClientRect();
-      const foraDoEcra = r.top < 60 || r.bottom > window.innerHeight - 40;
-      if (foraDoEcra) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const fora = r.top < 60 || r.bottom > (window.visualViewport ? window.visualViewport.height : window.innerHeight) - 40;
+      if (fora) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       $('tourCartao').style.opacity = '0';
-      setTimeout(() => { posicionar(); $('tourCartao').style.opacity = '1'; }, foraDoEcra ? 380 : 30);
+      setTimeout(() => {
+        posicionar(); $('tourCartao').style.opacity = '1';
+        if (p.tipo === 'input') { try { (p.focar ? q(p.focar) : el).focus({ preventScroll: true }); } catch (e) {} }
+      }, fora ? 380 : 40);
     } else {
-      posicionar();
-      $('tourCartao').style.opacity = '1';
+      posicionar(); $('tourCartao').style.opacity = '1';
     }
-    setTimeout(() => { try { $('tourSeguinte').focus({ preventScroll: true }); } catch (e) {} }, 60);
+    if (p.tipo !== 'input') setTimeout(() => { try { (seg.style.display === 'none' ? $('tourSaltar') : seg).focus({ preventScroll: true }); } catch (e) {} }, 60);
+  }
+
+  function atualizarInput() {
+    const p = PASSOS[idx]; if (!p || p.tipo !== 'input') return;
+    const ok = !!(p.validar && p.validar());
+    $('tourSeguinte').disabled = !ok;
+    $('tourFeito').textContent = ok ? '✅ Muito bem! Toque em "Feito ✓" para continuar.' : '';
+    $('tourFeito').classList.toggle('on', ok);
+    $('tourFaca').classList.toggle('on', !ok && !!valor(p.faca));
+    agendarPosicao();
+  }
+
+  // Bloqueadores à volta do elemento: nos passos "faça", só o elemento destacado
+  // (e o cartão) aceitam toques; nos passos "info", nada da página responde.
+  function bloquear(r, deixarTocar) {
+    const B = ['tourB1', 'tourB2', 'tourB3', 'tourB4'].map($);
+    const set = (b, t, l, w, h) => Object.assign(b.style, { top: t + 'px', left: l + 'px', width: Math.max(0, w) + 'px', height: Math.max(0, h) + 'px' });
+    const W = window.innerWidth, H = window.innerHeight;
+    if (!r || !deixarTocar) { set(B[0], 0, 0, W, H); B.slice(1).forEach(b => set(b, 0, 0, 0, 0)); return; }
+    set(B[0], 0, 0, W, r.top);                                // cima
+    set(B[1], r.bottom, 0, W, H - r.bottom);                  // baixo
+    set(B[2], r.top, 0, r.left, r.height);                    // esquerda
+    set(B[3], r.top, r.right, W - r.right, r.height);         // direita
   }
 
   function posicionar() {
-    if (!aberto || idx < 0) return;
-    const p = ativos[idx];
+    if (!aberto || pausado || idx < 0) return;
+    const p = PASSOS[idx];
     const foco = $('tourFoco'), cartao = $('tourCartao');
-    const el = p.alvo ? $(p.alvo) : null;
-    const vw = window.innerWidth, vh = window.innerHeight, M = 12;
-    const cw = cartao.offsetWidth, ch = cartao.offsetHeight;
+    const el = alvoDe(p) ? q(alvoDe(p)) : null;
+    const vv = window.visualViewport;
+    const vTop = vv ? vv.offsetTop : 0, vh = vv ? vv.height : window.innerHeight, vw = window.innerWidth, M = 10;
+    const cw = cartao.offsetWidth, ch = Math.min(cartao.offsetHeight, vh - 2 * M);
 
     if (!el || !visivel(el)) {
       foco.classList.add('centro');
-      Object.assign(foco.style, { top: vh / 2 + 'px', left: vw / 2 + 'px', width: '0px', height: '0px' });
+      Object.assign(foco.style, { top: (vTop + vh / 2) + 'px', left: vw / 2 + 'px', width: '0px', height: '0px' });
+      bloquear(null, false);
       cartao.style.left = Math.max(M, (vw - cw) / 2) + 'px';
-      cartao.style.top  = Math.max(M, (vh - ch) / 2) + 'px';
+      cartao.style.top = Math.max(vTop + M, vTop + (vh - ch) / 2) + 'px';
       return;
     }
     foco.classList.remove('centro');
-    const r = el.getBoundingClientRect(), pad = 6;
-    Object.assign(foco.style, { top: (r.top - pad) + 'px', left: (r.left - pad) + 'px', width: (r.width + pad * 2) + 'px', height: (r.height + pad * 2) + 'px' });
+    const b = el.getBoundingClientRect(), pad = 6;
+    const r = { top: b.top - pad, left: b.left - pad, right: b.right + pad, bottom: b.bottom + pad, width: b.width + 2 * pad, height: b.height + 2 * pad };
+    Object.assign(foco.style, { top: r.top + 'px', left: r.left + 'px', width: r.width + 'px', height: r.height + 'px' });
+    bloquear(r, p.tipo !== 'info');
 
+    const cima = r.top - vTop, baixo = vTop + vh - r.bottom;
     let top;
-    const espacoBaixo = vh - r.bottom, espacoCima = r.top;
-    if (espacoBaixo >= ch + 20) top = r.bottom + 16;
-    else if (espacoCima >= ch + 20) top = r.top - ch - 16;
-    else top = vh - ch - M; // alvo grande: cartão encostado em baixo
-    top = Math.min(Math.max(M, top), vh - ch - M);
-    let left = r.left + r.width / 2 - cw / 2;
+    const cabeCima = cima >= ch + 12, cabeBaixo = baixo >= ch + 12;
+    if (p.preferir === 'cima' && cabeCima) top = r.top - ch - 12;
+    else if (p.preferir !== 'cima' && cabeBaixo) top = r.bottom + 12;
+    else if (cabeCima) top = r.top - ch - 12;
+    else if (cabeBaixo) top = r.bottom + 12;
+    else top = (cima > baixo) ? vTop + M : vTop + vh - ch - M;
+    top = Math.min(Math.max(vTop + M, top), vTop + vh - ch - M);
+    let left = b.left + b.width / 2 - cw / 2;
     left = Math.min(Math.max(M, left), vw - cw - M);
     cartao.style.top = top + 'px';
     cartao.style.left = left + 'px';
   }
-  function agendarPosicao() { if (!aberto) return; cancelAnimationFrame(rafPos); rafPos = requestAnimationFrame(posicionar); }
+  function agendarPosicao() { if (!aberto || pausado) return; cancelAnimationFrame(rafPos); rafPos = requestAnimationFrame(posicionar); }
   window.addEventListener('resize', agendarPosicao);
   window.addEventListener('scroll', agendarPosicao, true);
+  if (window.visualViewport) { window.visualViewport.addEventListener('resize', agendarPosicao); window.visualViewport.addEventListener('scroll', agendarPosicao); }
 
-  function terminar(concluiu, ignorou) {
-    const p = ativos[idx];
-    aberto = false;
+  /* ───────── ESPERAR PELO QUE O CLIENTE FAZ ───────── */
+  function pausar(msg) {
+    pausado = true;
     $('tourRoot').classList.remove('on');
-    if (p && p.fimRetoma && !ignorou) {
-      // Ainda não entrou no evento: continua o tutorial assim que entrar
-      try { sessionStorage.setItem(SS_RETOMAR, '1'); } catch (e) {}
-      setTimeout(() => { try { $('tokenInput').focus(); } catch (e) {} }, 100);
+    $('tourPausaTxt').textContent = msg || 'Tutorial: a aguardar…';
+    $('tourPausa').classList.add('on');
+  }
+  function pararVigia() { clearInterval(vigia); vigia = 0; }
+  const ocioso = () => !modalAberto() && !window.__invitesPartilhaAtiva && document.visibilityState === 'visible'
+                       && stepVisivel('step2') && !stepVisivel('step3') && !stepVisivel('stepErro');
+
+  function comecarEspera(tipo) {
+    pararVigia();
+    const t0 = Date.now();
+    let calmoDesde = 0;
+    const calmo = (cond, ms) => { if (cond) { calmoDesde = calmoDesde || Date.now(); return Date.now() - calmoDesde >= ms; } calmoDesde = 0; return false; };
+
+    if (tipo === 'curta') { setTimeout(() => retomarEm(idx + 1), 450); pausar(); return; }
+
+    if (tipo === 'manual') {
+      pausar();
+      vigia = setInterval(() => {
+        if (visivel($('manualSearchInput'))) retomarEm(idx + 1);
+        else if (Date.now() - t0 > 4000) retomarEm(idx, 'A janela não abriu. Toque de novo no botão.');
+      }, 250);
       return;
     }
-    if (concluiu) {
-      const e = estado(); e.concluido = true; gravarEstado(e);
-      marcarGlobal('concluido');
-      irGerador();
+
+    if (tipo === 'loginGerador') {
+      pausar('A abrir o evento…');
+      try { sessionStorage.setItem(SS_RETOMAR, '1'); } catch (e) {}
+      vigia = setInterval(() => {
+        if (geradorLogado()) {
+          try { sessionStorage.removeItem(SS_RETOMAR); } catch (e) {}
+          feito.veioDoLogin = true;
+          retomarEm('g-contador');
+        } else if (Date.now() - t0 > 1200 && stepVisivel('step1') && visivel($('step1Info'))) {
+          try { sessionStorage.removeItem(SS_RETOMAR); } catch (e) {}
+          retomarEm('i-codigo', txt($('step1Info')) || 'Código não encontrado. Verifique e tente de novo.');
+        } else if (Date.now() - t0 > 30000) retomarEm('i-codigo', 'Está a demorar. Verifique a internet e tente de novo.');
+      }, 400);
+      return;
+    }
+
+    if (tipo === 'loginLeitor') {
+      pausar('A entrar no Leitor…');
+      vigia = setInterval(() => {
+        const erro = $('loginError');
+        if (leitorLogado()) retomarEm('l-camara');
+        else if (Date.now() - t0 > 800 && erro && !erro.classList.contains('hidden') && txt(erro)) retomarEm('l-token', txt(erro));
+        else if (Date.now() - t0 > 30000) retomarEm('l-token', 'Está a demorar. Verifique a internet e tente de novo.');
+      }, 400);
+      return;
+    }
+
+    if (tipo === 'gerar') {
+      pausar('Confirme o nome e envie 👍');
+      const gerouAntes = feito.gerou; feito.gerou = false;
+      vigia = setInterval(() => {
+        const passou = Date.now() - t0;
+        if (feito.gerou) {
+          if (calmo(ocioso(), 900)) retomarEm('g-sucesso');
+        } else if (stepVisivel('stepErro')) {
+          calmoDesde = 0; // espera que volte ao painel
+        } else if (passou > 1500 && calmo(ocioso(), 2200)) {
+          feito.gerou = gerouAntes;
+          const hint = txt($('nomeHint'));
+          retomarEm(val('#nomeInput').length >= 3 ? 'g-gerar' : 'g-nome',
+            hint && hint.length > 2 ? hint : 'O convite ainda não foi gerado. Toque em "Gerar Convite" e depois confirme.');
+        }
+        if (passou > 180000) retomarEm('g-gerar');
+      }, 300);
+      return;
+    }
+
+    if (tipo === 'partilha') {
+      pausar('Escolha o WhatsApp e o contacto 👍');
+      vigia = setInterval(() => {
+        if (feito.enviou) { if (calmo(ocioso(), 700)) retomarEm('g-lista'); }
+        else if (Date.now() - t0 > 2500 && calmo(ocioso(), 2500)) retomarEm('g-lista');
+        if (Date.now() - t0 > 180000) retomarEm('g-lista');
+      }, 300);
+      return;
     }
   }
 
-  $('tourSeguinte').addEventListener('click', () => {
-    const p = ativos[idx];
-    if (p && (p.final || p.fimRetoma)) return terminar(true);
-    avancar(1);
-  });
-  $('tourVoltar').addEventListener('click', () => avancar(-1));
-  $('tourIgnorar').addEventListener('click', () => { terminar(false, true); irGerador(); });
+  /* ───────── EVENTOS ───────── */
+  // Toque no elemento destacado (passos "clique")
+  document.addEventListener('click', (ev) => {
+    if (!aberto || pausado) return;
+    const p = PASSOS[idx];
+    if (!p || p.tipo !== 'clique' || !alvoDe(p)) return;
+    const alvo = ev.target.closest && ev.target.closest(alvoDe(p));
+    if (!alvo) return;
+    comecarEspera(p.espera || 'curta');
+  }, true);
+
+  // Escrita nos campos (passos "input")
+  document.addEventListener('input', (ev) => {
+    if (!aberto || pausado) return;
+    const p = PASSOS[idx];
+    if (p && p.tipo === 'input' && ev.target.closest && ev.target.closest(alvoDe(p))) atualizarInput();
+  }, true);
+
+  // Enter num campo do tutorial = "Feito ✓" (e evita, por exemplo, gerar logo ao carregar Enter no nome)
   document.addEventListener('keydown', (ev) => {
+    if (!aberto || pausado) return;
+    const p = PASSOS[idx];
+    if (ev.key === 'Escape') { terminar(false, true); return; }
+    if (ev.key !== 'Enter' || !p || p.tipo !== 'input') return;
+    if (!(ev.target.closest && ev.target.closest(alvoDe(p)))) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if (p.validar && p.validar()) seguinte();
+  }, true);
+
+  // Bloqueia o toque/Check-in nos resultados da entrada manual enquanto o guia está aberto
+  document.addEventListener('click', (ev) => {
     if (!aberto) return;
-    if (ev.key === 'Escape') { terminar(false, true); irGerador(); }
-    else if (ev.key === 'ArrowRight') $('tourSeguinte').click();
-    else if (ev.key === 'ArrowLeft' && $('tourVoltar').style.visibility !== 'hidden') avancar(-1);
+    const res = $('manualSearchResults');
+    if (res && res.contains(ev.target)) { ev.preventDefault(); ev.stopPropagation(); }
+  }, true);
+
+  // Botões dentro do cartão (copiar token, enviar ao porteiro)
+  $('tourCartao').addEventListener('click', async (ev) => {
+    const b = ev.target.closest && ev.target.closest('[data-acao]');
+    if (!b) return;
+    const tk = tokenLeitor();
+    if (b.dataset.acao === 'copiar-token' && tk) {
+      const ok = window.__copiarTexto ? await window.__copiarTexto(tk) : false;
+      const o = b.innerHTML;
+      b.innerHTML = ok ? '✓ Copiado — guarde-o!' : 'Não copiou — anote à mão';
+      setTimeout(() => { b.innerHTML = o; }, 2200);
+    } else if (b.dataset.acao === 'porteiro') {
+      try { window.enviarTokenPorteiro && window.enviarTokenPorteiro(); } catch (e) {}
+    }
   });
+
+  $('tourSeguinte').addEventListener('click', () => {
+    const p = PASSOS[idx];
+    if (p && p.final) return terminar(true);
+    if (p && p.tipo === 'input' && !(p.validar && p.validar())) return;
+    seguinte();
+  });
+  $('tourSaltar').addEventListener('click', () => {
+    const p = PASSOS[idx];
+    if (p && p.saltar) { historico.push(idx); dica = ''; const i = idxDe(p.saltar.ir); irPara(i, 1); }
+    else seguinte();
+  });
+  $('tourVoltar').addEventListener('click', () => {
+    if (!historico.length) return;
+    dica = '';
+    const i = historico.pop();
+    const p = PASSOS[i]; painelDoPasso(p);
+    idx = i; mostrar(p);
+  });
+  $('tourIgnorar').addEventListener('click', () => terminar(false, true));
+  $('tourPausaSair').addEventListener('click', () => terminar(false, true));
+
+  function terminar(concluiu, ignorou) {
+    pararVigia(); clearInterval(pollPos);
+    aberto = false; pausado = false;
+    $('tourRoot').classList.remove('on');
+    $('tourPausa').classList.remove('on');
+    fecharManual();
+    if (ignorou) { try { sessionStorage.removeItem(SS_RETOMAR); } catch (e) {} }
+    if (concluiu) {
+      const e = estado(); e.concluido = true; gravarEstado(e);
+      marcarGlobal('concluido');
+    }
+    irGerador();
+  }
 
   /* ───────── PERGUNTA "GOSTARIA DE APRENDER?" ───────── */
   let timerPergunta = 0, timerEsconder = 0;
-
   function devePerguntar() {
     const i = info();
-    if (!i.logado || !i.token) return false;
-    if (aberto) return false;
-    const g = global();
-    if (g.concluido || g.nuncaMais) return false;          // já fez o tutorial / pediu para não perguntar neste aparelho
+    if (!i.logado || !i.token || aberto) return false;
+    const g = global(); if (g.concluido || g.nuncaMais) return false;
     const e = estado();
     if (e.concluido || e.nuncaMais) return false;
-    if (e.perguntas >= MAX_PERGUNTAS) return false;          // no máximo 4 vezes
-    if ((i.gerados || 0) >= LIMIAR_CLIENTE_NOVO) return false; // já usa há algum tempo
+    if (e.perguntas >= MAX_PERGUNTAS) return false;
+    if ((i.gerados || 0) >= LIMIAR_CLIENTE_NOVO) return false;
     if (Date.now() - (e.ultima || 0) < INTERVALO_MIN_MS) return false;
     try { if (sessionStorage.getItem(SS_JA_PERGUNTOU)) return false; } catch (err) {}
     return true;
   }
-
   function ocupado() {
-    // Não interrompe: modal aberto, a escrever um nome, ou fora do painel principal
-    const modal = document.querySelector('.modal-overlay:not(.hidden)');
-    if (modal) return true;
+    if (modalAberto()) return true;
     const ni = $('nomeInput');
     if (ni && document.activeElement === ni && ni.value.trim()) return true;
     if (!geradorLogado()) return true;
     if (!$('panelGerador') || !$('panelGerador').classList.contains('active')) return true;
     return false;
   }
-
-  function tentarPerguntar(tentativas) {
+  function tentarPerguntar(n) {
     if (!devePerguntar()) return;
-    if (ocupado()) {
-      if ((tentativas || 0) < 6) timerPergunta = setTimeout(() => tentarPerguntar((tentativas || 0) + 1), 8000);
-      return;
-    }
+    if (ocupado()) { if ((n || 0) < 6) timerPergunta = setTimeout(() => tentarPerguntar((n || 0) + 1), 8000); return; }
     const e = estado(); e.perguntas = (e.perguntas || 0) + 1; e.ultima = Date.now(); gravarEstado(e);
     try { sessionStorage.setItem(SS_JA_PERGUNTOU, '1'); } catch (err) {}
-    const i = info();
-    $('tourConviteAjuda').querySelector('.ca-tit').textContent = (i.gerados || 0) === 0
+    $('tourConviteAjuda').querySelector('.ca-tit').textContent = (info().gerados || 0) === 0
       ? 'Primeira vez aqui? Gostaria de aprender como gerar os convites?'
       : 'Gostaria de aprender como gerar e enviar os convites?';
     $('tourConviteAjuda').classList.add('on');
-    clearTimeout(timerEsconder);
-    timerEsconder = setTimeout(() => esconderPergunta(), AUTO_ESCONDER_MS);
+    clearTimeout(timerEsconder); timerEsconder = setTimeout(esconderPergunta, AUTO_ESCONDER_MS);
   }
-
+  function esconderPergunta() { clearTimeout(timerEsconder); $('tourConviteAjuda').classList.remove('on'); }
   function avisoRapido(msg) {
     const t = document.createElement('div'); t.className = 'toast'; t.style.background = '#5ba189'; t.style.zIndex = '100000'; t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
   }
-
-  function esconderPergunta(imediato) {
-    clearTimeout(timerEsconder);
-    $('tourConviteAjuda').classList.remove('on');
-  }
-
   $('caSim').addEventListener('click', () => { esconderPergunta(); iniciar(); });
-  $('caNao').addEventListener('click', () => esconderPergunta());
-  $('caFechar').addEventListener('click', () => esconderPergunta());
+  $('caNao').addEventListener('click', esconderPergunta);
+  $('caFechar').addEventListener('click', esconderPergunta);
   $('caNunca').addEventListener('click', () => {
     const e = estado(); e.nuncaMais = true; gravarEstado(e);
-    marcarGlobal('nuncaMais');
-    esconderPergunta();
+    marcarGlobal('nuncaMais'); esconderPergunta();
     avisoRapido('Pode abrir o tutorial quando quiser no botão ❓');
   });
 
   // Chamado pelo Gerador sempre que o painel principal (step2) aparece
   function aoEntrarPainel() {
+    if (aberto) return; // o próprio tutorial está a decorrer (ex: acabou de entrar no evento)
     let retomar = false;
     try { retomar = sessionStorage.getItem(SS_RETOMAR) === '1'; } catch (e) {}
+    clearTimeout(timerPergunta);
     if (retomar) {
       try { sessionStorage.removeItem(SS_RETOMAR); } catch (e) {}
-      clearTimeout(timerPergunta);
       setTimeout(() => { if (!aberto) iniciar({ retomar: true }); }, 900);
       return;
     }
-    clearTimeout(timerPergunta);
     timerPergunta = setTimeout(() => tentarPerguntar(0), ATRASO_PERGUNTA_MS);
   }
 
-  window.InvitesTour = { iniciar, aoEntrarPainel, _reset: () => { try { const k = chaveEvento(); k && localStorage.removeItem(k); localStorage.removeItem(LS_GLOBAL); sessionStorage.removeItem(SS_JA_PERGUNTOU); } catch (e) {} } };
+  window.InvitesTour = { iniciar, aoEntrarPainel,
+    _reset: () => { try { const k = chaveEvento(); k && localStorage.removeItem(k); localStorage.removeItem(LS_GLOBAL); sessionStorage.removeItem(SS_JA_PERGUNTOU); } catch (e) {} } };
 })();
 </script>
 
