@@ -910,7 +910,7 @@
 
       <!-- ── TOKEN DO LEITOR ── -->
       <section id="admSecLeitor" class="adm-sec" style="display:none;">
-        <div class="adm-sec-desc">Associe o <b>Token do Leitor</b> ao código do evento. O cliente vê-o no tutorial e no ecrã de entrada do <b>Leitor</b> — assim só precisa de lhe enviar o código do evento.</div>
+        <div class="adm-sec-desc">✨ Os clientes já recebem o <b>Token do Leitor automaticamente</b> quando o evento gera convites com QR Code. Use esta aba só para <b>verificar</b> um evento ou para associar um token à mão em casos especiais.</div>
         <div class="adm-campo">
           <label for="adminLeitorEvento">Código do evento do cliente <span style="text-transform:none;font-weight:500;color:#9ca3af;">(o que ele usa no Gerador)</span></label>
           <input type="text" id="adminLeitorEvento" placeholder="Ex: cv-c8a262bdfeb549bc ou evt-ab3x9k"
@@ -3153,7 +3153,8 @@ async function verificarEventoGerador(codigo) {
   } catch (e) {}
   try {
     const ev = window._cfTryLogin ? await window._cfTryLogin(codigo) : null;
-    if (ev && ev.id) return { ok: true, nome: ev.title || ev.name || 'Evento', origem: 'Cloudflare', id: ev.id, codigo };
+    if (ev && ev.id) return { ok: true, nome: ev.title || ev.name || 'Evento', origem: 'Cloudflare', id: ev.id, codigo,
+                              geraConvites: !!String(ev.ticket_template_url || '').trim() };
   } catch (e) {}
   return { ok: false, codigo };
 }
@@ -3270,7 +3271,12 @@ async function carregarLeitorAdmin() {
     }
   }
   _admVer.evento = r;
-  if (r.ok) _admInfo('adminLeitorEventoInfo', 'ok', '✓ Cliente: <b>' + _admEsc(nomeEventoLimpo(r.nome)) + '</b> <span class="adm-origem">' + r.origem + '</span>');
+  if (r.ok && r.origem === 'Cloudflare' && r.geraConvites === false) {
+    // Save the Date (ou evento sem modelo de bilhete): não gera convites com QR,
+    // por isso não precisa de Leitor — o token vai no código do CONVITE.
+    _admInfo('adminLeitorEventoInfo', 'erro', '⚠️ <b>' + _admEsc(nomeEventoLimpo(r.nome)) + '</b> não gera convites com QR Code (ex: Save the Date). O Token do Leitor deve ficar no código do <b>Convite</b> — é esse que o cliente usa no Gerador.');
+  }
+  else if (r.ok) _admInfo('adminLeitorEventoInfo', 'ok', '✓ Cliente: <b>' + _admEsc(nomeEventoLimpo(r.nome)) + '</b> <span class="adm-origem">' + r.origem + '</span>');
   else _admInfo('adminLeitorEventoInfo', 'erro', '❌ Código do evento não encontrado. Verifique se está bem escrito.');
 
   if (atual && atual.__erro) {
@@ -3320,6 +3326,7 @@ async function guardarLeitorAdmin(forcar) {
 
     const problemas = [];
     if (!_admVer.evento || !_admVer.evento.ok) problemas.push('o código do evento não foi encontrado');
+    else if (_admVer.evento.geraConvites === false) problemas.push('este evento não gera convites (use o código do Convite)');
     if (leitor && (!_admVer.leitor || !_admVer.leitor.ok)) problemas.push('o token do leitor não foi encontrado');
     if (leitor && _admMesmoEvento(_admVer.evento, _admVer.leitor) === false) problemas.push('o token é de outro evento');
 
@@ -3356,13 +3363,35 @@ async function guardarLeitorAdmin(forcar) {
 }
 
 // ── Lado do cliente ──
+/* 🆕 Token do Leitor automático:
+   • Cloudflare: o Worker só o devolve se o evento tiver QR activo, modelo de
+     bilhete (gera convites — um Save the Date não tem) e bilhetes ligados
+     para o cliente. Nunca devolve o de outro evento.
+   • Supabase (antigo): o Leitor usa o próprio código do evento, desde que o
+     QR Code esteja activo (convite_config.qr_ativo). */
+async function obterTokenLeitorAutomatico(tk) {
+  if (cfBackendMode) {
+    const base = window.CF_API_BASE; if (!base) return null;
+    const res = await comTimeout(fetch(base + '/api/public/client-view-by-token/' + encodeURIComponent(tk) + '/leitor'));
+    if (!res.ok) return null; // Worker ainda sem a rota nova, ou token inválido
+    const d = await res.json().catch(() => ({}));
+    return (d && d.token_leitor) ? String(d.token_leitor) : null;
+  }
+  // Supabase: só se o QR estiver activo neste evento
+  if (configData && configData.qr_ativo === false) return null;
+  return tk;
+}
+
 async function carregarTokenLeitor() {
   if (!clienteData?.token) return;
   if (_tokenLeitorDe === clienteData.token) { mostrarTokenLeitor(); return; }
   const tk = clienteData.token;
   _tokenLeitorDe = tk;
   let v = null;
-  try { v = await obterTokenLeitor(tk); } catch (e) { v = null; } // funções ainda não criadas → não mostra nada
+  // 1) Automático — só quando o evento gera mesmo convites com QR de leitura única
+  try { v = await obterTokenLeitorAutomatico(tk); } catch (e) { v = null; }
+  // 2) Senão, o que o administrador associou à mão no painel (se houver)
+  if (!v) { try { v = await obterTokenLeitor(tk); } catch (e) { v = null; } } // funções ainda não criadas → não mostra nada
   if (!clienteData || clienteData.token !== tk) return; // saiu do evento entretanto: não mostra nada
   tokenLeitorEvento = v;
   mostrarTokenLeitor();
