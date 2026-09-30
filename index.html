@@ -2370,18 +2370,32 @@ function copiarTexto(texto, btnEl) {
    Não depende só de estar online no momento exacto da aprovação — fica
    marcado como "aprovado, mas ainda não visto" na base de dados, por isso
    aparece sempre, mesmo que o cliente só reabra a app horas depois. */
+/* ▼ NOVO (segurança): usa as funções seguras do Supabase (ver
+   seguranca_fase1.sql). Se ainda não existirem, usa o método antigo —
+   por isso o site funciona igual antes e depois de correr o SQL. */
+function _funcaoInexistente(error) {
+  const t = ((error && error.message) || '') + ' ' + ((error && error.code) || '');
+  return /PGRST202|42883|Could not find the function|does not exist/i.test(t);
+}
+async function rpcComRecurso(nome, args, recurso) {
+  const r = await comTimeout(DB.rpc(nome, args));
+  if (r.error && _funcaoInexistente(r.error)) return await recurso();
+  return r;
+}
+
 async function verificarPedidosAprovados() {
   if (!clienteData?.token) return false;
   try {
-    const { data, error } = await comTimeout(
+    const { data, error } = await rpcComRecurso('pedido_convites_aprovados_por_ver', { p_token: clienteData.token }, () => comTimeout(
       DB.from('pedidos_convites').select('id,quantidade,valor')
         .eq('token_cliente', clienteData.token).eq('status', 'aprovado').eq('visto', false)
         .order('created_at', { ascending: true })
-    );
+    ));
     if (error || !data || data.length === 0) return false;
     for (const pedido of data) {
       mostrarAprovacaoConvites(pedido);
-      await comTimeout(DB.from('pedidos_convites').update({ visto: true }).eq('id', pedido.id));
+      await rpcComRecurso('pedido_convites_marcar_visto', { p_token: clienteData.token, p_id: String(pedido.id) },
+        () => comTimeout(DB.from('pedidos_convites').update({ visto: true }).eq('id', pedido.id)));
     }
     return true;
   } catch (e) {
@@ -2409,9 +2423,10 @@ async function pedirConvitesExtra() {
   // painel de administração. Se falhar (ex: sem internet), continua na
   // mesma para o WhatsApp — o pedido não fica perdido para o cliente.
   try {
-    await comTimeout(DB.from('pedidos_convites').insert([{
-      token_cliente: token, nome_cliente: nomeEvento, quantidade: qtd, valor: preco, status: 'pendente'
-    }]));
+    await rpcComRecurso('pedido_convites_criar', { p_token: token, p_nome: nomeEvento, p_quantidade: qtd, p_valor: preco },
+      () => comTimeout(DB.from('pedidos_convites').insert([{
+        token_cliente: token, nome_cliente: nomeEvento, quantidade: qtd, valor: preco, status: 'pendente'
+      }])));
   } catch (e) { console.warn('Não foi possível registar o pedido:', e); }
   const msg = `Olá! Quero comprar mais convites para o meu evento.\n\n` +
               `Evento: ${nomeEvento}\n` +
@@ -2506,10 +2521,10 @@ async function carregarPedidosAdmin() {
   const badge = document.getElementById('adminPedidosBadge');
   el.innerHTML = '<div class="confirmados-vazio">A carregar pedidos...</div>';
   try {
-    const { data, error } = await comTimeout(
+    const { data, error } = await rpcComRecurso('admin_pedidos_pendentes', { p_admin: adminTokenAtual || '' }, () => comTimeout(
       DB.from('pedidos_convites').select('id,token_cliente,nome_cliente,quantidade,valor,created_at')
         .eq('status', 'pendente').order('created_at', { ascending: false })
-    );
+    ));
     if (error) throw error;
     if (!data || data.length === 0) {
       badge.style.display = 'none';
@@ -2551,19 +2566,33 @@ function atualizarBadgePedidosApos(remover) {
   else badge.textContent = restantes;
 }
 
+function traduzirErroAdmin(e) {
+  const m = (e && e.message) || String(e || '');
+  if (/NAO_AUTORIZADO/.test(m)) return 'Sem permissão — volte a entrar como administrador.';
+  if (/PEDIDO_NAO_ENCONTRADO/.test(m)) return 'Este pedido já foi tratado (ou não existe).';
+  if (/CLIENTE_NAO_ENCONTRADO/.test(m)) return 'Cliente não encontrado no Supabase (evento Cloudflare?).';
+  return m;
+}
+
 async function aprovarPedidoAdmin(pedido, btn, card) {
   haptic('medium');
   btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
   try {
-    const { data: cli, error: eCli } = await comTimeout(
-      DB.from('clientes').select('limite_scans').eq('token', pedido.token_cliente).single()
-    );
-    if (eCli) throw eCli;
-    const novoLimite = (cli.limite_scans || 0) + pedido.quantidade;
-    const { error: eUpd } = await comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', pedido.token_cliente));
-    if (eUpd) throw eUpd;
-    const { error: eStatus } = await comTimeout(DB.from('pedidos_convites').update({ status: 'aprovado' }).eq('id', pedido.id));
-    if (eStatus) throw eStatus;
+    // Seguro: aprova e aumenta o limite de uma só vez, no servidor (e só o administrador pode).
+    const { data: novoLimiteRpc, error: eRpc } = await rpcComRecurso('admin_pedido_aprovar', { p_admin: adminTokenAtual || '', p_id: String(pedido.id) }, async () => {
+      const { data: cli, error: eCli } = await comTimeout(
+        DB.from('clientes').select('limite_scans').eq('token', pedido.token_cliente).single()
+      );
+      if (eCli) return { data: null, error: eCli };
+      const n = (cli.limite_scans || 0) + pedido.quantidade;
+      const { error: eUpd } = await comTimeout(DB.from('clientes').update({ limite_scans: n }).eq('token', pedido.token_cliente));
+      if (eUpd) return { data: null, error: eUpd };
+      const { error: eStatus } = await comTimeout(DB.from('pedidos_convites').update({ status: 'aprovado' }).eq('id', pedido.id));
+      if (eStatus) return { data: null, error: eStatus };
+      return { data: n, error: null };
+    });
+    if (eRpc) throw new Error(traduzirErroAdmin(eRpc));
+    const novoLimite = Number(novoLimiteRpc);
     haptic('success');
     showToast(`✅ Aprovado! Novo limite: ${novoLimite}`);
     card.remove();
@@ -2579,8 +2608,9 @@ async function rejeitarPedidoAdmin(pedido, btn, card) {
   haptic('light');
   btn.disabled = true;
   try {
-    const { error } = await comTimeout(DB.from('pedidos_convites').update({ status: 'rejeitado' }).eq('id', pedido.id));
-    if (error) throw error;
+    const { error } = await rpcComRecurso('admin_pedido_rejeitar', { p_admin: adminTokenAtual || '', p_id: String(pedido.id) },
+      () => comTimeout(DB.from('pedidos_convites').update({ status: 'rejeitado' }).eq('id', pedido.id)));
+    if (error) throw new Error(traduzirErroAdmin(error));
     haptic('warning');
     card.remove();
     atualizarBadgePedidosApos(false);
@@ -2799,8 +2829,9 @@ async function actualizarLimiteAdmin(token, input, btn, card) {
   const orig = btn.innerHTML;
   btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>';
   try {
-    const { error } = await comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', token));
-    if (error) throw error;
+    const { error } = await rpcComRecurso('admin_atualizar_limite', { p_admin: adminTokenAtual || '', p_token: token, p_limite: novoLimite },
+      () => comTimeout(DB.from('clientes').update({ limite_scans: novoLimite }).eq('token', token)));
+    if (error) throw new Error(traduzirErroAdmin(error));
     haptic('success');
     showToast('✅ Limite actualizado!');
     const stats = card.querySelector('.admin-cliente-stats');
