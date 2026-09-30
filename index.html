@@ -880,17 +880,6 @@
 
     <!-- ▼ NOVO: duas abas principais — Confirmações (dados do site de
          Confirmação de Presença) e Convites (geração manual + já gerados) -->
-    <!-- ▼ NOVO: Token do Leitor do evento (só aparece quando o administrador o associou) -->
-    <div class="token-leitor-box" id="tokenLeitorBox" style="display:none;">
-      <div class="tl-topo"><i class="ti ti-key" aria-hidden="true"></i> Token do Leitor</div>
-      <div class="tl-linha">
-        <code class="tl-valor" id="tokenLeitorValor"></code>
-        <button type="button" class="tl-btn" onclick="copiarTokenLeitor(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copiar</button>
-      </div>
-      <div class="tl-aviso">⚠️ Guarde este token e entregue-o <b>só ao porteiro (ou porteiros)</b> que vão controlar a entrada. É com ele que entram no <b>Leitor</b>.</div>
-      <button type="button" class="tl-btn tl-wa" onclick="enviarTokenPorteiro()"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Enviar instruções ao porteiro</button>
-    </div>
-
     <div id="mainTabsWrap" style="display:none;gap:6px;flex-direction:row;">
       <button id="mainTabConfirmacoes" class="tab-btn" onclick="mudarMainTab('confirmacoes')">
         <i class="ti ti-user-check" aria-hidden="true"></i> Confirmações <span id="confirmadosBadge" class="confirmados-badge" style="display:none;" title="Por gerar"></span>
@@ -2711,11 +2700,7 @@ async function carregarTokenLeitor() {
 }
 
 function mostrarTokenLeitor() {
-  const box = document.getElementById('tokenLeitorBox');
-  const valEl = document.getElementById('tokenLeitorValor');
-  if (box) box.style.display = tokenLeitorEvento ? '' : 'none';
-  if (valEl) valEl.textContent = tokenLeitorEvento || '';
-  // Sugestão no ecrã de entrada do Leitor
+  // Só no ecrã de entrada do Leitor (e no tutorial) — nunca na aba do Gerador
   const sug = document.getElementById('leitorTokenSugestao');
   const sugVal = document.getElementById('leitorTokenSugestaoValor');
   if (sug) sug.style.display = tokenLeitorEvento ? 'flex' : 'none';
@@ -4695,10 +4680,17 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
                 <input type="text" id="leitor_tokenInput"
                        class="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl transition-all duration-200 bg-gray-50/50"
                        placeholder="Introduza o seu token" required>
-                <!-- ▼ NOVO: quando o Gerador já conhece o Token do Leitor deste evento -->
-                <div id="leitorTokenSugestao" style="margin-top:10px;display:none;align-items:center;gap:8px;flex-wrap:wrap;background:#f5faf8;border:1.5px dashed #b7dccd;border-radius:12px;padding:10px 12px;font-size:13px;color:#374151;">
-                    <span>🔑 Token do seu evento: <b id="leitorTokenSugestaoValor" style="font-family:ui-monospace,Menlo,Consolas,monospace;"></b></span>
-                    <button type="button" id="leitorTokenUsar" style="width:auto;margin-left:auto;background:#5aa189;color:#fff;border:none;border-radius:9px;padding:7px 12px;font-weight:600;font-size:13px;cursor:pointer;">Usar este token</button>
+                <!-- ▼ NOVO: Token do Leitor do evento aberto no Gerador (associado pelo administrador).
+                     Só aparece aqui, no Leitor — não na aba do Gerador. -->
+                <div id="leitorTokenSugestao" class="token-leitor-box" style="display:none;margin-top:12px;">
+                    <div class="tl-topo"><i class="ti ti-key" aria-hidden="true"></i> Token do Leitor do seu evento</div>
+                    <div class="tl-linha">
+                        <code class="tl-valor" id="leitorTokenSugestaoValor"></code>
+                        <button type="button" class="tl-btn" onclick="copiarTokenLeitor(this)"><i class="ti ti-copy" aria-hidden="true"></i> Copiar</button>
+                    </div>
+                    <div class="tl-aviso">⚠️ Guarde este token e entregue-o <b>só ao porteiro (ou porteiros)</b> que vão controlar a entrada. É com ele que entram aqui no <b>Leitor</b>.</div>
+                    <button type="button" class="tl-btn" id="leitorTokenUsar" style="width:100%;"><i class="ti ti-login" aria-hidden="true"></i> Usar este token</button>
+                    <button type="button" class="tl-btn tl-wa" onclick="enviarTokenPorteiro()"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i> Enviar instruções ao porteiro</button>
                 </div>
             </div>
             <button type="submit" id="loginBtn"
@@ -6191,6 +6183,7 @@ function renderGuestList() {
 }
 
 function showScanResult(status, guestName, type) {
+    try { window.dispatchEvent(new CustomEvent('invites:scan', { detail: { status, guestName, type } })); } catch(e) {}
     const styles = {
         success: { bg:'bg-gradient-to-r from-green-50 to-emerald-50', border:'border-l-green-500', text:'text-green-800', icon:'fas fa-check-circle text-green-500', anim:'feedback-success' },
         error:   { bg:'bg-gradient-to-r from-red-50 to-rose-50',     border:'border-l-red-500',   text:'text-red-800',   icon:'fas fa-times-circle text-red-500',   anim:'feedback-error'   },
@@ -6899,6 +6892,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Expose to global scope
   window.manualCheckin = typeof manualCheckin !== "undefined" ? manualCheckin : window.manualCheckin;
+  // ▼ NOVO: estado mínimo do Leitor para o tutorial
+  window.__leitorInfo = () => ({ cf: cfBackendMode, undo: undoUsagesRemaining, logado: !!currentClient });
   window.startScanner = typeof startScanner !== "undefined" ? startScanner : window.startScanner;
   window.renderGuestList = typeof renderGuestList !== "undefined" ? renderGuestList : window.renderGuestList;
 })();
@@ -7098,12 +7093,22 @@ function switchApp(app) {
   const irLeitor  = () => { if (typeof switchApp === 'function') switchApp('leitor'); };
   const irConvites = () => { const w = $('mainTabsWrap'); if (w && w.style.display !== 'none' && window.mudarMainTab) window.mudarMainTab('convites', true); };
   const tokenLeitor = () => info().tokenLeitor || null;
+  const leitorInfo = () => { try { return (window.__leitorInfo && window.__leitorInfo()) || {}; } catch (e) { return {}; } };
+  const contagem = () => parseInt(($('scannedCount') || {}).textContent, 10) || 0;
+  const usosDesfazer = () => { const li = leitorInfo(); return li.cf ? null : (typeof li.undo === 'number' ? li.undo : null); };
+  // Só testamos a sério quando não há entradas verdadeiras e o Desfazer está disponível
+  const podePraticar = () => { if (!leitorLogado() || contagem() !== 0) return false; const u = usosDesfazer(); return u === null || u > 0; };
+  const praticaManual = () => !feito.praticou && podePraticar();
+  const irScanner = () => { const c = $('scannerTabContent'); if (c && c.classList.contains('hidden') && $('scannerTab')) $('scannerTab').click(); };
+  const retomarLeitura = () => { const nb = $('nextScanBtn'); if (nb && visivel(nb)) { try { nb.click(); } catch (e) {} } };
   const val = (sel) => { const el = q(sel); return el ? (el.value || '').trim() : ''; };
   const fecharManual = () => { const m = $('manualCheckinModal'); if (m) m.classList.add('hidden'); };
   const limparPesquisa = () => { const s = $('convitesSearch'); if (s && s.value) { s.value = ''; try { window.filtrarConvites && window.filtrarConvites(); } catch (e) {} } };
 
   // Memória do que o cliente fez durante este tutorial
-  const feito = { gerou: false, enviou: false, nomeGerado: '', veioDoLogin: false };
+  const feito = { gerou: false, enviou: false, nomeGerado: '', veioDoLogin: false,
+                  praticou: false, praticouCamara: false, praticouManual: false, desfez: false, scansVistos: 0, ultimoScan: null, scanBase: 0 };
+  window.addEventListener('invites:scan', (e) => { feito.scansVistos++; feito.ultimoScan = e.detail || null; });
   window.addEventListener('invites:gerado', (e) => { feito.gerou = true; feito.nomeGerado = (e.detail && e.detail.nome) || feito.nomeGerado; });
   window.addEventListener('invites:enviado', () => { feito.enviou = true; });
 
@@ -7155,7 +7160,8 @@ function switchApp(app) {
       titulo: () => feito.enviou ? '🎉 Muito bem! Criou e enviou o convite' : '🎉 Muito bem! O convite foi criado',
       texto: () => (feito.enviou
         ? 'O convite de <b>' + esc(feito.nomeGerado) + '</b> já foi enviado pelo WhatsApp e ficou marcado como <b>"Enviado"</b> na lista.'
-        : 'O convite de <b>' + esc(feito.nomeGerado) + '</b> já está na lista. Ainda não foi enviado — vamos fazê-lo no próximo passo.') },
+        : 'O convite de <b>' + esc(feito.nomeGerado) + '</b> já está na lista. Ainda não foi enviado — vamos fazê-lo no próximo passo.') +
+        '<br><br>📌 Mais à frente vai <b>ler o QR deste convite no Leitor</b>, para testar. Tenha-o à mão noutro telemóvel ou no computador (pode enviá-lo para si próprio pelo WhatsApp).' },
     { id: 'g-whats', fase: 'Gerador', tipo: 'clique', alvo: '#convitesLista .btn-dl-wa', quando: () => geradorLogado() && !feito.enviou && visivel(q('#convitesLista .btn-dl-wa')),
       titulo: '3. Envie pelo WhatsApp',
       texto: 'Cada convite tem um botão verde <span class="t-icone wa"><i class="ti ti-brand-whatsapp"></i></span>. Toque nele, escolha o <b>WhatsApp</b> e o <b>contacto</b> do convidado.',
@@ -7189,13 +7195,6 @@ function switchApp(app) {
     { id: 'g-confirmacoes-ok', fase: 'Gerador', tipo: 'info', alvo: '#confirmacoesTabContent', quando: () => geradorLogado() && visivel($('confirmacoesTabContent')),
       titulo: 'A lista de confirmações',
       texto: 'Pode baixar um PDF com quem confirmou e pesquisar por nome. Vamos voltar aos convites.' },
-    { id: 'g-token-leitor', fase: 'Gerador', tipo: 'info', alvo: '#tokenLeitorBox', quando: () => geradorLogado() && !!tokenLeitor() && visivel($('tokenLeitorBox')),
-      antes: () => { limparPesquisa(); irConvites(); },
-      titulo: '🔑 O seu Token do Leitor',
-      texto: () => 'Este é o token que dá acesso ao <b>Leitor</b> do seu evento: <b>' + esc(tokenLeitor()) + '</b>.<br><br>' +
-        '⚠️ <b>Guarde-o</b> e entregue-o <b>só ao porteiro (ou porteiros)</b> que vão controlar a entrada. Pode copiá-lo ou enviar as instruções completas ao porteiro pelo WhatsApp:' +
-        '<div class="t-botoes"><button type="button" class="t-inline" data-acao="copiar-token"><i class="ti ti-copy"></i> Copiar token</button>' +
-        '<button type="button" class="t-inline wa" data-acao="porteiro"><i class="ti ti-brand-whatsapp"></i> Enviar ao porteiro</button></div>' },
     { id: 'g-leitor', fase: 'Gerador', tipo: 'clique', alvo: '#navLeitor', quando: geradorLogado,
       antes: () => { limparPesquisa(); irConvites(); },
       titulo: 'Agora, o Leitor 📷',
@@ -7206,14 +7205,14 @@ function switchApp(app) {
     // ── Leitor ──
     { id: 'l-ola', fase: 'Leitor', tipo: 'info',
       titulo: 'O Leitor de convites',
-      texto: 'Lê o QR Code de cada convite e mostra se é <b style="color:#16a34a">válido</b> ou se <b style="color:#dc2626">já foi usado</b> — ninguém entra duas vezes com o mesmo convite.<br><br>🔒 Durante este guia <b>não registamos nenhuma entrada</b>, para não afectar os seus convidados.' },
+      texto: 'Lê o QR Code de cada convite e mostra se é <b style="color:#16a34a">válido</b> ou se <b style="color:#dc2626">já foi usado</b> — ninguém entra duas vezes com o mesmo convite.<br><br>Vamos <b>testar a sério</b>: vai ler um convite, ver o resultado e, no fim, aprender a <b>desfazer</b> o teste.' },
     { id: 'l-seu-token', fase: 'Leitor', tipo: 'info', quando: () => !!tokenLeitor(),
       titulo: '🔑 O Token do Leitor do seu evento',
       texto: () => '<div class="t-token">' + esc(tokenLeitor()) + '</div>' +
         '<div class="t-botoes"><button type="button" class="t-inline" data-acao="copiar-token"><i class="ti ti-copy"></i> Copiar</button>' +
         '<button type="button" class="t-inline wa" data-acao="porteiro"><i class="ti ti-brand-whatsapp"></i> Enviar ao porteiro</button></div>' +
         '<div class="t-alerta">⚠️ <b>Guarde este token</b> e entregue-o <b>só ao porteiro (ou porteiros)</b> que vão fazer o controlo à porta. Quem tiver este token consegue validar entradas.</div>' +
-        'Também o encontra sempre no <b>Gerador</b>, por cima das abas.' },
+        'Também o encontra sempre aqui no <b>Leitor</b>, no ecrã de entrada.' },
     { id: 'l-token', fase: 'Leitor', tipo: 'input', alvo: () => tokenLeitor() ? '#leitorTokenWrap' : '#leitor_tokenInput', focar: '#leitor_tokenInput',
       quando: () => !leitorLogado() && visivel($('leitor_tokenInput')), preferir: 'baixo',
       titulo: '1. Coloque o Token do Leitor',
@@ -7225,38 +7224,110 @@ function switchApp(app) {
       validar: () => { const v = val('#leitor_tokenInput'); return v.length >= 4; } },
     { id: 'l-entrar', fase: 'Leitor', tipo: 'clique', alvo: '#loginBtn', quando: () => !leitorLogado() && visivel($('loginBtn')),
       titulo: '2. Entre no Leitor',
-      texto: 'Quando o telemóvel pedir, <b>permita o acesso à câmara</b>.',
+      texto: 'Quando o telemóvel pedir, <b>permita o acesso à câmara</b> — sem ela o Leitor não consegue ler os QR Codes.',
       faca: '👉 Toque agora em "Entrar no Sistema".',
       saltar: { label: 'Não tenho o token agora', ir: 'l-resumo' },
       espera: 'loginLeitor' },
-    { id: 'l-camara', fase: 'Leitor', tipo: 'info', alvo: '#scannerContainer', quando: () => leitorLogado() && visivel($('scannerContainer')),
-      titulo: 'A câmara lê o QR Code',
-      texto: 'No dia, aponte a câmara ao <b>QR Code</b> do convite (no telemóvel do convidado ou impresso) — a leitura é automática.<br><b style="color:#16a34a">Verde</b> = pode entrar · <b style="color:#dc2626">Vermelho</b> = já usado ou inválido.<br><br>⚠️ Não leia agora um convite verdadeiro: isso registaria a entrada desse convidado.' },
+
+    // Teste real: só quando ainda NÃO há entradas registadas (o "Desfazer"
+    // apaga todas — nunca queremos apagar entradas verdadeiras de convidados).
+    { id: 'l-teste-bloqueado', fase: 'Leitor', tipo: 'info', quando: () => leitorLogado() && !podePraticar(),
+      antes: irScanner,
+      titulo: 'O teste de leitura está desligado',
+      texto: () => (contagem() > 0
+        ? 'O seu evento já tem <b>' + contagem() + ' entrada(s)</b> registada(s). Para <b>não apagar entradas verdadeiras</b>, não fazemos o teste de leitura agora (o "Desfazer" apaga todas).'
+        : 'Já não há utilizações do botão <b>Desfazer</b> disponíveis, por isso não fazemos o teste de leitura (não seria possível desfazê-lo).') +
+        '<br><br>No dia: aponte a câmara ao <b>QR Code</b> do convite — <b style="color:#16a34a">verde</b> = entra, <b style="color:#dc2626">vermelho</b> = já usado ou inválido.' },
+    { id: 'l-teste-aviso', fase: 'Leitor', tipo: 'info', quando: () => leitorLogado() && podePraticar(),
+      antes: irScanner,
+      titulo: '🧪 Vamos testar a leitura a sério',
+      texto: () => 'Vai ler o QR Code de um convite' + (feito.nomeGerado ? ' — por exemplo o de <b>' + esc(feito.nomeGerado) + '</b>, que acabou de criar' : '') + '.<br><br>' +
+        '📱 O QR tem de estar <b>noutro ecrã ou em papel</b>: abra o PDF do convite noutro telemóvel ou no computador (pode enviá-lo para si próprio pelo WhatsApp), ou peça a alguém para lho mostrar.' +
+        '<div class="t-alerta">ℹ️ Esta leitura <b>regista uma entrada</b>. No fim do teste ensinamos a <b>desfazer</b>, para o convidado poder entrar normalmente no dia.</div>' },
+    { id: 'l-escanear', fase: 'Leitor', tipo: 'aguardar', alvo: '#scannerContainer', livre: true, quando: () => leitorLogado() && podePraticar(),
+      antes: irScanner,
+      aoMostrar: () => { feito.scanBase = contagem(); feito.ultimoScan = null; },
+      titulo: '1. Leia o QR Code',
+      texto: 'Aponte a câmara ao <b>QR Code</b> e mantenha o telemóvel firme, a um palmo de distância. A leitura é automática.',
+      faca: '👉 Aponte agora a câmara ao QR do convite.',
+      pronto: () => contagem() > feito.scanBase,
+      falha: () => (feito.ultimoScan && feito.ultimoScan.type !== 'success') ? ('O Leitor respondeu: "' + feito.ultimoScan.status + '". Confirme que é um convite DESTE evento e tente de novo (toque em "Próximo Scan" se aparecer).') : '',
+      saltar: { label: 'Não tenho o QR à mão', ir: 'l-manual' },
+      espera: 'scan' },
+    { id: 'l-escaneou', fase: 'Leitor', tipo: 'info', alvo: '#scanResult', quando: () => leitorLogado() && feito.praticou && visivel($('scanResult')),
+      titulo: '✅ Leu! Entrada registada',
+      texto: () => '<b style="color:#16a34a">Verde</b> = convite válido, a pessoa pode entrar' + (feito.ultimoScan && feito.ultimoScan.guestName ? ' (<b>' + esc(feito.ultimoScan.guestName) + '</b>)' : '') + '.<br>O contador no topo passou a <b>' + contagem() + '</b>. Se o convite tiver acompanhante, o Leitor pergunta se ele também entrou.' },
+    { id: 'l-repetir', fase: 'Leitor', tipo: 'aguardar', alvo: '#scannerContainer', livre: true, quando: () => leitorLogado() && feito.praticou && feito.praticouCamara,
+      aoMostrar: () => { feito.repetido = false; feito.scanRepetBase = feito.scansVistos; },
+      titulo: '2. Tente entrar outra vez com o mesmo convite',
+      texto: 'Toque em <b>"Próximo Scan"</b> (se aparecer) e leia <b>o mesmo QR</b> outra vez. Vai ver o aviso <b style="color:#dc2626">vermelho</b>: o convite <b>já foi usado</b> — é assim que ninguém entra duas vezes.',
+      faca: '👉 Leia agora o mesmo QR Code outra vez.',
+      pronto: () => feito.scansVistos > feito.scanRepetBase,
+      saltar: { label: 'Saltar', ir: 'l-manual' },
+      espera: 'scan' },
+    { id: 'l-repetido', fase: 'Leitor', tipo: 'info', alvo: '#scanResult', quando: () => leitorLogado() && feito.praticouCamara && feito.scansVistos > (feito.scanRepetBase || 0) && visivel($('scanResult')),
+      titulo: () => feito.ultimoScan && feito.ultimoScan.type !== 'success' ? '🚫 Bloqueado — já tinha entrado' : 'Resultado da segunda leitura',
+      texto: 'Quando aparece este aviso, a pessoa <b>não entra</b> com esse convite: ele já foi usado. O porteiro deve chamar o responsável se houver dúvidas.' },
+
+    // Entrada manual (sem QR). Se ainda não praticou com a câmara, faz o check-in a sério aqui.
     { id: 'l-manual', fase: 'Leitor', tipo: 'clique', alvo: '#openManualCheckinBtn', quando: () => leitorLogado() && visivel($('openManualCheckinBtn')),
-      titulo: '1. Entrada manual (sem QR)',
+      antes: irScanner,
+      titulo: 'Entrada manual (sem QR)',
       texto: 'Se o convidado não tiver o convite ou o QR não ler (ecrã partido, pouca luz), procura-se pelo nome.',
       faca: '👉 Toque agora no botão destacado.',
       espera: 'manual' },
     { id: 'l-manual-pesquisa', fase: 'Leitor', tipo: 'input', alvo: '#manualSearchInput', quando: () => leitorLogado() && visivel($('manualSearchInput')), preferir: 'baixo',
-      titulo: '2. Pesquise um convidado',
-      texto: () => 'Escreva parte do nome' + (feito.nomeGerado ? ' (ex: <b>' + esc(feito.nomeGerado.split(/\s+/)[0]) + '</b>)' : '') + '.<br>🔒 Os resultados ficam bloqueados durante o guia — <b>nenhuma entrada é registada</b>.',
+      titulo: 'Pesquise um convidado',
+      texto: () => 'Escreva parte do nome' + (feito.nomeGerado ? ' (ex: <b>' + esc(feito.nomeGerado.split(/\s+/)[0]) + '</b>)' : '') + '.' +
+        (praticaManual() ? '' : feito.praticou
+          ? '<br>🔒 Aqui os resultados ficam bloqueados — já fez o teste com a câmara.'
+          : '<br>🔒 Os resultados ficam bloqueados, para não registar entradas verdadeiras.'),
       faca: '👉 Escreva agora parte de um nome.',
       validar: () => val('#manualSearchInput').length >= 2 },
-    { id: 'l-manual-res', fase: 'Leitor', tipo: 'info', alvo: '#manualSearchResults', quando: () => leitorLogado() && visivel($('manualSearchResults')),
+    { id: 'l-manual-checkin', fase: 'Leitor', tipo: 'aguardar', alvo: '#manualCheckinModal .bg-white', livre: true, permitirCheckin: true,
+      quando: () => leitorLogado() && praticaManual() && visivel($('manualSearchResults')),
+      aoMostrar: () => { feito.scanBase = contagem(); },
+      titulo: 'Registe a entrada (teste)',
+      texto: 'Toque em <b>Check-in</b> ao lado do nome do convidado. Se não aparecer ninguém, confirme o nome — convites criados há segundos podem precisar de <b>Actualizar</b> a lista em Opções.<div class="t-alerta">ℹ️ Isto regista uma entrada — a seguir vamos desfazê-la.</div>',
+      faca: '👉 Toque em "Check-in" ao lado de um nome.',
+      pronto: () => contagem() > feito.scanBase,
+      saltar: { label: 'Saltar', ir: 'l-opcoes' },
+      espera: 'scan' },
+    { id: 'l-manual-res', fase: 'Leitor', tipo: 'info', alvo: '#manualSearchResults', quando: () => leitorLogado() && !praticaManual() && !feito.praticouManual && visivel($('manualSearchResults')),
       titulo: 'Assim encontra o convidado',
       texto: 'No dia do evento, basta tocar em <b>Check-in</b> ao lado do nome para registar a entrada. Se o convite tiver acompanhante, o Leitor pergunta se ele também entrou.' },
+    { id: 'l-manual-ok', fase: 'Leitor', tipo: 'info', quando: () => leitorLogado() && feito.praticouManual,
+      antes: fecharManual,
+      titulo: '✅ Entrada registada pela entrada manual',
+      texto: () => 'O contador passou a <b>' + contagem() + '</b>. Agora vamos <b>desfazer</b> este teste.' },
+
+    // Desfazer o teste
     { id: 'l-opcoes', fase: 'Leitor', tipo: 'clique', alvo: '#optionsTab', quando: () => leitorLogado() && visivel($('optionsTab')),
       antes: fecharManual,
-      titulo: '3. Lista e relatórios',
-      texto: 'Em <b>Opções</b> vê quem já entrou e quem falta, e pode exportar relatórios em PDF.',
+      titulo: () => feito.praticou && contagem() > 0 ? '3. Vamos desfazer o teste' : '3. Lista e relatórios',
+      texto: () => feito.praticou && contagem() > 0
+        ? 'O botão <b>Desfazer</b> está em <b>Opções</b>.'
+        : 'Em <b>Opções</b> vê quem já entrou e quem falta, e pode exportar relatórios em PDF.',
       faca: '👉 Toque agora em "Opções".',
       espera: 'curta' },
+    { id: 'l-desfazer', fase: 'Leitor', tipo: 'clique', alvo: '#undoScansBtn', quando: () => leitorLogado() && feito.praticou && contagem() > 0 && visivel($('undoScansBtn')),
+      titulo: '4. Desfaça o teste',
+      texto: () => 'Toque em <b>Desfazer</b> e depois em <b>OK</b> para confirmar.' +
+        '<div class="t-alerta">⚠️ O Desfazer apaga <b>TODAS</b> as entradas registadas no evento. Use-o só em testes como este, <b>antes</b> do evento começar — nunca durante o evento.' +
+        (usosDesfazer() !== null ? ' Restam <b>' + usosDesfazer() + '</b> utilizações.' : '') + '</div>',
+      faca: '👉 Toque agora em "Desfazer" e confirme com OK.',
+      saltar: { label: 'Desfaço depois', ir: 'l-opcoes-ok' },
+      espera: 'desfazer' },
+    { id: 'l-desfeito', fase: 'Leitor', tipo: 'info', quando: () => leitorLogado() && feito.desfez,
+      titulo: '↩️ Teste desfeito!',
+      texto: 'O contador voltou a <b>0</b> e o convite voltou a estar <b>válido</b> — o convidado entra normalmente no dia do evento.' },
     { id: 'l-opcoes-ok', fase: 'Leitor', tipo: 'info', alvo: '#guestList', quando: () => leitorLogado() && visivel($('guestList')),
       titulo: 'A lista de convidados',
-      texto: 'Aqui aparece cada convidado com o estado: <b>pendente</b> ou <b>entrou</b>. Mais abaixo tem os relatórios e a lista de ausentes.' },
+      texto: () => 'Aqui aparece cada convidado com o estado: <b>pendente</b> ou <b>entrou</b>. Mais abaixo tem os relatórios e a lista de ausentes.' +
+        (feito.praticou && !feito.desfez && contagem() > 0 ? '<div class="t-alerta">⚠️ O teste ainda não foi desfeito — lembre-se de tocar em <b>Desfazer</b> antes do evento.</div>' : '') },
     { id: 'l-resumo', fase: 'Leitor', tipo: 'info', quando: () => !leitorLogado(),
       titulo: 'Quando tiver o token do Leitor',
-      texto: () => (tokenLeitor() ? 'O seu token: <b>' + esc(tokenLeitor()) + '</b> — entregue-o ao(s) porteiro(s).<br><br>' : '') + '① Escreva o token e toque em <b>Entrar</b>.<br>② Aponte a câmara ao <b>QR Code</b> do convite.<br>③ <b style="color:#16a34a">Verde</b> = entra · <b style="color:#dc2626">Vermelho</b> = já usado/inválido.<br>④ Sem QR? Use a <b>entrada manual</b> por nome.<br>⑤ Em <b>Opções</b>: lista de convidados e relatórios.<br><br>Pode repetir este guia no botão <b>❓</b>.' },
+      texto: () => (tokenLeitor() ? 'O seu token: <b>' + esc(tokenLeitor()) + '</b> — entregue-o ao(s) porteiro(s).<br><br>' : '') + '① Escreva o token e toque em <b>Entrar</b>.<br>② Aponte a câmara ao <b>QR Code</b> do convite.<br>③ <b style="color:#16a34a">Verde</b> = entra · <b style="color:#dc2626">Vermelho</b> = já usado/inválido.<br>④ Sem QR? Use a <b>entrada manual</b> por nome.<br>⑤ Testou antes do evento? Em <b>Opções → Desfazer</b> apaga as entradas de teste.<br><br>Pode repetir este guia no botão <b>❓</b>.' },
     { id: 'l-voltar', fase: 'Leitor', tipo: 'clique', alvo: '#navGerador',
       antes: fecharManual,
       titulo: 'Volte ao Gerador',
@@ -7285,7 +7356,8 @@ function switchApp(app) {
     opcoes = opcoes || {};
     esconderPergunta();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    Object.assign(feito, { gerou: false, enviou: false, nomeGerado: '', veioDoLogin: !!opcoes.retomar });
+    Object.assign(feito, { gerou: false, enviou: false, nomeGerado: '', veioDoLogin: !!opcoes.retomar,
+                           praticou: false, praticouCamara: false, praticouManual: false, desfez: false, scansVistos: 0, ultimoScan: null, scanBase: 0 });
     aberto = true; pausado = false; historico = []; dica = '';
     $('tourRoot').classList.add('on');
     clearInterval(pollPos); pollPos = setInterval(agendarPosicao, 500);
@@ -7314,7 +7386,21 @@ function switchApp(app) {
     irPara(i < 0 ? idx + 1 : i, 1);
   }
 
+  let aguardaTimer = 0;
+  function pararAguarda() { clearInterval(aguardaTimer); aguardaTimer = 0; }
   function mostrar(p) {
+    pararAguarda();
+    if (p.aoMostrar) { try { p.aoMostrar(); } catch (e) {} }
+    if (p.tipo === 'aguardar') {
+      if (p.livre) retomarLeitura();
+      aguardaTimer = setInterval(() => {
+        if (!aberto || pausado || PASSOS[idx] !== p) return pararAguarda();
+        let ok = false; try { ok = !!p.pronto(); } catch (e) {}
+        if (ok) { pararAguarda(); comecarEspera(p.espera || 'curta'); return; }
+        const f = p.falha ? (function () { try { return p.falha(); } catch (e) { return ''; } })() : '';
+        if (f && f !== dica) { dica = f; $('tourDica').textContent = f; $('tourDica').classList.add('on'); agendarPosicao(); }
+      }, 400);
+    }
     $('tourFase').textContent = p.fase || '';
     $('tourPasso').textContent = 'Passo ' + (historico.length + 1);
     $('tourTitulo').textContent = valor(p.titulo);
@@ -7324,11 +7410,12 @@ function switchApp(app) {
     $('tourFeito').classList.remove('on');
 
     const fazer = p.tipo !== 'info';
+    const semSeguinte = p.tipo === 'clique' || p.tipo === 'aguardar';
     $('tourFaca').textContent = fazer ? (valor(p.faca) || '') : '';
     $('tourFaca').classList.toggle('on', fazer && !!valor(p.faca));
 
     const seg = $('tourSeguinte');
-    seg.style.display = p.tipo === 'clique' ? 'none' : '';
+    seg.style.display = semSeguinte ? 'none' : '';
     seg.textContent = p.final ? 'Concluir' : (p.tipo === 'input' ? 'Feito ✓' : 'Seguinte');
     seg.disabled = p.tipo === 'input' && !(p.validar && p.validar());
     if (p.tipo === 'input') atualizarInput();
@@ -7367,9 +7454,10 @@ function switchApp(app) {
 
   // Bloqueadores à volta do elemento: nos passos "faça", só o elemento destacado
   // (e o cartão) aceitam toques; nos passos "info", nada da página responde.
-  function bloquear(r, deixarTocar) {
+  function bloquear(r, deixarTocar, livre) {
     const B = ['tourB1', 'tourB2', 'tourB3', 'tourB4'].map($);
     const set = (b, t, l, w, h) => Object.assign(b.style, { top: t + 'px', left: l + 'px', width: Math.max(0, w) + 'px', height: Math.max(0, h) + 'px' });
+    if (livre) { B.forEach(b => set(b, 0, 0, 0, 0)); return; } // passos em que o cliente mexe livremente (ex: câmara)
     const W = window.innerWidth, H = window.innerHeight;
     if (!r || !deixarTocar) { set(B[0], 0, 0, W, H); B.slice(1).forEach(b => set(b, 0, 0, 0, 0)); return; }
     set(B[0], 0, 0, W, r.top);                                // cima
@@ -7390,7 +7478,7 @@ function switchApp(app) {
     if (!el || !visivel(el)) {
       foco.classList.add('centro');
       Object.assign(foco.style, { top: (vTop + vh / 2) + 'px', left: vw / 2 + 'px', width: '0px', height: '0px' });
-      bloquear(null, false);
+      bloquear(null, false, !!p.livre);
       cartao.style.left = Math.max(M, (vw - cw) / 2) + 'px';
       cartao.style.top = Math.max(vTop + M, vTop + (vh - ch) / 2) + 'px';
       return;
@@ -7399,7 +7487,7 @@ function switchApp(app) {
     const b = el.getBoundingClientRect(), pad = 6;
     const r = { top: b.top - pad, left: b.left - pad, right: b.right + pad, bottom: b.bottom + pad, width: b.width + 2 * pad, height: b.height + 2 * pad };
     Object.assign(foco.style, { top: r.top + 'px', left: r.left + 'px', width: r.width + 'px', height: r.height + 'px' });
-    bloquear(r, p.tipo !== 'info');
+    bloquear(r, p.tipo !== 'info', !!p.livre);
 
     const cima = r.top - vTop, baixo = vTop + vh - r.bottom;
     let top;
@@ -7422,6 +7510,7 @@ function switchApp(app) {
 
   /* ───────── ESPERAR PELO QUE O CLIENTE FAZ ───────── */
   function pausar(msg) {
+    pararAguarda();
     pausado = true;
     $('tourRoot').classList.remove('on');
     $('tourPausaTxt').textContent = msg || 'Tutorial: a aguardar…';
@@ -7495,6 +7584,32 @@ function switchApp(app) {
       return;
     }
 
+    if (tipo === 'scan') {
+      const p = PASSOS[idx];
+      if (p.id === 'l-escanear') { feito.praticou = true; feito.praticouCamara = true; }
+      if (p.id === 'l-manual-checkin') { feito.praticou = true; feito.praticouManual = true; }
+      pausar('Leitura registada ✓');
+      vigia = setInterval(() => {
+        const comp = $('companionModal');
+        const compAberto = comp && !comp.classList.contains('hidden');
+        if (compAberto) { $('tourPausaTxt').textContent = 'Responda à pergunta do acompanhante 👍'; calmoDesde = 0; return; }
+        if (calmo(true, 900)) retomarEm(idx + 1);
+      }, 300);
+      return;
+    }
+
+    if (tipo === 'desfazer') {
+      pausar('Confirme com OK para desfazer…');
+      const btn = $('undoScansBtn');
+      vigia = setInterval(() => {
+        if (contagem() === 0) { feito.desfez = true; if (calmo(true, 700)) retomarEm('l-desfeito'); return; }
+        if (btn && btn.disabled) { calmoDesde = 0; return; } // ainda a desfazer no servidor
+        if (Date.now() - t0 > 2500 && calmo(true, 2500)) retomarEm('l-desfazer', 'Ainda não foi desfeito. Toque em "Desfazer" e depois em OK.');
+        if (Date.now() - t0 > 60000) retomarEm('l-desfazer');
+      }, 300);
+      return;
+    }
+
     if (tipo === 'partilha') {
       pausar('Escolha o WhatsApp e o contacto 👍');
       vigia = setInterval(() => {
@@ -7538,6 +7653,8 @@ function switchApp(app) {
   // Bloqueia o toque/Check-in nos resultados da entrada manual enquanto o guia está aberto
   document.addEventListener('click', (ev) => {
     if (!aberto) return;
+    const p = PASSOS[idx];
+    if (p && p.permitirCheckin && !pausado) return; // passo de teste: pode fazer check-in (desfaz-se a seguir)
     const res = $('manualSearchResults');
     if (res && res.contains(ev.target)) { ev.preventDefault(); ev.stopPropagation(); }
   }, true);
@@ -7579,7 +7696,7 @@ function switchApp(app) {
   $('tourPausaSair').addEventListener('click', () => terminar(false, true));
 
   function terminar(concluiu, ignorou) {
-    pararVigia(); clearInterval(pollPos);
+    pararVigia(); pararAguarda(); clearInterval(pollPos);
     aberto = false; pausado = false;
     $('tourRoot').classList.remove('on');
     $('tourPausa').classList.remove('on');
