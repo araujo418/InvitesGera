@@ -912,8 +912,8 @@
       <section id="admSecLeitor" class="adm-sec" style="display:none;">
         <div class="adm-sec-desc">Associe o <b>Token do Leitor</b> ao código do evento. O cliente vê-o no tutorial e no ecrã de entrada do <b>Leitor</b> — assim só precisa de lhe enviar o código do evento.</div>
         <div class="adm-campo">
-          <label for="adminLeitorEvento">Código do evento do cliente</label>
-          <input type="text" id="adminLeitorEvento" placeholder="Ex: evt-ab3x9k"
+          <label for="adminLeitorEvento">Código do evento do cliente <span style="text-transform:none;font-weight:500;color:#9ca3af;">(o que ele usa no Gerador)</span></label>
+          <input type="text" id="adminLeitorEvento" placeholder="Ex: cv-c8a262bdfeb549bc ou evt-ab3x9k"
                  autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
                  oninput="verificarEventoAdminDebounce()" onkeydown="if(event.key==='Enter'){this.blur();carregarLeitorAdmin();}">
           <div class="adm-verif" id="adminLeitorEventoInfo" style="display:none;"></div>
@@ -3244,6 +3244,31 @@ async function carregarLeitorAdmin() {
     obterTokenLeitor(ev).catch(e => ({ __erro: e }))
   ]);
   if (document.getElementById('adminLeitorEvento').value.trim().toLowerCase() !== ev) return; // mudou entretanto
+  // 🆕 Escreveram um TOKEN DO LEITOR no campo do código do evento? Reconhece-o
+  // e troca sozinho: o token vai para o campo certo e o código do evento é
+  // descoberto no Cloudflare.
+  if (!r.ok) {
+    const valorOriginal = document.getElementById('adminLeitorEvento').value.trim();
+    const lt = await verificarTokenLeitor(valorOriginal);
+    if (lt.ok && lt.origem === 'Cloudflare') {
+      try {
+        const evs = await cfAdminProcurar(valorOriginal);
+        const e = evs.find(x => String(x.client_scanner_token || '') === valorOriginal) || evs[0];
+        if (e && e.client_view_token && document.getElementById('adminLeitorEvento').value.trim() === valorOriginal) {
+          document.getElementById('adminLeitorEvento').value = e.client_view_token.toLowerCase();
+          inp.value = valorOriginal; _admTokenCarregado = null;
+          showToast('ℹ️ Isso era o Token do Leitor — passei-o para o campo certo.', '#5ba189');
+          await carregarLeitorAdmin();
+          if (inp.value.trim()) await verificarLeitorAdmin();
+          return;
+        }
+      } catch (e2) {}
+      _admVer.evento = r;
+      _admInfo('adminLeitorEventoInfo', 'erro', '⚠️ Isto é um <b>Token do Leitor</b> (de "' + _admEsc(nomeEventoLimpo(lt.nome)) + '"). Aqui vai o <b>código do evento</b> do cliente (o que ele usa no Gerador). Coloque o token no campo de baixo.');
+      _admMostrarComparacao();
+      return;
+    }
+  }
   _admVer.evento = r;
   if (r.ok) _admInfo('adminLeitorEventoInfo', 'ok', '✓ Cliente: <b>' + _admEsc(nomeEventoLimpo(r.nome)) + '</b> <span class="adm-origem">' + r.origem + '</span>');
   else _admInfo('adminLeitorEventoInfo', 'erro', '❌ Código do evento não encontrado. Verifique se está bem escrito.');
