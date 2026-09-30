@@ -427,6 +427,11 @@
     .adm-verif.erro { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
     .adm-verif b { color: inherit; }
     .adm-origem { display: inline-block; margin-left: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.06); }
+    .adm-dica { display: flex; align-items: center; gap: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 14px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
+    .adm-dica > i { font-size: 26px; flex-shrink: 0; }
+    .adm-card.adm-aparelho { flex-direction: row; align-items: center; gap: 10px; }
+    .adm-aparelho .adm-card-info small { display: block; color: #9ca3af; font-size: 11.5px; margin-top: 2px; }
+    @media (max-width: 400px) { .adm-aba i { display: none; } .adm-aba { font-size: 12.5px; padding: 8px 4px; } }
     .adm-vazio { text-align: center; color: #9ca3af; font-size: 13.5px; padding: 28px 12px; background: #fff; border-radius: 16px; border: 1px dashed #e0f0eb; }
     .adm-vazio i { display: block; font-size: 28px; color: #c7e3d9; margin-bottom: 6px; }
     .adm-esqueleto { height: 118px; border-radius: 16px; background: linear-gradient(90deg,#eef6f3 25%,#f7fbf9 50%,#eef6f3 75%); background-size: 200% 100%; animation: admBrilho 1.2s infinite; }
@@ -816,6 +821,11 @@
   <div class="modal-box">
     <div class="modal-handle"></div>
     <div class="modal-title">🔧 Acesso de administrador</div>
+    <div id="admDigitalBox" style="display:none;flex-direction:column;gap:10px;">
+      <button type="button" class="btn-main" id="btnEntrarDigital" onclick="entrarComDigital()"><i class="ti ti-fingerprint" aria-hidden="true"></i> Entrar com impressão digital</button>
+      <div class="nome-hint" id="admDigitalHint" style="text-align:center;">&nbsp;</div>
+      <div style="display:flex;align-items:center;gap:10px;color:#9ca3af;font-size:12px;"><span style="flex:1;height:1px;background:#e5e7eb;"></span>ou use o token<span style="flex:1;height:1px;background:#e5e7eb;"></span></div>
+    </div>
     <div class="modal-body" style="text-align:center;color:#9ca3af;font-size:12.5px;">Introduza o token de administrador.</div>
     <div>
       <label for="adminTokenInput">Token</label>
@@ -849,11 +859,19 @@
       <button type="button" class="adm-aba" id="admAbaLeitor" onclick="mudarAdminAba('leitor')" role="tab">
         <i class="ti ti-key" aria-hidden="true"></i> Leitor
       </button>
+      <button type="button" class="adm-aba" id="admAbaAcesso" onclick="mudarAdminAba('acesso')" role="tab">
+        <i class="ti ti-fingerprint" aria-hidden="true"></i> Acesso
+      </button>
     </div>
 
     <div class="adm-corpo">
       <!-- ── PEDIDOS ── -->
       <section id="admSecPedidos" class="adm-sec">
+        <div class="adm-dica" id="admDicaDigital" style="display:none;">
+          <i class="ti ti-fingerprint" aria-hidden="true"></i>
+          <div><b>Entre mais depressa.</b> Registe este telemóvel e da próxima vez entra só com a impressão digital, sem token.</div>
+          <button type="button" class="adm-btn adm-btn-main" onclick="mudarAdminAba('acesso')" style="flex:0 0 auto;width:auto;min-height:38px;">Registar</button>
+        </div>
         <div class="adm-sec-topo">
           <div class="adm-sec-desc">Pedidos de convites extra feitos pelos clientes.</div>
           <button type="button" class="adm-icone" onclick="carregarPedidosAdmin()" aria-label="Actualizar pedidos"><i class="ti ti-refresh" aria-hidden="true"></i></button>
@@ -871,6 +889,23 @@
         </div>
         <div class="adm-nota">ℹ️ Procura nos eventos <b>Cloudflare</b> e do sistema antigo (<b>Supabase</b>), por nome ou código.</div>
         <div id="adminResultados" class="adm-lista"></div>
+      </section>
+
+      <!-- ── ACESSO (impressão digital) ── -->
+      <section id="admSecAcesso" class="adm-sec" style="display:none;">
+        <div class="adm-sec-desc">Registe os seus aparelhos para entrar neste painel com a <b>impressão digital</b> (ou o PIN do ecrã), sem escrever o token. A chave fica protegida no próprio aparelho — só a "fechadura" fica guardada no Cloudflare.</div>
+        <div class="adm-campo" id="admRegistarBox">
+          <label for="admNomeAparelho">Nome deste aparelho</label>
+          <input type="text" id="admNomeAparelho" placeholder="Ex: Meu Galaxy A04s" maxlength="60" autocomplete="off">
+        </div>
+        <button type="button" class="adm-btn adm-btn-main" id="btnRegistarAparelho" onclick="registarEsteAparelho()"><i class="ti ti-fingerprint" aria-hidden="true"></i> Registar este aparelho</button>
+        <div class="nome-hint" id="admAcessoHint">&nbsp;</div>
+        <div class="adm-sec-topo">
+          <div class="adm-sec-desc"><b>Aparelhos registados</b></div>
+          <button type="button" class="adm-icone" onclick="carregarAparelhosAdmin()" aria-label="Actualizar lista"><i class="ti ti-refresh" aria-hidden="true"></i></button>
+        </div>
+        <div id="admListaAparelhos" class="adm-lista"></div>
+        <div class="adm-nota">🔒 Perdeu um telemóvel? Apague-o aqui: deixa de conseguir entrar.</div>
       </section>
 
       <!-- ── TOKEN DO LEITOR ── -->
@@ -2553,8 +2588,193 @@ function abrirAdminAcesso() {
   haptic('light');
   document.getElementById('adminTokenInput').value = '';
   document.getElementById('adminTokenHint').textContent = '\u00a0';
+  const box = document.getElementById('admDigitalBox');
+  const temDigital = _pkSuportado();
+  if (box) box.style.display = temDigital ? 'flex' : 'none';
+  const h = document.getElementById('admDigitalHint'); if (h) { h.className = 'nome-hint'; h.innerHTML = '&nbsp;'; }
   document.getElementById('adminAcessoOverlay').classList.remove('hidden');
-  setTimeout(() => document.getElementById('adminTokenInput').focus(), 150);
+  // Se este aparelho já está registado, não abre o teclado — a impressão digital é o caminho principal
+  if (!(temDigital && _pkRegistadoAqui())) setTimeout(() => document.getElementById('adminTokenInput').focus(), 150);
+}
+
+/* ═══ ENTRAR COM IMPRESSÃO DIGITAL (chaves de acesso) ═══
+   O telemóvel guarda uma chave protegida pela impressão digital; o Worker
+   guarda só a parte pública. Ao entrar, o Worker confirma a assinatura e
+   devolve o token de administrador — nunca é preciso escrevê-lo. */
+const _PK_LS = 'invites_admin_digital_v1';
+function _pkSuportado() { return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create && window.isSecureContext); }
+function _pkRegistadoAqui() { try { return !!localStorage.getItem(_PK_LS); } catch (e) { return false; } }
+function _b64u(buf) { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function _deB64u(str) { const s = String(str).replace(/-/g, '+').replace(/_/g, '/'); const bin = atob(s + '==='.slice((s.length + 3) % 4)); const o = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i); return o; }
+
+async function _cfPasskey(caminho, body, comToken) {
+  const base = window.CF_API_BASE;
+  if (!base) throw Object.assign(new Error('Cloudflare indisponível.'), { code: 'SEM_BASE' });
+  const headers = { 'Content-Type': 'application/json' };
+  if (comToken) headers['Authorization'] = 'Gerador ' + (adminTokenAtual || '');
+  const res = await comTimeout(fetch(base + caminho, { method: body === undefined ? 'GET' : 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body) }));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || ('Erro ' + res.status)), { code: data.code || ('HTTP_' + res.status) });
+  return data;
+}
+function _pkMsgErro(e) {
+  if (!e) return 'Erro desconhecido.';
+  if (e.name === 'NotAllowedError' || e.name === 'AbortError') return 'Cancelado (ou a impressão digital não foi confirmada).';
+  if (e.name === 'InvalidStateError') return 'Este aparelho já está registado.';
+  if (e.name === 'SecurityError') return 'Este endereço do site não permite chaves de acesso.';
+  if (e.code === 'SEM_APARELHOS') return 'Ainda não registou nenhum aparelho. Entre com o token e, no painel, abra a aba "Acesso".';
+  if (e.code === 'APARELHO_DESCONHECIDO') return 'Esta chave já não está registada. Entre com o token e registe o aparelho outra vez.';
+  if (e.code === 'ROUTE_NOT_FOUND') return 'O Worker ainda não foi atualizado.';
+  if (e.code === 'NAO_CONFIGURADO') return 'Falta o segredo GERADOR_ADMIN_TOKEN no Worker.';
+  if (e.code === 'ORIGEM_INVALIDA') return 'Este endereço do site não está autorizado no Worker.';
+  if (e.code === 'RATE_LIMITED') return 'Demasiadas tentativas — espere uns minutos.';
+  return e.message || 'Não foi possível.';
+}
+
+function abrirPainelAdmin(token, via) {
+  adminTokenAtual = token; // só em memória
+  document.getElementById('adminAcessoOverlay').classList.add('hidden');
+  document.getElementById('adminPainelOverlay').classList.remove('hidden');
+  document.getElementById('adminBuscaInput').value = '';
+  document.getElementById('adminResultados').innerHTML = '';
+  mudarAdminAba('pedidos');
+  carregarPedidosAdmin();
+  const dica = document.getElementById('admDicaDigital');
+  if (dica) dica.style.display = (via === 'token' && _pkSuportado() && !_pkRegistadoAqui()) ? 'flex' : 'none';
+}
+
+async function entrarComDigital() {
+  const btn = document.getElementById('btnEntrarDigital');
+  const hint = document.getElementById('admDigitalHint');
+  if (!_pkSuportado()) return;
+  haptic('light');
+  const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> A aguardar a impressão digital...';
+  hint.className = 'nome-hint'; hint.innerHTML = '&nbsp;';
+  try {
+    const op = await _cfPasskey('/api/gerador-admin/passkey/entrar-opcoes', {});
+    const pk = op.publicKey;
+    const cred = await navigator.credentials.get({ publicKey: {
+      challenge: _deB64u(pk.challenge), rpId: pk.rpId, userVerification: 'required', timeout: pk.timeout || 60000, allowCredentials: []
+    } });
+    if (!cred) throw Object.assign(new Error('Cancelado.'), { name: 'NotAllowedError' });
+    const r = cred.response;
+    const res = await _cfPasskey('/api/gerador-admin/passkey/entrar', {
+      desafioId: op.desafioId, id: cred.id,
+      clientDataJSON: _b64u(r.clientDataJSON), authenticatorData: _b64u(r.authenticatorData), signature: _b64u(r.signature)
+    });
+    // Confirma que o token do Worker é mesmo o de administrador no Supabase
+    const { data } = await comTimeout(DB.from('clientes').select('token').eq('token', res.token).eq('is_admin', true).maybeSingle());
+    if (!data) throw new Error('O segredo GERADOR_ADMIN_TOKEN do Worker não é igual ao seu token de administrador.');
+    try { localStorage.setItem(_PK_LS, cred.id); } catch (e) {}
+    haptic('success');
+    showToast('✅ Bem-vindo! Entrou com ' + (res.aparelho || 'a impressão digital') + '.', '#5ba189');
+    abrirPainelAdmin(res.token, 'digital');
+  } catch (e) {
+    haptic('error');
+    hint.className = 'nome-hint err'; hint.textContent = '❌ ' + _pkMsgErro(e);
+  } finally {
+    btn.disabled = false; btn.innerHTML = orig;
+  }
+}
+
+function _pkNomeSugerido() {
+  const ua = navigator.userAgent;
+  const so = /android/i.test(ua) ? 'Android' : /iphone|ipad/i.test(ua) ? 'iPhone' : /mac/i.test(ua) ? 'Mac' : /windows/i.test(ua) ? 'Computador Windows' : 'Aparelho';
+  const m = ua.match(/;\s*(SM-[A-Z0-9]+)/i);
+  return m ? so + ' ' + m[1] : so;
+}
+
+function prepararAbaAcesso() {
+  const inp = document.getElementById('admNomeAparelho');
+  if (inp && !inp.value) inp.value = _pkNomeSugerido();
+  const ok = _pkSuportado();
+  document.getElementById('btnRegistarAparelho').disabled = !ok;
+  const hint = document.getElementById('admAcessoHint');
+  if (!ok) { hint.className = 'nome-hint err'; hint.textContent = 'Este browser não suporta impressão digital para sites. Use o Chrome actualizado.'; }
+  else if (_pkRegistadoAqui()) { hint.className = 'nome-hint ok'; hint.textContent = '✓ Este aparelho já foi registado aqui.'; }
+  else { hint.className = 'nome-hint'; hint.innerHTML = '&nbsp;'; }
+  carregarAparelhosAdmin();
+}
+
+async function registarEsteAparelho() {
+  const btn = document.getElementById('btnRegistarAparelho');
+  const hint = document.getElementById('admAcessoHint');
+  const nome = (document.getElementById('admNomeAparelho').value || '').trim() || _pkNomeSugerido();
+  haptic('light');
+  const orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i> Ponha o dedo no sensor...';
+  hint.className = 'nome-hint'; hint.innerHTML = '&nbsp;';
+  try {
+    const op = await _cfPasskey('/api/gerador-admin/passkey/registo-opcoes', {}, true);
+    const pk = op.publicKey;
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: _deB64u(pk.challenge),
+      rp: pk.rp,
+      user: { id: _deB64u(pk.user.id), name: pk.user.name, displayName: pk.user.displayName },
+      pubKeyCredParams: pk.pubKeyCredParams,
+      authenticatorSelection: pk.authenticatorSelection,
+      excludeCredentials: (pk.excludeCredentials || []).map(c => ({ type: 'public-key', id: _deB64u(c.id) })),
+      timeout: pk.timeout, attestation: 'none'
+    } });
+    const r = cred.response;
+    if (typeof r.getPublicKey !== 'function' || typeof r.getAuthenticatorData !== 'function') throw new Error('Este browser é antigo demais. Actualize o Chrome e tente outra vez.');
+    const chavePublica = r.getPublicKey();
+    if (!chavePublica) throw new Error('Tipo de chave não suportado neste aparelho.');
+    await _cfPasskey('/api/gerador-admin/passkey/registar', {
+      desafioId: op.desafioId, id: cred.id, nome,
+      clientDataJSON: _b64u(r.clientDataJSON), authenticatorData: _b64u(r.getAuthenticatorData()),
+      publicKey: _b64u(chavePublica), alg: r.getPublicKeyAlgorithm()
+    }, true);
+    try { localStorage.setItem(_PK_LS, cred.id); } catch (e) {}
+    haptic('success');
+    hint.className = 'nome-hint ok'; hint.textContent = '✅ Registado! Da próxima vez toque em "Entrar com impressão digital".';
+    const dica = document.getElementById('admDicaDigital'); if (dica) dica.style.display = 'none';
+    showToast('✅ Aparelho registado!', '#5ba189');
+    carregarAparelhosAdmin();
+  } catch (e) {
+    haptic('error');
+    hint.className = 'nome-hint err'; hint.textContent = '❌ ' + _pkMsgErro(e);
+  } finally {
+    btn.disabled = !_pkSuportado(); btn.innerHTML = orig;
+  }
+}
+
+async function carregarAparelhosAdmin() {
+  const el = document.getElementById('admListaAparelhos'); if (!el) return;
+  el.innerHTML = '<div class="adm-esqueleto" style="height:64px;"></div>';
+  try {
+    const r = await _cfPasskey('/api/gerador-admin/passkeys', undefined, true);
+    const lista = r.aparelhos || [];
+    if (!lista.length) { el.innerHTML = '<div class="adm-vazio"><i class="ti ti-device-mobile" aria-hidden="true"></i>Nenhum aparelho registado ainda.</div>'; return; }
+    el.innerHTML = '';
+    let aqui = null; try { aqui = localStorage.getItem(_PK_LS); } catch (e) {}
+    lista.forEach(a => {
+      const card = document.createElement('div'); card.className = 'adm-card adm-aparelho';
+      card.innerHTML = `<div class="adm-avatar"><i class="ti ti-device-mobile" aria-hidden="true"></i></div>
+        <div class="adm-card-info"><div class="adm-nome"></div><small></small></div>
+        <button type="button" class="adm-icone" style="color:#dc2626;border-color:#fecaca;" aria-label="Apagar aparelho"><i class="ti ti-trash" aria-hidden="true"></i></button>`;
+      card.querySelector('.adm-nome').textContent = (a.nome || 'Aparelho') + (a.id === aqui ? ' (este)' : '');
+      const d = (x) => x ? new Date(x).toLocaleDateString('pt-PT') : '—';
+      card.querySelector('small').textContent = 'Registado ' + d(a.created_at) + ' · Último uso ' + d(a.last_used_at);
+      const bDel = card.querySelector('button');
+      let armado = false;
+      bDel.onclick = async () => {
+        if (!armado) { armado = true; bDel.innerHTML = 'Apagar?'; bDel.style.width = 'auto'; bDel.style.padding = '0 10px'; setTimeout(() => { armado = false; bDel.innerHTML = '<i class="ti ti-trash" aria-hidden="true"></i>'; bDel.style.width = ''; bDel.style.padding = ''; }, 3500); return; }
+        try {
+          const base = window.CF_API_BASE;
+          const res = await comTimeout(fetch(base + '/api/gerador-admin/passkeys/' + encodeURIComponent(a.id), { method: 'DELETE', headers: { 'Authorization': 'Gerador ' + (adminTokenAtual || '') } }));
+          if (!res.ok) throw new Error('Erro ' + res.status);
+          if (a.id === aqui) { try { localStorage.removeItem(_PK_LS); } catch (e) {} }
+          haptic('warning'); showToast('Aparelho apagado.', '#6b7280');
+          carregarAparelhosAdmin();
+        } catch (e) { haptic('error'); showToast('❌ ' + e.message, '#ef4444'); }
+      };
+      el.appendChild(card);
+    });
+  } catch (e) {
+    el.innerHTML = '';
+    const n = document.createElement('div'); n.className = 'adm-nota'; n.textContent = '☁️ ' + _pkMsgErro(e);
+    el.appendChild(n);
+  }
 }
 
 function fecharAdminAcesso() {
@@ -2587,13 +2807,7 @@ async function confirmarAdminAcesso() {
       return;
     }
     haptic('success');
-    adminTokenAtual = tokenDigitado; // ▼ NOVO: só em memória, para guardar Tokens do Leitor
-    document.getElementById('adminAcessoOverlay').classList.add('hidden');
-    document.getElementById('adminPainelOverlay').classList.remove('hidden');
-    document.getElementById('adminBuscaInput').value = '';
-    document.getElementById('adminResultados').innerHTML = '';
-    mudarAdminAba('pedidos');
-    carregarPedidosAdmin();
+    abrirPainelAdmin(tokenDigitado, 'token');
   } catch (e) {
     haptic('error');
     hint.className = 'nome-hint err';
@@ -2612,13 +2826,14 @@ document.getElementById('adminPainelOverlay').addEventListener('click', function
 /* ═══ Painel de administração — navegação ═══ */
 function mudarAdminAba(aba) {
   haptic('light');
-  ['pedidos', 'clientes', 'leitor'].forEach(a => {
+  ['pedidos', 'clientes', 'leitor', 'acesso'].forEach(a => {
     const cap = a.charAt(0).toUpperCase() + a.slice(1);
     document.getElementById('admAba' + cap).classList.toggle('ativa', a === aba);
     document.getElementById('admSec' + cap).style.display = a === aba ? '' : 'none';
   });
   const corpo = document.querySelector('#adminPainelOverlay .adm-corpo'); if (corpo) corpo.scrollTop = 0;
   if (aba === 'clientes') setTimeout(() => document.getElementById('adminBuscaInput').focus(), 80);
+  if (aba === 'acesso') prepararAbaAcesso();
 }
 
 function sairAdmin() {
@@ -5241,6 +5456,9 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
   window.enviarWhatsAppConvite = enviarWhatsAppConvite;
   window.carregarLeitorAdmin = carregarLeitorAdmin;
   window.mudarAdminAba = mudarAdminAba;
+  window.entrarComDigital = entrarComDigital;
+  window.registarEsteAparelho = registarEsteAparelho;
+  window.carregarAparelhosAdmin = carregarAparelhosAdmin;
   window.verificarEventoAdminDebounce = verificarEventoAdminDebounce;
   window.verificarLeitorAdminDebounce = verificarLeitorAdminDebounce;
   window.verificarLeitorAdmin = verificarLeitorAdmin;
