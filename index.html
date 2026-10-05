@@ -1212,6 +1212,7 @@ function _cfHexToRgbSafe(value) {
 // mesmo, no browser, tal como o site já faz.
 async function _cfGerarTicketReal(nome, mesa, rsvpId) {
   const eventRef = cfEventData?.event_code || cfEventData?.id;
+  const ticketEventId = cfEventData?.ticket_event?.id || cfEventData?.id;
   const token = clienteData.token;
 
   // ✅ Sem rsvpId — é um convite "manual" (nome escrito directamente,
@@ -1222,7 +1223,7 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
   let realRsvpId = rsvpId;
   if (!realRsvpId) {
     const manualToken = 'manual_' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '_' + Math.random().toString(36).slice(2));
-    const createRes = await fetch(CF_API_BASE + '/api/events/' + encodeURIComponent(cfEventData.id) + '/rsvps', {
+    const createRes = await fetch(CF_API_BASE + '/api/events/' + encodeURIComponent(ticketEventId) + '/rsvps', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       // 🔒 CORRIGIDO — criar um convite marcava a pessoa como tendo CONFIRMADO
       // presença (attending: true). Mas gerar um convite é o dono a convidar
@@ -1232,7 +1233,7 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
       //
       // Fica sem resposta até o convidado responder pelo convite — e nesse
       // momento é a própria confirmação que actualiza esta linha.
-      body: JSON.stringify({ guest_name: nome, attending: null, is_manual_ticket: true, rsvp_token: manualToken }),
+      body: JSON.stringify({ guest_name: nome, attending: null, is_manual_ticket: true, rsvp_token: manualToken, mesa: mesa || null }),
     });
     const createData = await createRes.json().catch(() => ({}));
     if (!createRes.ok) throw new Error(createData.message || 'Não foi possível criar a confirmação manual.');
@@ -1246,6 +1247,10 @@ async function _cfGerarTicketReal(nome, mesa, rsvpId) {
   );
   const t = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(t.error || t.message || 'Não foi possível gerar o bilhete.');
+
+  // O servidor passa a guardar a mesa no próprio bilhete. Assim, ao
+  // regenerar por Download ou WhatsApp, não dependemos do estado do browser.
+  mesa = String(mesa || t.mesa || '').trim();
 
   if (typeof window.PDFLib === 'undefined') throw new Error('Biblioteca de PDF não carregada — recarrega a página e tenta outra vez.');
   const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
@@ -1708,7 +1713,9 @@ async function enviarWhatsAppConvite(nome, codigo, id, isPend, btn) {
       nomeFinal = item.nome;
     } else if (cfBackendMode) {
       if (!navigator.onLine) throw new Error('Sem ligação à internet.');
-      const r = await _cfGerarTicketReal(nome, null, id);
+      const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
+      const mesaConv = convObj?.mesa || '';
+      const r = await _cfGerarTicketReal(nome, mesaConv, id);
       blob = r.blob; nomeFinal = r.guestName || nome;
     } else {
       if (!navigator.onLine) throw new Error('Sem ligação à internet.');
@@ -2053,7 +2060,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 // mas VER os que já existem é bem mais simples — não precisa da
 // matemática de posições do PDF, só listar o que já está gravado.
 function _cfAdaptGeneratedTickets(cfEvent) {
-  return (cfEvent?.rsvps || [])
+  const source = cfEvent?.ticket_event?.rsvps?.length ? cfEvent.ticket_event.rsvps : (cfEvent?.rsvps || []);
+  return source
     // 🔒 CORRIGIDO — a lista de convites exigia attending = 1, ou seja, só
     // mostrava o convite de quem tinha confirmado presença. São duas coisas
     // diferentes: o convite existe porque o dono o gerou, e existe na mesma
@@ -2069,7 +2077,7 @@ function _cfAdaptGeneratedTickets(cfEvent) {
       id: r.id,
       nome: r.guest_name,
       codigo: r.rsvp_token || r.id,
-      mesa: null,
+      mesa: r.mesa || null,
       created_at: r.created_at || null,
       editado: !!r.ticket_edited, // ✅ CORRIGIDO — vinha sempre "false" fixo; agora lê o campo real
       rsvp_id: r.id,
@@ -3966,10 +3974,12 @@ function _ligCf(x) { return x === true || x === 1 || x === '1' || x === 'yes'; }
 // não pode ter os bilhetes desligados para o cliente. Um Save the Date não
 // tem modelo de bilhete — por isso não mostra a aba "Convites".
 function podeGerarConvites() {
-  if (!cfBackendMode) return true;            // Supabase antigo — como sempre
+  if (!cfBackendMode) return true;
   const e = cfEventData || {};
-  if (e.client_area_tickets_enabled === false || e.client_area_tickets_enabled === 0 || e.client_area_tickets_enabled === '0') return false;
-  return !!String(e.ticket_template_url || '').trim();
+  const ticketEvent = e.ticket_event || {};
+  const ticketsOff = [e, ticketEvent].every(x => x.client_area_tickets_enabled === false || x.client_area_tickets_enabled === 0 || x.client_area_tickets_enabled === '0');
+  if (ticketsOff) return false;
+  return !!String(e.ticket_template_url || ticketEvent.ticket_template_url || '').trim();
 }
 
 // "Confirmações": o evento tem o botão "Confirmar presença", OU está ligado a
@@ -5113,7 +5123,9 @@ async function baixarOuPartilhar(nome, codigo, id, isPendente, btn) {
   if (cfBackendMode) {
     btn.disabled = true;
     try {
-      const { blob, guestName } = await _cfGerarTicketReal(nome, null, id);
+      const convObj = todosConvites.find(c => c.id === id || c.id === Number(id));
+      const mesaConv = convObj?.mesa || '';
+      const { blob, guestName } = await _cfGerarTicketReal(nome, mesaConv, id);
       await triggerDownload(blob, guestName);
       haptic('success');
       showToast(isIOS ? '📤 Partilha aberta!' : '📥 Download iniciado!');
