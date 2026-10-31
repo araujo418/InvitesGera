@@ -4741,6 +4741,10 @@ function renderizarConvites(lista, termo) {
       <div class="convite-item-info">
         <div class="convite-item-nome">${escHtml(conv.nome)}</div>${mesaTag}${confirmadoTag}${nomeMudouTag}${enviadoTag}${tag}
       </div>
+      ${(isPend || !cfBackendMode) ? '' : `<button class="btn-dl" style="background:#fff7ed;color:#c2410c;margin-right:6px" aria-label="Código de acesso para ${escHtml(conv.nome)}" title="Código de acesso (quando o convidado vê «Convite privado»)"
+        onclick="gerarCodigoAcesso('${conv.id}', this)">
+        <i class="ti ti-key" aria-hidden="true"></i>
+      </button>`}
       <button class="btn-dl btn-dl-wa${(!isPend && foiEnviado(conv.id)) ? ' enviado' : ''}" aria-label="Enviar convite de ${escHtml(conv.nome)} pelo WhatsApp" title="Enviar pelo WhatsApp" style="margin-right:6px"
         onclick="enviarWhatsAppConvite('${escHtml(conv.nome)}','${escHtml(conv.codigo)}','${isPend?conv.id_local:conv.id}',${isPend},this)">
         <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
@@ -4803,6 +4807,51 @@ async function _eliminarConviteNoServidor(id) {
     if (error) throw error;
   }
   todosConvites = todosConvites.filter(c => c.id !== id && c.id !== Number(id));
+}
+
+/* ═══════════════════════════════════════════
+   🆕 CÓDIGO DE ACESSO (31 out)
+   O convidado abre o seu link e vê "Convite privado" (o link ficou preso a
+   outro aparelho). O dono gera aqui um código de 6 algarismos e dá-lho; o
+   convidado escreve-o no ecrã do convite privado e o link passa a ser do
+   aparelho dele — qualquer outro aparelho com esse link é desligado.
+   O código vale 30 minutos, serve uma vez e gerar outro anula o anterior.
+═══════════════════════════════════════════ */
+async function gerarCodigoAcesso(id, btn) {
+  haptic('light');
+  const conv = todosConvites.find(c => c.id === id || c.id === Number(id));
+  if (!conv) return;
+  if (!navigator.onLine) { showToast('❌ Sem ligação à internet.', '#dc2626'); return; }
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader" aria-hidden="true"></i>'; }
+  try {
+    const eventRef = cfEventData?.event_code || cfEventData?.id;
+    const res = await fetch(
+      CF_API_BASE + '/api/public/client-view/' + encodeURIComponent(eventRef) + '/' + encodeURIComponent(clienteData.token) + '/codigo-acesso',
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rsvp_id: conv.rsvp_id || conv.id, guest_name: conv.nome }) }
+    );
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || d.message || 'Não foi possível gerar o código.');
+    const cod = String(d.codigo || '');
+    const nome = d.guest_name || conv.nome;
+    const texto = `Olá ${nome}! O teu código de acesso ao convite é: *${cod}*\nAbre o teu link, toca em «Tens um código de acesso?» e escreve-o. Vale ${d.minutos || 30} minutos.` + (d.url ? `\n${d.url}` : '');
+    haptic('success');
+    abrirModal({
+      titulo: '🔑 Código de acesso',
+      corpo: `Para ${nome}. Vale ${d.minutos || 30} minutos e só funciona uma vez. Quando o convidado o usar, o convite fecha em qualquer outro aparelho que tenha este link.`,
+      nome: cod.replace(/(\d{3})(\d{3})/, '$1 $2'),
+      acoes: [
+        { label: '💬 Enviar por WhatsApp', cls: 'btn-main btn-wa', fn: () => { window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank'); } },
+        { label: '📋 Copiar código', cls: 'btn-outline', fn: async () => { try { await navigator.clipboard.writeText(cod); showToast('✅ Código copiado.'); } catch (_) { showToast('Código: ' + cod); } } },
+        { label: 'Fechar', cls: 'btn-ghost', fn: () => {} },
+      ],
+    });
+  } catch (e) {
+    haptic('error');
+    showToast('❌ ' + (e.message || 'Não foi possível gerar o código.'), '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
 }
 
 async function eliminarConvite(id) {
